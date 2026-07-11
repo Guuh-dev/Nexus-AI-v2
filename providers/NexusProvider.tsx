@@ -20,6 +20,7 @@ import { askNexus, createLocalWeeklyReview } from "@/services/assistant.service"
 import { generateLocalPlan, generatePlan } from "@/services/planning.service";
 import { nexusRepository } from "@/services/storage.service";
 import { consumeAndroidWidgetActions, updateAndroidWidget } from "@/services/widget.service";
+import { applyWidgetTaskActions } from "@/features/widget/actions";
 import { getColors, type NexusColors } from "@/theme/theme";
 import type {
   AppData,
@@ -235,13 +236,10 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const syncWidgetActions = useCallback(async () => {
     const actions = await consumeAndroidWidgetActions();
     if (!actions.length) return;
-    commit((current) => actions.reduce((next, action) => {
-      if (action.type === "toggle_task") {
-        const task = next.activePlan?.tasks.find((item) => item.id === action.taskId);
-        if (task && task.completed !== action.completed) return toggleTaskCompletion(next, task.id);
-      }
-      return next;
-    }, current), "Ações feitas no widget foram sincronizadas.");
+    commit(
+      (current) => applyWidgetTaskActions(current, actions),
+      "Ações feitas no widget foram sincronizadas.",
+    );
   }, [commit]);
 
   useEffect(() => {
@@ -414,7 +412,16 @@ export function NexusProvider({ children }: PropsWithChildren) {
           customAccent: patch.customAccent ? normalizeHexColor(patch.customAccent, current.preferences.customAccent) : current.preferences.customAccent,
           dashboard: { ...current.preferences.dashboard, ...(patch.dashboard ?? {}) },
           mascot: { ...current.preferences.mascot, ...(patch.mascot ?? {}) },
-          widget: { ...current.preferences.widget, ...(patch.widget ?? {}) },
+          widget: {
+            ...current.preferences.widget,
+            ...(patch.widget ?? {}),
+            ...(patch.widget?.accentColor
+              ? { accentColor: normalizeHexColor(patch.widget.accentColor, current.preferences.widget.accentColor ?? current.preferences.customAccent) }
+              : {}),
+            ...(patch.widget?.customLabel !== undefined
+              ? { customLabel: sanitizeText(patch.widget.customLabel, 24) || undefined }
+              : {}),
+          },
         },
       };
     });
@@ -491,7 +498,11 @@ export function NexusProvider({ children }: PropsWithChildren) {
 
   const applyAssistantAction = useCallback(async (threadId: string, actionId: string, accept: boolean) => {
     let selected: AssistantAction | undefined;
-    commit((current) => ({ ...current, brain: { ...current.brain, threads: current.brain.threads.map((thread) => thread.id === threadId ? { ...thread, messages: thread.messages.map((message) => ({ ...message, actions: message.actions?.map((action) => { if (action.id !== actionId) return action; selected = action; return { ...action, status: accept ? "accepted" : "rejected" }; }) })) } : thread) } }));
+    commit((current) => ({ ...current, brain: { ...current.brain, threads: current.brain.threads.map((thread) => thread.id === threadId ? { ...thread, messages: thread.messages.map((message) => ({ ...message, actions: message.actions?.map((action) => {
+      if (action.id !== actionId || action.status !== "proposed") return action;
+      selected = action;
+      return { ...action, status: accept ? "accepted" : "rejected" };
+    }) })) } : thread) } }));
     if (!accept || !selected) return;
     if (selected.type === "replan") return replanDay({ reason: selected.description });
     if (selected.type === "create_task") {

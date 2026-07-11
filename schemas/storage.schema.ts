@@ -11,8 +11,9 @@ import {
 import { onboardingDraftSchema, profileSchema } from "@/schemas/profile.schema";
 
 const widgetPreferencesSchema = z.object({
+  preset: z.enum(["mission", "balanced", "tasks", "focus", "learning", "minimal", "custom"]),
   background: z.enum(["solid", "amoled", "translucent"]),
-  style: z.enum(["nexus", "amoled", "transparent", "glass", "pixel", "minimal", "gamer", "privacy"]),
+  style: z.enum(["nexus", "amoled", "transparent", "glass", "pixel", "minimal", "gamer", "neon", "mascot", "privacy"]),
   preferredSize: z.enum(["1x1", "2x1", "2x2", "3x2", "4x1", "4x2", "4x3", "4x4", "5x2"]),
   showMascot: z.boolean(),
   mascot: z.enum(["nexus", "atlas", "nova", "byte", "pulse"]),
@@ -22,12 +23,22 @@ const widgetPreferencesSchema = z.object({
   showTasks: z.boolean(),
   showXp: z.boolean(),
   showLevel: z.boolean(),
-  taskCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   showStreak: z.boolean(),
+  showFocus: z.boolean(),
+  showProgress: z.boolean(),
+  showCapture: z.boolean(),
+  compactTasks: z.boolean(),
+  taskCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   progressStyle: z.enum(["bar", "circle", "text", "number"]),
   privacyMode: z.boolean(),
   fontScale: z.enum(["pequena", "normal", "grande"]),
   opacity: z.number().min(0.2).max(1),
+  cornerStyle: z.enum(["square", "soft", "round"]),
+  borderStyle: z.enum(["none", "subtle", "accent", "pixel"]),
+  glow: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
+  textAlign: z.enum(["left", "center"]),
+  tapAction: z.enum(["today", "brain", "focus", "capture", "progress"]),
+  customLabel: z.string().trim().max(24).optional(),
   accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
 }).strict();
 

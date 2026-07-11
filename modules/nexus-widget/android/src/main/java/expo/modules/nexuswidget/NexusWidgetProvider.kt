@@ -9,6 +9,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.view.Gravity
 import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONArray
@@ -125,6 +126,7 @@ class NexusWidgetProvider : AppWidgetProvider() {
         style == "pixel" -> R.drawable.nexus_widget_background_pixel
         style == "minimal" -> R.drawable.nexus_widget_background_minimal
         style == "gamer" -> R.drawable.nexus_widget_background_gamer
+        style == "neon" -> R.drawable.nexus_widget_background_neon
         else -> R.drawable.nexus_widget_background
       }
       views.setInt(R.id.nexus_widget_root, "setBackgroundResource", backgroundResource)
@@ -149,14 +151,28 @@ class NexusWidgetProvider : AppWidgetProvider() {
       val showStreak = appearance?.optBoolean("showStreak", true) ?: true
       val showXp = (appearance?.optBoolean("showXp", false) ?: false) || contentMode == "progress"
       val showLevel = (appearance?.optBoolean("showLevel", false) ?: false) || contentMode == "progress"
-      val progressStyle = appearance?.optString("progressStyle", "bar") ?: "bar"
+      val showFocus = appearance?.optBoolean("showFocus", false) ?: false
+      val showProgress = instance.optString("progress", "global").let { mode ->
+        when (mode) { "show" -> true; "hide" -> false; else -> appearance?.optBoolean("showProgress", true) ?: true }
+      }
+      val showCapture = instance.optString("capture", "global").let { mode ->
+        when (mode) { "show" -> true; "hide" -> false; else -> appearance?.optBoolean("showCapture", true) ?: true }
+      }
+      val compactTasks = instance.optString("density", "global").let { mode ->
+        when (mode) { "compact" -> true; "comfortable" -> false; else -> appearance?.optBoolean("compactTasks", false) ?: false }
+      }
+      val progressStyle = instance.optString("progressStyle", appearance?.optString("progressStyle", "bar") ?: "bar")
       val fontScale = appearance?.optString("fontScale", "normal") ?: "normal"
+      val textAlign = instance.optString("alignment", appearance?.optString("textAlign", "left") ?: "left")
+      val tapAction = instance.optString("tapAction", appearance?.optString("tapAction", "today") ?: "today")
+      val customLabel = appearance?.optString("customLabel", "NEXUS ONLINE")?.take(24) ?: "NEXUS ONLINE"
       val skin = appearance?.optString("skin", "classic") ?: "classic"
       val accessory = appearance?.optString("accessory", "") ?: ""
       val professorVariant = appearance?.optString("professorVariant", "classic") ?: "classic"
       val accentColor = try { Color.parseColor(instance.optString("accentColor", appearance?.optString("accentColor", "#8B5CF6") ?: "#8B5CF6")) } catch (_: Exception) { Color.rgb(139, 92, 246) }
 
       views.setTextColor(R.id.nexus_widget_brand, accentColor)
+      views.setTextViewText(R.id.nexus_widget_brand, customLabel.ifBlank { "NEXUS ONLINE" })
       views.setImageViewResource(R.id.nexus_widget_mascot, when (selectedMascot) { "atlas" -> R.drawable.ic_nexus_atlas; "nova" -> R.drawable.ic_nexus_nova; "byte" -> R.drawable.ic_nexus_byte; "pulse" -> R.drawable.ic_nexus_pulse; else -> R.drawable.ic_nexus_mascot })
       val skinColor = when (skin) {
         "shadow" -> Color.rgb(113, 113, 122)
@@ -184,9 +200,16 @@ class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_brand, if (tiny) View.GONE else View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_mission, if (showMission && !tiny) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_streak, if (showStreak) View.VISIBLE else View.GONE)
-      views.setViewVisibility(R.id.nexus_widget_metrics, if (large && (showXp || showLevel)) View.VISIBLE else View.GONE)
-      views.setViewVisibility(R.id.nexus_widget_progress, if (progressStyle == "bar" && !tiny) View.VISIBLE else View.GONE)
-      views.setViewVisibility(R.id.nexus_widget_capture, if (large) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_metrics, if (!tiny && (showXp || showLevel || showFocus)) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_progress, if (showProgress && progressStyle == "bar" && !tiny) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_progress_text, if (showProgress && !tiny) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_capture, if (showCapture && large) View.VISIBLE else View.GONE)
+      val gravity = if (textAlign == "center") Gravity.CENTER_HORIZONTAL else Gravity.START
+      views.setInt(R.id.nexus_widget_brand, "setGravity", gravity)
+      views.setInt(R.id.nexus_widget_mission, "setGravity", gravity)
+      views.setInt(R.id.nexus_widget_learning, "setGravity", gravity)
+      views.setInt(R.id.nexus_widget_metrics, "setGravity", gravity)
+      views.setInt(R.id.nexus_widget_progress_text, "setGravity", gravity)
 
       if (payload == null) {
         views.setTextViewText(R.id.nexus_widget_mission, "Abra o Nexus para preparar sua missão")
@@ -202,7 +225,11 @@ class NexusWidgetProvider : AppWidgetProvider() {
         val total = payload.optInt("totalCount", 0)
         views.setTextViewText(R.id.nexus_widget_progress_text, "$completed/$total concluídas")
         views.setTextViewText(R.id.nexus_widget_streak, "♨ ${payload.optInt("streak", 0)}")
-        views.setTextViewText(R.id.nexus_widget_metrics, "Nível ${payload.optInt("level", 1)} • ${payload.optInt("totalXp", 0)} XP • ${payload.optInt("focusMinutes", 0)}m foco")
+        val metrics = mutableListOf<String>()
+        if (showLevel) metrics.add("Nível ${payload.optInt("level", 1)}")
+        if (showXp) metrics.add("${payload.optInt("totalXp", 0)} XP")
+        if (showFocus) metrics.add("${payload.optInt("focusMinutes", 0)}m foco")
+        views.setTextViewText(R.id.nexus_widget_metrics, metrics.joinToString(" • "))
         views.setProgressBar(R.id.nexus_widget_progress, maxOf(1, total), completed, false)
         val learning = payload.optJSONObject("learning")
         val learningVisible = showLearning && learning != null && width >= 180 && (height >= 135 || contentMode == "learning")
@@ -212,7 +239,7 @@ class NexusWidgetProvider : AppWidgetProvider() {
           views.setTextViewText(R.id.nexus_widget_learning, "ATLAS • ${learning.optString("nextLesson", "Próxima evolução")} • ${learning.optInt("estimatedMinutes", 25)} min")
         }
         val tasks = payload.optJSONArray("tasks")
-        val maxVisible = when { tiny -> 0; compact -> 1; large -> 5; else -> 3 }
+        val maxVisible = when { tiny -> 0; compact -> if (compactTasks) 1 else 0; large -> 5; compactTasks -> 2; else -> 3 }
         for (index in 0..4) {
           val task = tasks?.optJSONObject(index)
           setTask(context, views, widgetId, index, task?.optString("id"), if (instancePrivate && task != null) "Tarefa privada" else task?.optString("title"), task?.optBoolean("completed", false) ?: false, accentColor, showTasks && index < maxVisible)
@@ -220,7 +247,14 @@ class NexusWidgetProvider : AppWidgetProvider() {
       }
 
       val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent(Intent.ACTION_VIEW)
-      launchIntent.data = Uri.parse("nexusai://today")
+      val tapUri = when (tapAction) {
+        "brain" -> "nexusai://brain"
+        "focus" -> "nexusai://focus"
+        "capture" -> "nexusai://today?capture=1"
+        "progress" -> "nexusai://progress"
+        else -> "nexusai://today"
+      }
+      launchIntent.data = Uri.parse(tapUri)
       launchIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
       views.setOnClickPendingIntent(R.id.nexus_widget_root, PendingIntent.getActivity(context, 9001 + widgetId, launchIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
 

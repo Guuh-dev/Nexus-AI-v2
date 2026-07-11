@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nexus AI",
     "slug": "nexus-ai",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "orientation": "portrait",
     "scheme": "nexusai",
     "userInterfaceStyle": "dark",
@@ -18,15 +18,13 @@
         "backgroundColor": "#050505"
       },
       "predictiveBackGestureEnabled": true,
-      "permissions": [
-        "POST_NOTIFICATIONS",
-        "VIBRATE"
-      ],
+      "permissions": ["POST_NOTIFICATIONS", "VIBRATE"],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.WRITE_EXTERNAL_STORAGE"
-      ]
+      ],
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "output": "server",

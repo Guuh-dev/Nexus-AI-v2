@@ -1,141 +1,119 @@
-# Publicação completa do Nexus AI v2
+# Publicação do Nexus AI v2.1
 
-Este é o caminho recomendado para alguém trabalhando pelo celular e Replit.
+## 1. GitHub
 
-## 0. Fonte e checkpoint
-
-O repositório oficial usado nesta instalação é `Guuh-dev/Nexus-AI-v1`. Antes de atualizar, confirme que o checkpoint `nexus-v1-stable-before-professor` continua disponível. Ele permite voltar à versão estável anterior sem apagar dados do celular.
-
-## 1. Instalar o projeto
-
-1. Baixe `Nexus-AI.zip` no celular.
-2. Crie um App Node.js vazio no Replit.
-3. No painel de arquivos, envie `Nexus-AI.zip`.
-4. No Shell da raiz, execute:
-
-```bash
-unzip Nexus-AI.zip -d .
-npm install
-npm run web
-```
-
-5. Se o Replit perguntar se deve substituir `.replit`, confirme.
-6. Quando a tela do Nexus abrir, pare o preview e continue a configuração abaixo.
-
-## 2. GitHub
-
-1. No GitHub, crie um repositório público chamado `nexus-ai`.
-2. Não marque README, `.gitignore` ou licença; o projeto já possui os três.
-3. No Shell do Replit, conecte o repositório seguindo a URL mostrada pelo GitHub:
+Crie ou use `Guuh-dev/Nexus-AI-v2`, coloque estes arquivos na raiz e envie:
 
 ```bash
 git init
 git branch -M main
-git add .
-git commit -m "feat: launch Nexus AI Personal Mission OS"
-git remote add origin URL_DO_SEU_REPOSITORIO
+git add -A
+git commit -m "release: Nexus AI v2.1"
+git remote add origin https://github.com/Guuh-dev/Nexus-AI-v2.git
 git push -u origin main
 ```
 
-Se o Git pedir sua identidade antes do commit, configure seu nome e o e-mail `noreply` mostrado em **GitHub → Settings → Emails**:
+Nunca envie `.env`, APKs assinados, keystores, `credentials.json`, `google-services.json`, `android/` ou `ios/` gerados.
 
-```bash
-git config user.name "Gustavo Araújo"
-git config user.email "SEU_EMAIL_NOREPLY_DO_GITHUB"
+## 2. Backend e OpenRouter
+
+O APK atual usa a URL configurada em `eas.json`. Antes de gerar o APK, publique **este mesmo código V2.1** no serviço Render apontado ali. Se a URL continuar com nome `nexus-ai-v1`, isso é apenas o nome histórico do serviço; o deploy precisa conter as rotas V2.1.
+
+No Render:
+
+```text
+OPENROUTER_API_KEY=sua_chave
+OPENROUTER_ALLOW_PAID_FALLBACK=false
 ```
 
-Confira no GitHub se `.env`, chaves, `credentials.json`, `android/` e `ios/` não foram enviados.
+A chave nunca recebe prefixo `EXPO_PUBLIC_`.
 
-## 3. Configurar a OpenRouter no Render
+O repositório inclui `render.yaml`. Em um novo Blueprint, o Render usa:
 
-1. Abra o serviço `nexus-ai-v1` no Render e entre em **Environment**.
-2. Nome: `OPENROUTER_API_KEY`.
-3. Valor: sua chave.
-4. Nunca use prefixo `EXPO_PUBLIC_`.
-5. Salve e faça um novo deploy.
-6. Abra `https://nexus-ai-v1.onrender.com/api/status` e confirme `"configured":true`.
+```text
+Build: npm ci && npm run export:web
+Start: npx expo serve --port $PORT
+Health: /api/status
+```
 
-O app usa primeiro o roteador gratuito do OpenRouter e depois o plano local. Para permitir contingência paga conscientemente, adicione `OPENROUTER_ALLOW_PAID_FALLBACK=true` somente no ambiente do Render; por padrão, o Nexus não gasta créditos.
+Após o deploy, abra:
 
-## 4. Publicar a web no Render
+```text
+https://SEU_BACKEND/api/status
+```
 
-A configuração de deployment já contém:
+O retorno correto inclui:
 
-- Build: `npm ci && npm run export:web`
-- Run: `npx expo serve --port 8080`
+```json
+{
+  "configured": true,
+  "apiVersion": "2.1",
+  "assistantAvailable": true
+}
+```
 
-No serviço conectado ao GitHub, use Node.js 20 ou 22 e mantenha o Secret no ambiente de produção. A URL HTTPS final serve a interface web e `/api/*` na mesma origem. Instâncias gratuitas podem dormir; o app faz uma chamada segura de aquecimento ao iniciar e usa fallback local se o serviço ainda estiver acordando.
+Se `configured` estiver falso, o fallback local continua funcionando, mas Brain e Atlas online não usam OpenRouter.
 
-Também é possível usar EAS Hosting:
+## 3. Verificação local
+
+```bash
+npm ci
+npm run verify
+npm run release:check
+npm run export:web
+npx expo-doctor
+```
+
+Mudanças no widget exigem:
+
+```bash
+npx expo prebuild --platform android --clean
+```
+
+## 4. APK automático pelo GitHub
+
+Em `Settings → Secrets and variables → Actions`, crie:
+
+```text
+EXPO_TOKEN
+```
+
+Obtenha esse token na conta Expo dona do projeto. Não publique o valor.
+
+Há duas formas de iniciar o APK:
+
+1. `Actions → Nexus Android Preview → Run workflow`.
+2. Criar uma tag de release:
+
+```bash
+git tag v2.1.0
+git push origin v2.1.0
+```
+
+O workflow valida o projeto e inicia um build `preview` no EAS. O APK fica disponível no painel do projeto Expo quando o processamento terminar.
+
+## 5. Build manual
 
 ```bash
 npx eas-cli@latest login
-npx eas-cli@latest init
-npm run export:web
-npx eas-cli@latest deploy
-```
-
-Adicione `OPENROUTER_API_KEY` como variável sensível do ambiente do host, não do build cliente.
-
-## 5. Conta e projeto Expo
-
-1. Crie uma conta gratuita em `expo.dev`.
-2. No Shell: `npx eas-cli@latest login`.
-3. Execute `npx eas-cli@latest init`.
-4. O comando adicionará o `projectId` correto ao `app.json`.
-5. Não compartilhe sua senha ou código 2FA.
-
-## 6. Ligar o APK ao backend
-
-O navegador usa `/api` na mesma origem. O APK precisa conhecer a URL pública.
-
-O `eas.json` desta versão já aponta os perfis development, preview e production para:
-
-```text
-EXPO_PUBLIC_API_URL=https://nexus-ai-v1.onrender.com
-```
-
-Essa variável não é segredo; ela contém apenas o endereço do servidor. Nunca coloque a chave nela.
-
-## 7. Gerar APK pessoal
-
-```bash
 npx eas-cli@latest build --platform android --profile preview
 ```
 
-Instale pelo link do EAS e siga [ANDROID_WIDGET.md](ANDROID_WIDGET.md).
+O pacote Android continua:
 
-Depois de instalar a V2, remova e adicione novamente widgets antigos para que o Android carregue o novo layout e a tela de configuração por instância.
-
-## 8. Publicar no portfólio
-
-Use:
-
-- URL do site público.
-- URL do GitHub.
-- Três capturas: onboarding, Hoje e widget no A16.
-- Uma gravação curta concluindo tarefa e mostrando o widget atualizar.
-- Descrição: “Personal Mission OS local-first com React Native, Expo Router, IA estruturada, fallback offline e widget Android nativo”.
-
-## 9. Preparar a Play Store futuramente
-
-Como o autor ainda não tem 18 anos, a conta Play Console precisa pertencer e ser verificada por um responsável adulto. O pacote definitivo já é `com.gustavoaraujo.nexusai`.
-
-1. O responsável cria a Play Console e paga a taxa única do Google.
-2. Crie o aplicativo Nexus AI.
-3. Hospede a rota pública `/privacy` e informe essa URL.
-4. Preencha público-alvo, segurança de dados e classificação indicativa com informações verdadeiras.
-5. Gere o AAB:
-
-```bash
-npx eas-cli@latest build --platform android --profile production
+```text
+com.gustavoaraujo.nexusai
 ```
 
-6. Faça o primeiro upload manual na Play Console.
-7. Cumpra os requisitos de teste fechado mostrados pela Play Console no momento da publicação; eles podem variar conforme o tipo e a idade da conta.
-8. Corrija feedback, solicite acesso à produção e publique gradualmente.
+Ao instalar a V2.1, remova widgets antigos e adicione novamente para carregar os novos layouts.
 
-## Atualizações
+## 6. Rollback
 
-- Mudanças somente em JavaScript podem usar EAS Update depois que ele for configurado.
-- Mudanças em widget, notificações, Manifest ou módulo Kotlin exigem um novo APK/AAB.
+Antes de substituir uma versão publicada, crie uma tag estável:
+
+```bash
+git tag v2.0.0-rc1-backup
+git push origin v2.0.0-rc1-backup
+```
+
+O storage v4 cria backup pré-migração e preserva perfil, plano, XP, histórico, chats e roadmaps. Mesmo assim, exporte um JSON pelo Perfil antes de testar APKs novos.

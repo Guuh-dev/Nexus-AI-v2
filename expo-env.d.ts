@@ -1,9 +1,3 @@
 /// <reference types="expo/types" />
 
-declare namespace NodeJS {
-  interface ProcessEnv {
-    OPENROUTER_API_KEY?: string;
-    EXPO_PUBLIC_API_URL?: string;
-    EXPO_PUBLIC_APP_ENV?: "development" | "preview" | "production";
-  }
-}
+// NOTE: This file should not be edited and should be in your git ignore

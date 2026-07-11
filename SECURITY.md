@@ -2,7 +2,7 @@
 
 ## Modelo de ameaça inicial
 
-O Nexus 1.0 é local-first e não possui autenticação. Dados pessoais ficam no armazenamento privado da instalação. A única operação remota é a geração de plano, mediada pelo servidor.
+O Nexus 2.1 é local-first e não possui autenticação. Dados pessoais ficam no armazenamento privado da instalação. As operações de IA remotas (planejamento, Brain, Professor Atlas, captura e revisão) são mediadas pelo backend do Nexus; nenhuma chave é enviada ao aplicativo.
 
 ## Controles implementados
 
@@ -14,11 +14,12 @@ O Nexus 1.0 é local-first e não possui autenticação. Dados pessoais ficam no
 - Sem `dangerouslySetInnerHTML`.
 - Timeout total de 45 segundos e um retry controlado no cliente.
 - Idempotência para impedir requisições duplicadas.
-- Rate limit por IP/instalação e teto global compatível com a cota gratuita.
+- Rate limit por IP/instalação, teto global diário e limpeza de caches expirados.
 - Fallback local quando a rede, chave ou provedor falham.
 - Erros públicos sem stack trace, chave, prompt completo ou perfil.
 - Respostas sensíveis com `Cache-Control: no-store`.
-- Recuperação apenas da seção local corrompida.
+- Bloqueio de chaves de prototype pollution, profundidade e complexidade excessivas no contexto da IA.
+- Recuperação apenas da seção local corrompida e validação do estado antes de persistir.
 - Busca automatizada por padrões de segredo no repositório e bundle web.
 
 ## Limites conhecidos

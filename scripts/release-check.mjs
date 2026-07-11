@@ -13,6 +13,11 @@ const requiredFiles = [
   "schemas/expansion.schema.ts",
   "modules/nexus-widget/expo-module.config.json",
   "modules/nexus-widget/android/src/main/java/expo/modules/nexuswidget/NexusWidgetConfigureActivity.kt",
+  "features/widget/presets.ts",
+  "services/api-config.ts",
+  "utils/untrusted-data.ts",
+  ".github/workflows/security.yml",
+  "render.yaml",
 ];
 
 const missing = requiredFiles.filter((file) => !existsSync(file));
@@ -59,10 +64,14 @@ for (const profile of ["development", "preview", "production"]) {
   }
 }
 
-const envExample = readFileSync(".env.example", "utf8").trim();
-if (envExample !== "OPENROUTER_API_KEY=") {
-  console.error("Release check failed. .env.example must contain only the empty server-side OpenRouter key.");
+const envExample = readFileSync(".env.example", "utf8");
+if (!/^OPENROUTER_API_KEY=\s*$/m.test(envExample) || /OPENROUTER_API_KEY=\S+/m.test(envExample)) {
+  console.error("Release check failed. .env.example must document an empty server-side OpenRouter key.");
+  process.exit(1);
+}
+if (/EXPO_PUBLIC_(?:OPENROUTER|API_KEY|SECRET)/i.test(envExample)) {
+  console.error("Release check failed. No client-public variable may contain an AI secret.");
   process.exit(1);
 }
 
-console.log("Release check passed: Nexus AI structure, scripts and Android identity are ready.");
+console.log("Release check passed: Nexus AI v2.1 structure, scripts, security and Android identity are ready.");

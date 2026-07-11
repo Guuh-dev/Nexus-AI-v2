@@ -2,15 +2,22 @@ name: Nexus Android Preview
 
 on:
   workflow_dispatch:
+  push:
+    tags:
+      - "v2.1.*"
+
+permissions:
+  contents: read
 
 concurrency:
-  group: nexus-android-preview
-  cancel-in-progress: true
+  group: nexus-android-preview-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
-    name: Build preview APK
+    name: Start preview APK build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -21,6 +28,33 @@ jobs:
 
       - run: npm ci
       - run: npm run verify
-      - run: npx eas-cli@latest build --platform android --profile preview --non-interactive
+      - run: npm run release:check
+
+      - name: Validate EAS token
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "EXPO_TOKEN não foi configurado em Settings > Secrets and variables > Actions." >&2
+            exit 1
+          fi
+
+      - name: Start EAS preview APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npx eas-cli@latest build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --no-wait \
+            --json | tee eas-build.json
+          echo "### APK Preview enviado ao EAS" >> "$GITHUB_STEP_SUMMARY"
+          echo "O build continua nos servidores da Expo. Abra o projeto EAS para acompanhar e baixar o APK." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save EAS build metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-eas-build-metadata
+          path: eas-build.json
+          retention-days: 14

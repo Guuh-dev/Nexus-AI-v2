@@ -14,11 +14,7 @@ import type {
 import { localDateKey } from "@/utils/dates";
 import { createId } from "@/utils/ids";
 import { sanitizeText } from "@/utils/text";
-
-function apiUrl(): string {
-  const configured = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
-  return configured ? `${configured}/api/assistant` : "/api/assistant";
-}
+import { fetchNexusApi, NexusApiError } from "@/services/api-config";
 
 function arrayValue(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
@@ -157,7 +153,7 @@ function localFallback(request: AssistantRequest, data: AppData): AssistantRespo
 }
 
 async function remote(request: AssistantRequest, signal: AbortSignal): Promise<AssistantResponse> {
-  const response = await fetch(apiUrl(), { method: "POST", headers: { "Content-Type": "application/json", "X-Nexus-Client-Id": request.clientId }, body: JSON.stringify(request), signal });
+  const response = await fetchNexusApi("/api/assistant", { method: "POST", headers: { "Content-Type": "application/json", "X-Nexus-Client-Id": request.clientId }, body: JSON.stringify(request), signal });
   const type = response.headers.get("content-type") ?? "";
   if (!type.includes("application/json")) throw new Error("invalid_response");
   const body = await response.json() as unknown;
@@ -191,9 +187,13 @@ export async function askNexus(
   const timeout = setTimeout(() => controller.abort(), 45_000);
   try {
     return await remote(request, controller.signal);
-  } catch {
+  } catch (error) {
     if (options.signal?.aborted) throw new Error("cancelled");
-    return localFallback(request, input.data);
+    const fallback = localFallback(request, input.data);
+    if (error instanceof NexusApiError && error.code === "incompatible") {
+      return { ...fallback, warning: "O APK está conectado a um backend antigo. Publique a V2.1 no Render para reativar a IA." };
+    }
+    return fallback;
   } finally {
     clearTimeout(timeout);
     options.signal?.removeEventListener("abort", parentAbort);

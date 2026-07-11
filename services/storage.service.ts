@@ -18,7 +18,7 @@ import {
   weeklyReviewSchema,
 } from "@/schemas/expansion.schema";
 import { onboardingDraftSchema, profileSchema } from "@/schemas/profile.schema";
-import { historySchema, preferencesSchema, progressSchema } from "@/schemas/storage.schema";
+import { appDataSchema, historySchema, preferencesSchema, progressSchema } from "@/schemas/storage.schema";
 import type { AppData } from "@/types";
 import { createId } from "@/utils/ids";
 
@@ -166,7 +166,12 @@ class AsyncStorageRepository implements NexusRepository {
   }
 
   async save(data: AppData): Promise<void> {
-    const json = JSON.stringify({ ...data, storageVersion: STORAGE_VERSION });
+    const candidate = { ...data, storageVersion: STORAGE_VERSION };
+    const validation = appDataSchema.safeParse(candidate);
+    if (!validation.success) {
+      throw new Error("O estado local não passou pela validação de segurança.");
+    }
+    const json = JSON.stringify(candidate);
     this.saveQueue = this.saveQueue.catch(() => undefined).then(() => AsyncStorage.setItem(STORAGE_KEY, json));
     return this.saveQueue;
   }

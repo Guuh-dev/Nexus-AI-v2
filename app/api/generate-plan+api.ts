@@ -4,6 +4,7 @@ import { profileSchema } from "@/schemas/profile.schema";
 import { storedTaskSchema } from "@/schemas/daily-plan.schema";
 import type { PlanRequest, PlanResponse } from "@/types";
 import { sanitizeText } from "@/utils/text";
+import { validateUntrustedJson } from "@/utils/untrusted-data";
 
 const MAX_BODY_BYTES = 24_000;
 const WINDOW_MS = 10 * 60 * 1000;
@@ -136,6 +137,8 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return json(request, { error: { code: "bad_request", message: "Envie um JSON válido." } }, 400);
   }
+  const rawSafety = validateUntrustedJson(parsedBody, { maxDepth: 8, maxNodes: 1800, maxKeysPerObject: 120, maxArrayLength: 100 });
+  if (!rawSafety.valid) return json(request, { error: { code: "bad_request", message: "A solicitação contém uma estrutura insegura." } }, 400);
   const validation = requestSchema.safeParse(parsedBody);
   if (!validation.success) return json(request, { error: { code: "bad_request", message: "Os dados do planejamento estão incompletos." } }, 400);
 

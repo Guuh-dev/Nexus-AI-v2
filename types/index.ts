@@ -211,9 +211,15 @@ export type DayHistory = {
 };
 
 export type WidgetSize = "1x1" | "2x1" | "2x2" | "3x2" | "4x1" | "4x2" | "4x3" | "4x4" | "5x2";
-export type WidgetStyle = "nexus" | "amoled" | "transparent" | "glass" | "pixel" | "minimal" | "gamer" | "privacy";
+export type WidgetStyle = "nexus" | "amoled" | "transparent" | "glass" | "pixel" | "minimal" | "gamer" | "neon" | "mascot" | "privacy";
+export type WidgetPreset = "mission" | "balanced" | "tasks" | "focus" | "learning" | "minimal" | "custom";
+export type WidgetCornerStyle = "square" | "soft" | "round";
+export type WidgetBorderStyle = "none" | "subtle" | "accent" | "pixel";
+export type WidgetTextAlign = "left" | "center";
+export type WidgetTapAction = "today" | "brain" | "focus" | "capture" | "progress";
 
 export type WidgetPreferences = {
+  preset: WidgetPreset;
   background: "solid" | "amoled" | "translucent";
   style: WidgetStyle;
   preferredSize: WidgetSize;
@@ -225,12 +231,22 @@ export type WidgetPreferences = {
   showTasks: boolean;
   showXp: boolean;
   showLevel: boolean;
-  taskCount: 1 | 2 | 3 | 4 | 5;
   showStreak: boolean;
+  showFocus: boolean;
+  showProgress: boolean;
+  showCapture: boolean;
+  compactTasks: boolean;
+  taskCount: 1 | 2 | 3 | 4 | 5;
   progressStyle: "bar" | "circle" | "text" | "number";
   privacyMode: boolean;
   fontScale: "pequena" | "normal" | "grande";
   opacity: number;
+  cornerStyle: WidgetCornerStyle;
+  borderStyle: WidgetBorderStyle;
+  glow: 0 | 1 | 2 | 3;
+  textAlign: WidgetTextAlign;
+  tapAction: WidgetTapAction;
+  customLabel?: string;
   accentColor?: string;
 };
 
@@ -510,9 +526,19 @@ export type WidgetPayload = {
     showXp: boolean;
     showLevel: boolean;
     showStreak: boolean;
+    showFocus: boolean;
+    showProgress: boolean;
+    showCapture: boolean;
+    compactTasks: boolean;
     progressStyle: WidgetPreferences["progressStyle"];
     fontScale: WidgetPreferences["fontScale"];
     opacity: number;
+    cornerStyle: WidgetCornerStyle;
+    borderStyle: WidgetBorderStyle;
+    glow: 0 | 1 | 2 | 3;
+    textAlign: WidgetTextAlign;
+    tapAction: WidgetTapAction;
+    customLabel?: string;
     accentColor: string;
   };
 };

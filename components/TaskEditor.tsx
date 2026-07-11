@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  View,
+} from "react-native";
 import { Card } from "@/components/ui/Card";
 import { ChoiceChip } from "@/components/ui/ChoiceChip";
 import { Field } from "@/components/ui/Field";
@@ -26,7 +35,17 @@ export type TaskEditorValue = {
   recurring: boolean;
 };
 
-export function TaskEditor({ visible, task, onSave, onClose }: { visible: boolean; task?: Task; onSave: (value: TaskEditorValue) => void; onClose: () => void }) {
+export function TaskEditor({
+  visible,
+  task,
+  onSave,
+  onClose,
+}: {
+  visible: boolean;
+  task?: Task;
+  onSave: (value: TaskEditorValue) => void;
+  onClose: () => void;
+}) {
   const { colors } = useNexus();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -50,7 +69,9 @@ export function TaskEditor({ visible, task, onSave, onClose }: { visible: boolea
   const save = () => {
     const parsedMinutes = Number(minutes);
     if (title.trim().length < 2) return setError("Escreva um título com pelo menos 2 caracteres.");
-    if (!Number.isFinite(parsedMinutes) || parsedMinutes < 5 || parsedMinutes > 240) return setError("Escolha entre 5 e 240 minutos.");
+    if (!Number.isFinite(parsedMinutes) || parsedMinutes < 5 || parsedMinutes > 240) {
+      return setError("Escolha entre 5 e 240 minutos.");
+    }
     onSave({
       title: title.trim(),
       ...(description.trim() ? { description: description.trim() } : {}),
@@ -64,11 +85,20 @@ export function TaskEditor({ visible, task, onSave, onClose }: { visible: boolea
 
   return (
     <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={[styles.overlay, { backgroundColor: colors.overlay }]}>
-        <Pressable onPress={(event) => event.stopPropagation()} style={styles.shell}>
-          <Card elevated style={styles.card}>
-            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-              <View style={styles.content}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+        style={styles.keyboardRoot}
+      >
+        <Pressable onPress={onClose} style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+          <Pressable onPress={(event) => event.stopPropagation()} style={styles.shell}>
+            <Card elevated style={styles.card}>
+              <ScrollView
+                keyboardShouldPersistTaps="always"
+                keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.content}
+              >
                 <View style={styles.header}>
                   <View>
                     <NexusText variant="mono" color={colors.primarySoft}>MISSÃO MANUAL</NexusText>
@@ -79,17 +109,38 @@ export function TaskEditor({ visible, task, onSave, onClose }: { visible: boolea
                   </Pressable>
                 </View>
                 <Field label="Título" value={title} onChangeText={setTitle} maxLength={120} placeholder="O que precisa ser executado?" />
-                <Field label="Descrição opcional" value={description} onChangeText={setDescription} maxLength={300} multiline placeholder="Defina o resultado esperado" />
+                <Field
+                  label="Descrição opcional"
+                  value={description}
+                  onChangeText={setDescription}
+                  maxLength={300}
+                  multiline
+                  placeholder="Defina o resultado esperado"
+                />
                 <View style={styles.section}>
                   <NexusText variant="caption" secondary>Categoria</NexusText>
                   <View style={styles.chips}>
-                    {CATEGORIES.map((item) => <ChoiceChip key={item} label={categoryLabels[item]} selected={category === item} onPress={() => setCategory(item)} />)}
+                    {CATEGORIES.map((item) => (
+                      <ChoiceChip
+                        key={item}
+                        label={categoryLabels[item]}
+                        selected={category === item}
+                        onPress={() => setCategory(item)}
+                      />
+                    ))}
                   </View>
                 </View>
                 <View style={styles.section}>
                   <NexusText variant="caption" secondary>Prioridade</NexusText>
                   <View style={styles.chips}>
-                    {(["baixa", "media", "alta"] as const).map((item) => <ChoiceChip key={item} label={item.charAt(0).toUpperCase() + item.slice(1)} selected={priority === item} onPress={() => setPriority(item)} />)}
+                    {(["baixa", "media", "alta"] as const).map((item) => (
+                      <ChoiceChip
+                        key={item}
+                        label={item.charAt(0).toUpperCase() + item.slice(1)}
+                        selected={priority === item}
+                        onPress={() => setPriority(item)}
+                      />
+                    ))}
                   </View>
                 </View>
                 <Field label="Duração em minutos" value={minutes} onChangeText={setMinutes} keyboardType="number-pad" maxLength={3} />
@@ -98,22 +149,28 @@ export function TaskEditor({ visible, task, onSave, onClose }: { visible: boolea
                     <NexusText variant="subtitle">Repetir nos próximos dias</NexusText>
                     <NexusText variant="caption" secondary>O hábito será preservado no planejamento diário.</NexusText>
                   </View>
-                  <Switch value={recurring} onValueChange={setRecurring} trackColor={{ false: colors.borderStrong, true: colors.primary }} thumbColor="#FFFFFF" />
+                  <Switch
+                    value={recurring}
+                    onValueChange={setRecurring}
+                    trackColor={{ false: colors.borderStrong, true: colors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
                 </View>
                 {error ? <NexusText variant="caption" color={colors.danger}>{error}</NexusText> : null}
                 <NexusButton label={task ? "Salvar alterações" : "Adicionar ao plano"} onPress={save} fullWidth />
-              </View>
-            </ScrollView>
-          </Card>
+              </ScrollView>
+            </Card>
+          </Pressable>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardRoot: { flex: 1 },
   overlay: { flex: 1, justifyContent: "flex-end", alignItems: "center" },
-  shell: { width: "100%", maxWidth: 720, maxHeight: "92%" },
+  shell: { width: "100%", maxWidth: 720, maxHeight: "94%" },
   card: { borderBottomLeftRadius: 0, borderBottomRightRadius: 0, padding: 0, overflow: "hidden" },
   content: { padding: 20, paddingBottom: 30, gap: 18 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
