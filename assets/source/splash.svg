@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+  <rect width="1200" height="1200" fill="#050505"/>
+  <circle cx="600" cy="520" r="300" fill="#8B5CF6" opacity=".08"/>
+  <g transform="translate(215 140) scale(.75)" fill="#8B5CF6">
+    <path d="M286 234h332v74h82v210H536v82h164v148H326v-82h-82V456h164v-74H286z"/>
+    <rect x="368" y="308" width="62" height="62" rx="8" fill="#F7F7F8"/>
+    <rect x="574" y="308" width="62" height="62" rx="8" fill="#F7F7F8"/>
+    <rect x="574" y="674" width="62" height="34" rx="6" fill="#4ADE80"/>
+  </g>
+  <text x="600" y="880" text-anchor="middle" fill="#F7F7F8" font-family="Arial, sans-serif" font-size="82" font-weight="800" letter-spacing="8">NEXUS AI</text>
+  <text x="600" y="950" text-anchor="middle" fill="#A78BFA" font-family="monospace" font-size="27" font-weight="700" letter-spacing="9">PERSONAL MISSION OS</text>
+</svg>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+  <shortcut
+    android:shortcutId="nexus_quick_capture"
+    android:enabled="true"
+    android:icon="@drawable/ic_nexus_byte"
+    android:shortcutShortLabel="@string/nexus_capture_short"
+    android:shortcutLongLabel="@string/nexus_capture_long">
+    <intent
+      android:action="android.intent.action.VIEW"
+      android:targetPackage="com.gustavoaraujo.nexusai"
+      android:targetClass="com.gustavoaraujo.nexusai.MainActivity"
+      android:data="nexusai://today?capture=1" />
+  </shortcut>
+  <shortcut
+    android:shortcutId="nexus_focus"
+    android:enabled="true"
+    android:icon="@drawable/ic_nexus_mascot"
+    android:shortcutShortLabel="@string/nexus_focus_short"
+    android:shortcutLongLabel="@string/nexus_focus_long">
+    <intent
+      android:action="android.intent.action.VIEW"
+      android:targetPackage="com.gustavoaraujo.nexusai"
+      android:targetClass="com.gustavoaraujo.nexusai.MainActivity"
+      android:data="nexusai://focus" />
+  </shortcut>
+</shortcuts>

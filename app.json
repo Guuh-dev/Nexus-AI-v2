@@ -1,0 +1,65 @@
+{
+  "expo": {
+    "name": "Nexus AI",
+    "slug": "nexus-ai",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "scheme": "nexusai",
+    "userInterfaceStyle": "dark",
+    "icon": "./assets/icon.png",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gustavoaraujo.nexusai"
+    },
+    "android": {
+      "package": "com.gustavoaraujo.nexusai",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#050505"
+      },
+      "predictiveBackGestureEnabled": true,
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
+    },
+    "web": {
+      "output": "server",
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#8B5CF6"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#050505",
+          "image": "./assets/splash.png",
+          "imageWidth": 180
+        }
+      ],
+      "./plugins/withNexusWidget"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "3d477828-f7f9-407d-ab4c-868df567dff0"
+      }
+    },
+    "owner": "littleguhh"
+  }
+}

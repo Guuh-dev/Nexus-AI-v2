@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="560" viewBox="0 0 1400 560" role="img" aria-label="Nexus AI Personal Mission OS">
+  <defs>
+    <radialGradient id="g" cx="72%" cy="40%" r="75%"><stop offset="0" stop-color="#24163D"/><stop offset="1" stop-color="#050505"/></radialGradient>
+    <linearGradient id="line" x1="0" x2="1"><stop stop-color="#8B5CF6" stop-opacity="0"/><stop offset=".55" stop-color="#8B5CF6"/><stop offset="1" stop-color="#A78BFA" stop-opacity="0"/></linearGradient>
+  </defs>
+  <rect width="1400" height="560" rx="34" fill="url(#g)"/>
+  <path d="M0 454H1400M0 488H1400M0 522H1400M1040 0V560M1100 0V560M1160 0V560M1220 0V560M1280 0V560" stroke="#8B5CF6" stroke-opacity=".08"/>
+  <rect x="76" y="72" width="164" height="164" rx="42" fill="#111114" stroke="#8B5CF6" stroke-opacity=".45" stroke-width="3"/>
+  <g transform="translate(84 66) scale(.16)" fill="#8B5CF6"><path d="M286 234h332v74h82v210H536v82h164v148H326v-82h-82V456h164v-74H286z"/><rect x="368" y="308" width="62" height="62" rx="8" fill="#F7F7F8"/><rect x="574" y="308" width="62" height="62" rx="8" fill="#F7F7F8"/><rect x="574" y="674" width="62" height="34" rx="6" fill="#4ADE80"/></g>
+  <text x="76" y="330" fill="#A78BFA" font-family="monospace" font-size="22" font-weight="700" letter-spacing="6">PERSONAL MISSION OS</text>
+  <text x="76" y="405" fill="#F7F7F8" font-family="Arial, sans-serif" font-size="72" font-weight="800">NEXUS AI</text>
+  <text x="80" y="458" fill="#A1A1AA" font-family="Arial, sans-serif" font-size="24">Transforme uma meta longa na missão certa para hoje.</text>
+  <path d="M650 482H1320" stroke="url(#line)" stroke-width="4"/>
+  <g transform="translate(900 55)">
+    <rect width="374" height="430" rx="42" fill="#0B0B0E" stroke="#27272F" stroke-width="3"/>
+    <circle cx="42" cy="47" r="8" fill="#4ADE80"/><text x="60" y="54" fill="#4ADE80" font-family="monospace" font-size="18" font-weight="700">NEXUS ONLINE</text>
+    <text x="32" y="107" fill="#A78BFA" font-family="monospace" font-size="14">MISSÃO PRINCIPAL</text>
+    <text x="32" y="146" fill="#F7F7F8" font-family="Arial" font-size="24" font-weight="700">Executar uma entrega</text>
+    <text x="32" y="176" fill="#F7F7F8" font-family="Arial" font-size="24" font-weight="700">que gere resultado real</text>
+    <rect x="32" y="208" width="310" height="8" rx="4" fill="#26262E"/><rect x="32" y="208" width="194" height="8" rx="4" fill="#8B5CF6"/>
+    <g font-family="Arial" font-size="17"><text x="32" y="263" fill="#4ADE80">✓</text><text x="62" y="263" fill="#A1A1AA">Revisar portfólio</text><text x="32" y="307" fill="#A78BFA">○</text><text x="62" y="307" fill="#F7F7F8">Enviar uma proposta</text><text x="32" y="351" fill="#A78BFA">○</text><text x="62" y="351" fill="#F7F7F8">Bloco de estudo ativo</text></g>
+    <rect x="32" y="382" width="150" height="10" rx="5" fill="#8B5CF6"/><text x="235" y="395" fill="#A1A1AA" font-family="monospace" font-size="14">1/3 • ♨ 7</text>
+  </g>
+</svg>

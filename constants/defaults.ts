@@ -1,0 +1,125 @@
+import type { AppData, EvolutionProfile, Preferences, Profile } from "@/types";
+
+export const STORAGE_VERSION = 3;
+export const STORAGE_KEY = "@nexus-ai/state";
+export const MIGRATION_BACKUP_KEY = "@nexus-ai/pre-v2-backup";
+export const TEMP_STORAGE_KEYS = ["@nexus-ai/onboarding-request", "@nexus-ai/loading", "@nexus-ai/focus-runtime"];
+
+export const DEFAULT_EVOLUTION_PROFILE: EvolutionProfile = {
+  primaryAreas: ["produtividade"],
+  secondaryAreas: [],
+  customAreas: [],
+  currentSituation: "",
+  desiredIdentity: "",
+  biggestObstacles: [],
+  procrastinationTriggers: [],
+  strengths: [],
+  learningStyle: "mista",
+  accountabilityStyle: "direta",
+  sessionLength: 25,
+  weeklyLearningMinutes: 180,
+  challengeMode: "equilibrado",
+  wantsBossChallenges: false,
+  professorScope: "depois",
+  professorTopics: [],
+  professorOutcome: "",
+};
+
+export const DEFAULT_PREFERENCES: Preferences = {
+  theme: "nexus",
+  customAccent: "#8B5CF6",
+  haptics: true,
+  sound: false,
+  reducedMotion: false,
+  notificationEnabled: false,
+  notificationTime: "18:00",
+  gamificationMode: "equilibrado",
+  dashboard: {
+    preset: "original",
+    density: "confortavel",
+    glow: "sutil",
+    backgroundEffect: "grade",
+    sections: ["smart", "mission", "tasks", "operation", "habits", "quick", "progress", "message"],
+    hiddenSections: [],
+  },
+  mascot: {
+    primary: "nexus",
+    companion: "atlas",
+    showCompanion: true,
+    speechEnabled: true,
+    unlocked: ["nexus", "atlas"],
+    skin: "classic",
+    unlockedSkins: ["classic", "shadow", "galaxy", "emerald", "gold", "ice", "rose", "professor"],
+    accessories: ["glasses", "crown", "headphones", "cap", "scarf"],
+    professorVariant: "classic",
+  },
+  widget: {
+    background: "solid",
+    style: "nexus",
+    preferredSize: "4x2",
+    showMascot: true,
+    mascot: "nexus",
+    showProfessor: false,
+    showLearning: false,
+    showMission: true,
+    showTasks: true,
+    showXp: false,
+    showLevel: false,
+    taskCount: 3,
+    showStreak: true,
+    progressStyle: "bar",
+    privacyMode: false,
+    fontScale: "normal",
+    opacity: 0.96,
+  },
+};
+
+export const DEFAULT_APP_DATA: AppData = {
+  storageVersion: STORAGE_VERSION,
+  installationId: "",
+  onboardingCompleted: false,
+  discoveryCompleted: false,
+  onboardingDraft: {},
+  history: [],
+  recurringTasks: [],
+  preferences: DEFAULT_PREFERENCES,
+  progress: {
+    totalXp: 0,
+    currentStreak: 0,
+    bestStreak: 0,
+    focusSessions: [],
+    achievements: [],
+    attributes: { foco: 0, execucao: 0, consistencia: 0, disciplina: 0 },
+    challenges: [],
+  },
+  brain: { threads: [], memories: [] },
+  learning: { professorEnabled: false, roadmaps: [], pendingTopics: [] },
+  weeklyReviews: [],
+  operations: [],
+  habits: [],
+  weeklyPlan: [],
+  corruptionWarnings: [],
+};
+
+export const createProfileDefaults = (): Partial<Profile> => ({
+  timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "America/Sao_Paulo",
+  availableMinutes: 120,
+  activeDays: [1, 2, 3, 4, 5, 6],
+  schedule: "",
+  focusPeriod: "tarde",
+  skillLevel: "iniciante",
+  energyLevel: "media",
+  priorities: ["dinheiro", "desenvolvimento", "estudos"],
+  maxDailyTasks: 4,
+  intensity: "equilibrado",
+  assistantTone: "treinador",
+  evolution: { ...DEFAULT_EVOLUTION_PROFILE },
+});
+
+export const PRIORITY_XP = {
+  baixa: 15,
+  media: 30,
+  alta: 50,
+} as const;
+
+export const MAIN_MISSION_XP = 75;

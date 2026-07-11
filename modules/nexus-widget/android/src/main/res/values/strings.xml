@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="nexus_widget_name">Nexus AI — Missão de hoje</string>
+  <string name="nexus_widget_description">Missão, tarefas, progresso e sequência do Nexus AI</string>
+  <string name="nexus_widget_mascot_description">Mascote pixel do Nexus</string>
+  <string name="nexus_widget_professor_description">Professor Atlas</string>
+  <string name="nexus_capture_short">Capturar</string>
+  <string name="nexus_capture_long">Captura rápida do Nexus</string>
+  <string name="nexus_focus_short">Iniciar foco</string>
+  <string name="nexus_focus_long">Abrir o Focus OS</string>
+</resources>
