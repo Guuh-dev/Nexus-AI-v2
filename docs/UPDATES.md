@@ -1,49 +1,48 @@
-# Nexus AI update workflow
+# Fluxo de atualização — Nexus AI 2.1
 
-## Stable checkpoint
+## Checkpoints
 
-The first stable version is tagged as:
+Antes de atualizar uma versão instalada, mantenha:
 
-```text
-nexus-v1-stable-before-professor
-```
+- tag da versão anterior, por exemplo `v2.0.0-rc1-backup`;
+- backup JSON exportado pelo Perfil;
+- branch de release separada até o CI ficar verde.
 
-This checkpoint is the rollback target before the v2 storage, Brain, Professor and native widget changes.
+O storage v4 cria um backup local antes de migrar dados anteriores e recupera seções inválidas de forma independente.
 
-## Normal JavaScript update
+## Atualização JavaScript/web
 
-Use this path for screens, styles, text, prompts, local rules and other changes that do not require native Android code.
+Use para telas, estilos, textos, regras locais e backend Expo sem mudança nativa:
 
-1. Create a branch from `main`.
-2. Implement the change.
-3. Run `npm run verify` and `npm run release:check`.
-4. Open a pull request.
-5. Merge only after CI passes.
-6. Publish through EAS Update after the update channel is configured.
+1. crie uma branch;
+2. implemente a mudança;
+3. rode `npm run verify`, `npm run release:check` e `npm run export:web`;
+4. abra PR;
+5. faça merge somente com CI e Security verdes;
+6. deixe o Render publicar a nova versão do backend/web.
 
-## Native update
+## Atualização nativa
 
-Generate a new APK/AAB when changing the widget, Kotlin module, Android permissions, native dependencies, icons, splash screen, deep links or Expo SDK.
+Gere APK/AAB novo ao mudar widget, Kotlin, permissões, dependências nativas, ícones, splash, intents ou Expo SDK.
 
-The manual **Nexus Android Preview** GitHub workflow can generate a preview APK after the `EXPO_TOKEN` secret is configured.
+O workflow **Nexus Android Preview** pode ser iniciado manualmente ou automaticamente por uma tag `v2.1.*` após configurar `EXPO_TOKEN`.
 
-## One-time automation setup
+## Configuração única
 
-1. Create a personal access token in Expo with build permission.
-2. Add it in GitHub → Settings → Secrets and variables → Actions as `EXPO_TOKEN`.
-3. Keep Render connected to the `main` branch with auto-deploy enabled.
-4. Keep `OPENROUTER_API_KEY` only in Render Environment.
-5. Run **Nexus Android Preview** manually whenever a change touches native code.
+1. Adicione `EXPO_TOKEN` em GitHub → Settings → Secrets and variables → Actions.
+2. Conecte o Render à branch `main` com auto-deploy.
+3. Guarde `OPENROUTER_API_KEY` somente no ambiente do Render.
+4. Confirme `/api/status` com `apiVersion: "2.1"` antes de gerar o APK.
 
-After that, a normal update is: request the change, review the pull request, merge it after green CI, let Render update the web/backend automatically, and trigger the Android workflow only when the change classification says a new APK is required.
+## Checklist de release
 
-## Release checklist
-
-- [ ] Tests and lint pass.
-- [ ] No secrets appear in the diff or bundle.
-- [ ] Offline mode still works.
-- [ ] Android and web behavior were checked.
-- [ ] Storage migrations are backward-compatible.
-- [ ] The change is classified as JavaScript-only or native.
-- [ ] Changelog and version are updated when appropriate.
-- [ ] A rollback path exists.
+- [ ] TypeScript, lint e testes passam.
+- [ ] Secret scan, npm audit e workflow Security passam.
+- [ ] Export web completa.
+- [ ] Fallback offline funciona.
+- [ ] Migração preserva perfil, plano, tarefas, XP, streak, chats e roadmaps.
+- [ ] Teclado foi testado nos formulários Android.
+- [ ] Ações do Brain exigem confirmação.
+- [ ] Ações repetidas do widget não duplicam XP.
+- [ ] Backend V2.1 está publicado e com a chave configurada.
+- [ ] Changelog, versão e rollback estão preparados.

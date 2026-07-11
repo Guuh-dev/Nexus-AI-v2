@@ -9,8 +9,8 @@
   </p>
 
   <p>
-    <a href="https://github.com/Guuh-dev/Nexus-AI-v1"><img alt="GitHub repository" src="https://img.shields.io/badge/GitHub-Nexus--AI--v1-181717?style=for-the-badge&logo=github" /></a>
-    <a href="https://github.com/Guuh-dev/Nexus-AI-v1/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v1/ci.yml?style=for-the-badge&label=CI" /></a>
+    <a href="https://github.com/Guuh-dev/Nexus-AI-v2"><img alt="GitHub repository" src="https://img.shields.io/badge/GitHub-Nexus--AI--v2-181717?style=for-the-badge&logo=github" /></a>
+    <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/ci.yml?style=for-the-badge&label=CI" /></a>
     <img alt="Expo 57" src="https://img.shields.io/badge/Expo-57-000020?style=for-the-badge&logo=expo" />
     <img alt="React Native" src="https://img.shields.io/badge/React_Native-0.86-20232A?style=for-the-badge&logo=react" />
     <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript" />
@@ -180,14 +180,16 @@ Use the preview APK for personal testing. Google Play requires a production AAB 
 
 The project includes GitHub Actions CI that runs TypeScript, lint, tests, secret scanning and the web export on every push or pull request.
 
-The test suite covers cases such as:
+The V2.1 test suite covers cases such as:
 
-- invalid AI responses and repair/fallback;
+- invalid AI responses, structured-output incompatibility and repair/fallback;
 - missing key, timeout, offline mode and unavailable servers;
 - duplicate onboarding submissions;
 - idempotent XP when checking and unchecking tasks;
 - date rollover without duplicate plans;
-- safe styles for React Native Web;
+- keyboard-safe forms and precise Professor Atlas validation;
+- unsafe nested payloads and prototype-related keys;
+- widget presets, storage v3 → v4 migration and safe styles for React Native Web;
 - Android module isolation from the web build.
 
 ## Documentation

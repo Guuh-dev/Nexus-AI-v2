@@ -1,6 +1,6 @@
 {
   "name": "nexus-ai",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Nexus AI — Personal Mission OS",
   "main": "expo-router/entry",
@@ -8,7 +8,7 @@
     "start": "expo start",
     "android": "expo run:android",
     "web": "expo start --web",
-    "export:web": "expo export --platform web",
+    "export:web": "expo export --platform web --max-workers 2",
     "serve:web": "expo serve",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint",

@@ -13,10 +13,12 @@ class NexusWidgetModule : Module() {
     AsyncFunction("updateWidget") { payload: String ->
       require(payload.toByteArray(Charsets.UTF_8).size <= 32_768) { "Widget payload is too large" }
       val context = appContext.reactContext ?: throw IllegalStateException("React context unavailable")
-      context.getSharedPreferences(NexusWidgetProvider.PREFERENCES_NAME, Context.MODE_PRIVATE)
-        .edit()
-        .putString(NexusWidgetProvider.PAYLOAD_KEY, payload)
-        .apply()
+      synchronized(NexusWidgetProvider::class.java) {
+        context.getSharedPreferences(NexusWidgetProvider.PREFERENCES_NAME, Context.MODE_PRIVATE)
+          .edit()
+          .putString(NexusWidgetProvider.PAYLOAD_KEY, payload)
+          .apply()
+      }
 
       val manager = AppWidgetManager.getInstance(context)
       val component = ComponentName(context, NexusWidgetProvider::class.java)
@@ -26,10 +28,12 @@ class NexusWidgetModule : Module() {
 
     AsyncFunction("consumePendingActions") {
       val context = appContext.reactContext ?: throw IllegalStateException("React context unavailable")
-      val preferences = context.getSharedPreferences(NexusWidgetProvider.PREFERENCES_NAME, Context.MODE_PRIVATE)
-      val actions = preferences.getString(NexusWidgetProvider.PENDING_ACTIONS_KEY, "[]") ?: "[]"
-      preferences.edit().putString(NexusWidgetProvider.PENDING_ACTIONS_KEY, "[]").apply()
-      actions
+      synchronized(NexusWidgetProvider::class.java) {
+        val preferences = context.getSharedPreferences(NexusWidgetProvider.PREFERENCES_NAME, Context.MODE_PRIVATE)
+        val actions = preferences.getString(NexusWidgetProvider.PENDING_ACTIONS_KEY, "[]") ?: "[]"
+        preferences.edit().putString(NexusWidgetProvider.PENDING_ACTIONS_KEY, "[]").commit()
+        actions
+      }
     }
   }
 }

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.1.0 — Stability, UI & Widget Studio
+
+- Corrigido o falso erro de campo vazio na entrevista do Professor Atlas: conhecimento e tentativa anterior agora são validados separadamente e mensagens invisíveis não contam como resposta.
+- Formulários, onboarding, diagnóstico, Professor, captura rápida e editor de tarefas agora respeitam o teclado Android e mantêm ações visíveis.
+- Perfil reorganizado em Central, Perfil, Visual, Sistema e Dados.
+- Progresso reorganizado em Resumo, Desafios e Histórico.
+- Widget Studio ampliado com presets, nove tamanhos, dez estilos, densidade, alinhamento, bordas, cantos, glow, rótulo, métricas, captura, ação ao toque e preview adaptativo.
+- Widget Android atualizado para refletir as novas escolhas e configurações independentes por instância.
+- Storage atualizado para v4 com migração segura das preferências de widget e validação antes de persistir.
+- Corrigida a detecção de backend V1 incompatível e adicionado fallback entre URL configurada e mesma origem web.
+- OpenRouter agora repete sem JSON Schema quando um modelo gratuito não suporta structured output.
+- Endpoints reforçados contra contextos profundos, complexos ou contendo chaves de prototype pollution.
+- Adicionado teto global diário, limpeza de cache, testes defensivos e workflow semanal de segurança com CodeQL.
+- GitHub Actions inicia automaticamente um APK Preview no EAS ao publicar uma tag `v2.1.*`.
+
 ## 2.0.0-rc.1 — Professor Atlas
 
 - Expanded onboarding into a deep personal evolution diagnosis.
@@ -10,6 +25,3 @@
 - Added Widget Studio with adaptive sizes, per-instance configuration, direct task completion and learning widgets.
 - Migrated local storage to v3 with pre-migration backup and selective corruption recovery.
 - Added free-first OpenRouter routing, safe local fallback, payload compaction and explicit Android backend URL.
-- Expanded verification to 34 tests, Expo Doctor, secret scanning, release checks and web export.
-
-The Android widget changes require a new APK/AAB. Existing widgets should be removed and added again after installing this version.

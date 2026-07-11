@@ -1,8 +1,7 @@
-modules = ["nodejs-22"]
-
 run = "npm run web -- --host lan"
 entrypoint = "package.json"
 hidden = [".expo", "dist", "node_modules"]
+modules = ["nodejs-20"]
 
 [deployment]
 build = ["sh", "-c", "npm ci && npm run export:web"]
@@ -11,6 +10,3 @@ run = ["sh", "-c", "npx expo serve --port 8080"]
 [[ports]]
 localPort = 8081
 externalPort = 80
-
-[agent]
-expertMode = true

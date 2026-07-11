@@ -6,6 +6,8 @@ export function GET(): Response {
       configured: Boolean(process.env.OPENROUTER_API_KEY),
       primaryModel: FREE_ROUTER,
       fallback: process.env.OPENROUTER_ALLOW_PAID_FALLBACK === "true" ? `${PRIMARY_MODEL} → plano local` : "plano local",
+      apiVersion: "2.1",
+      assistantAvailable: true,
     },
     {
       headers: {

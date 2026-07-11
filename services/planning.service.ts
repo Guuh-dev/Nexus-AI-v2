@@ -4,6 +4,7 @@ import { createId, stableHash } from "@/utils/ids";
 import { NexusError, codeFromStatus, isAbortError } from "@/utils/errors";
 import { sanitizeText } from "@/utils/text";
 import { weekdayFromKey } from "@/utils/dates";
+import { fetchNexusApi } from "@/services/api-config";
 
 const CATEGORY_TASKS: Record<Category, Array<{ title: string; description: string }>> = {
   desenvolvimento: [
@@ -142,17 +143,12 @@ export function generateLocalPlan(request: PlanRequest, warning?: string): Daily
   };
 }
 
-function apiUrl(): string {
-  const configured = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
-  return configured ? `${configured}/api/generate-plan` : "/api/generate-plan";
-}
-
 function shouldRetry(status: number): boolean {
   return status === 408 || status === 425 || status === 429 || status >= 500;
 }
 
 async function requestRemotePlan(request: PlanRequest, signal: AbortSignal): Promise<PlanResponse> {
-  const response = await fetch(apiUrl(), {
+  const response = await fetchNexusApi("/api/generate-plan", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

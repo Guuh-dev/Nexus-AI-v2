@@ -1,8 +1,8 @@
 import type { AppData, EvolutionProfile, Preferences, Profile } from "@/types";
 
-export const STORAGE_VERSION = 3;
+export const STORAGE_VERSION = 4;
 export const STORAGE_KEY = "@nexus-ai/state";
-export const MIGRATION_BACKUP_KEY = "@nexus-ai/pre-v2-backup";
+export const MIGRATION_BACKUP_KEY = "@nexus-ai/pre-v2.1-backup";
 export const TEMP_STORAGE_KEYS = ["@nexus-ai/onboarding-request", "@nexus-ai/loading", "@nexus-ai/focus-runtime"];
 
 export const DEFAULT_EVOLUTION_PROFILE: EvolutionProfile = {
@@ -54,6 +54,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
     professorVariant: "classic",
   },
   widget: {
+    preset: "balanced",
     background: "solid",
     style: "nexus",
     preferredSize: "4x2",
@@ -65,12 +66,22 @@ export const DEFAULT_PREFERENCES: Preferences = {
     showTasks: true,
     showXp: false,
     showLevel: false,
-    taskCount: 3,
     showStreak: true,
+    showFocus: false,
+    showProgress: true,
+    showCapture: true,
+    compactTasks: false,
+    taskCount: 3,
     progressStyle: "bar",
     privacyMode: false,
     fontScale: "normal",
     opacity: 0.96,
+    cornerStyle: "round",
+    borderStyle: "subtle",
+    glow: 1,
+    textAlign: "left",
+    tapAction: "today",
+    customLabel: "NEXUS ONLINE",
   },
 };
 

@@ -2,11 +2,15 @@ import { z } from "zod";
 import { profileSchema } from "@/schemas/profile.schema";
 import { runAssistant } from "@/services/assistant.server";
 import type { AssistantRequest, AssistantResponse } from "@/types";
+import { validateUntrustedJson } from "@/utils/untrusted-data";
 
 const MAX_BODY_BYTES = 48_000;
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 20;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_GLOBAL_PER_DAY = 250;
 const buckets = new Map<string, { count: number; resetAt: number }>();
+let globalBucket = { count: 0, resetAt: Date.now() + DAY_MS };
 const cache = new Map<string, { expiresAt: number; response: AssistantResponse }>();
 const inFlight = new Map<string, Promise<AssistantResponse>>();
 
@@ -43,13 +47,17 @@ function key(request: Request, clientId: string): string {
 
 function allow(request: Request, clientId: string): boolean {
   const now = Date.now();
+  if (now >= globalBucket.resetAt) globalBucket = { count: 0, resetAt: now + DAY_MS };
+  if (globalBucket.count >= MAX_GLOBAL_PER_DAY) return false;
   const bucketKey = key(request, clientId);
   const current = buckets.get(bucketKey);
   const bucket = !current || current.resetAt <= now ? { count: 0, resetAt: now + WINDOW_MS } : current;
   if (bucket.count >= MAX_PER_WINDOW) return false;
   bucket.count += 1;
+  globalBucket.count += 1;
   buckets.set(bucketKey, bucket);
   if (buckets.size > 5000) for (const [itemKey, item] of buckets) if (item.resetAt <= now) buckets.delete(itemKey);
+  if (cache.size > 2000) for (const [requestId, item] of cache) if (item.expiresAt <= now) cache.delete(requestId);
   return true;
 }
 
@@ -77,9 +85,13 @@ export async function POST(request: Request): Promise<Response> {
   }
   let body: unknown;
   try { body = JSON.parse(raw) as unknown; } catch { return json(request, { error: { code: "bad_request", message: "Envie JSON válido." } }, 400); }
+  const rawSafety = validateUntrustedJson(body, { maxDepth: 10, maxNodes: 3000, maxKeysPerObject: 160, maxArrayLength: 600 });
+  if (!rawSafety.valid) return json(request, { error: { code: "bad_request", message: "A solicitação contém uma estrutura insegura." } }, 400);
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) return json(request, { error: { code: "bad_request", message: "Os dados do Nexus Brain estão incompletos." } }, 400);
   const data = parsed.data as AssistantRequest;
+  const contextSafety = validateUntrustedJson(data.context, { maxDepth: 8, maxNodes: 2500, maxKeysPerObject: 140, maxArrayLength: 500 });
+  if (!contextSafety.valid) return json(request, { error: { code: "bad_request", message: "O contexto enviado é complexo ou inseguro demais." } }, 400);
   const existing = cache.get(data.requestId);
   if (existing && existing.expiresAt > Date.now()) return json(request, existing.response);
   const running = inFlight.get(data.requestId);

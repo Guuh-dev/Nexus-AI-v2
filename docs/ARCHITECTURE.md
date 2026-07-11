@@ -38,7 +38,7 @@ O cliente tenta uma única operação com timeout. O servidor usa primeiro `open
 
 As mutações de tarefa são atômicas. O XP deriva da transição anterior → próxima, impedindo concessões repetidas. O estado em memória é atualizado antes da persistência para que toques rápidos usem a versão mais nova.
 
-O storage v3 migra perfil, plano, histórico e XP sem apagá-los, cria um backup anterior à migração e recupera seções corrompidas de forma independente. Conversas completas ficam locais; resumos progressivos e memórias estruturadas mantêm continuidade sem enviar todo o histórico em cada requisição.
+O storage v4 migra perfil, plano, histórico e XP sem apagá-los, cria um backup anterior à migração e recupera seções corrompidas de forma independente. Conversas completas ficam locais; resumos progressivos e memórias estruturadas mantêm continuidade sem enviar todo o histórico em cada requisição.
 
 ## Professor Atlas
 
@@ -49,6 +49,10 @@ Quando autorizado, a próxima lição entra no contexto do plano diário e no pa
 ## Datas e streak
 
 Datas são chaves locais `YYYY-MM-DD` no fuso do perfil. O rollover arquiva uma data uma única vez, preserva hábitos, carrega até duas pendências prioritárias e cria o próximo plano. Dias sem histórico não destroem automaticamente o streak; um dia arquivado sem atingir a meta encerra a sequência.
+
+## Segurança de contexto
+
+A V2.1 limita tamanho, profundidade, quantidade de nós e chaves por objeto antes de encaminhar contexto ao assistente. Chaves relacionadas a prototype pollution são rejeitadas antes do Zod. O roteador OpenRouter tenta JSON Schema e repete em JSON simples quando um modelo gratuito não oferece structured output.
 
 ## Web e código nativo
 

@@ -4,6 +4,7 @@ import { professorIntakeSchema } from "@/schemas/expansion.schema";
 import { extractJson } from "@/schemas/daily-plan.schema";
 import { FREE_ROUTER, PRIMARY_MODEL } from "@/constants/models";
 import { PRIORITY_XP } from "@/constants/defaults";
+import { shouldRetryWithoutJsonSchema } from "@/services/openrouter-compat";
 import type { AssistantRequest, AssistantResponse, LearningRoadmap, WeeklyReview } from "@/types";
 import { createId } from "@/utils/ids";
 import { sanitizeText } from "@/utils/text";
@@ -16,7 +17,7 @@ function client(): OpenRouter {
   return new OpenRouter({
     apiKey,
     appTitle: "Nexus AI",
-    httpReferer: "https://github.com/Guuh-dev/Nexus-AI-v1",
+    httpReferer: "https://github.com/Guuh-dev/Nexus-AI-v2",
     retryConfig: { strategy: "none" },
     timeoutMs: 45_000,
   });
@@ -29,7 +30,7 @@ function modelOrder(mode: AssistantRequest["mode"]): string[] {
     : [FREE_ROUTER];
 }
 
-async function streamJson(openrouter: OpenRouter, model: string, system: string, user: string, signal: AbortSignal): Promise<StreamResult> {
+async function streamJson(openrouter: OpenRouter, model: string, system: string, user: string, signal: AbortSignal, structured = true): Promise<StreamResult> {
   const stream = await openrouter.chat.send({
     appTitle: "Nexus AI",
     chatRequest: {
@@ -38,7 +39,7 @@ async function streamJson(openrouter: OpenRouter, model: string, system: string,
       stream: true,
       temperature: 0.35,
       maxCompletionTokens: 4_000,
-      responseFormat: { type: "json_schema", jsonSchema: { name: "nexus_assistant", strict: true, schema: ASSISTANT_JSON_SCHEMA } },
+      ...(structured ? { responseFormat: { type: "json_schema" as const, jsonSchema: { name: "nexus_assistant", strict: true, schema: ASSISTANT_JSON_SCHEMA } } } : {}),
     },
   }, { signal, timeoutMs: 45_000, retries: { strategy: "none" } });
 
@@ -64,10 +65,18 @@ async function availableCompletion(openrouter: OpenRouter, request: AssistantReq
   let error: unknown;
   for (const model of modelOrder(request.mode)) {
     try {
-      return await streamJson(openrouter, model, system, user, signal);
+      return await streamJson(openrouter, model, system, user, signal, true);
     } catch (currentError) {
       error = currentError;
       if (signal.aborted) throw currentError;
+      if (shouldRetryWithoutJsonSchema(currentError)) {
+        try {
+          return await streamJson(openrouter, model, system, user, signal, false);
+        } catch (plainError) {
+          error = plainError;
+          if (signal.aborted) throw plainError;
+        }
+      }
     }
   }
   throw error;

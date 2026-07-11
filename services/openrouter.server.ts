@@ -4,6 +4,7 @@ import type { DailyPlan, PlanRequest } from "@/types";
 import { generateLocalPlan } from "@/services/planning.service";
 import { sanitizeText } from "@/utils/text";
 import { FREE_ROUTER, PRIMARY_MODEL } from "@/constants/models";
+import { shouldRetryWithoutJsonSchema } from "@/services/openrouter-compat";
 
 
 export type OpenRouterPlanResult = {
@@ -26,7 +27,7 @@ function createClient(): OpenRouter {
   return new OpenRouter({
     apiKey,
     appTitle: "Nexus AI",
-    httpReferer: "https://github.com/Guuh-dev/Nexus-AI-v1",
+    httpReferer: "https://github.com/Guuh-dev/Nexus-AI-v2",
     retryConfig: { strategy: "none" },
     timeoutMs: 45_000,
   });
@@ -88,6 +89,7 @@ async function streamCompletion(
   model: string,
   messages: Array<{ role: "system" | "user"; content: string }>,
   signal: AbortSignal,
+  structured = true,
 ): Promise<StreamResult> {
   const stream = await openrouter.chat.send(
     {
@@ -98,14 +100,16 @@ async function streamCompletion(
         stream: true,
         temperature: 0.25,
         maxCompletionTokens: 2_400,
-        responseFormat: {
-          type: "json_schema",
-          jsonSchema: {
-            name: "nexus_daily_plan",
-            strict: true,
-            schema: DAILY_PLAN_JSON_SCHEMA,
+        ...(structured ? {
+          responseFormat: {
+            type: "json_schema" as const,
+            jsonSchema: {
+              name: "nexus_daily_plan",
+              strict: true,
+              schema: DAILY_PLAN_JSON_SCHEMA,
+            },
           },
-        },
+        } : {}),
       },
     },
     { signal, timeoutMs: 45_000, retries: { strategy: "none" } },
@@ -143,15 +147,33 @@ async function firstAvailableCompletion(
   messages: Array<{ role: "system" | "user"; content: string }>,
   signal: AbortSignal,
 ): Promise<StreamResult> {
+  let freeError: unknown;
   try {
-    return await streamCompletion(openrouter, FREE_ROUTER, messages, signal);
-  } catch (freeError) {
-    if (signal.aborted) throw freeError;
-    if (process.env.OPENROUTER_ALLOW_PAID_FALLBACK === "true") {
-      return streamCompletion(openrouter, PRIMARY_MODEL, messages, signal);
+    return await streamCompletion(openrouter, FREE_ROUTER, messages, signal, true);
+  } catch (error) {
+    freeError = error;
+    if (signal.aborted) throw error;
+    if (shouldRetryWithoutJsonSchema(error)) {
+      try {
+        return await streamCompletion(openrouter, FREE_ROUTER, messages, signal, false);
+      } catch (plainError) {
+        freeError = plainError;
+        if (signal.aborted) throw plainError;
+      }
     }
-    throw freeError;
   }
+  if (process.env.OPENROUTER_ALLOW_PAID_FALLBACK === "true") {
+    try {
+      return await streamCompletion(openrouter, PRIMARY_MODEL, messages, signal, true);
+    } catch (paidError) {
+      if (signal.aborted) throw paidError;
+      if (shouldRetryWithoutJsonSchema(paidError)) {
+        return streamCompletion(openrouter, PRIMARY_MODEL, messages, signal, false);
+      }
+      throw paidError;
+    }
+  }
+  throw freeError;
 }
 
 export async function generatePlanWithOpenRouter(request: PlanRequest, signal: AbortSignal): Promise<OpenRouterPlanResult> {

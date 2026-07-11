@@ -19,7 +19,7 @@ export default function PrivacyScreen() {
         <View style={styles.flex}><NexusText variant="mono" color={colors.primarySoft}>PRIVACIDADE</NexusText><NexusText variant="display">Seus dados, sob seu controle.</NexusText></View>
       </View>
       <NexusText secondary>Última atualização: 10 de julho de 2026.</NexusText>
-      <Policy title="Armazenamento local">Perfil, tarefas, XP, foco, preferências e histórico ficam no dispositivo ou navegador. O Nexus 1.0 não exige conta.</Policy>
+      <Policy title="Armazenamento local">Perfil, tarefas, XP, foco, preferências e histórico ficam no dispositivo ou navegador. O Nexus 2.1 não exige conta.</Policy>
       <Policy title="Planejamento online">Quando disponível, objetivo, motivo, rotina, prioridades e tempo são enviados ao servidor para criação do plano pela OpenRouter. A chave da API nunca é enviada ao aplicativo.</Policy>
       <Policy title="Modo offline">Sem conexão ou provedor, o plano é criado localmente sem transmitir dados.</Policy>
       <Policy title="O que não acessamos">Contatos, fotos, mensagens, localização precisa, dados bancários, conteúdo de outros aplicativos e identificadores publicitários.</Policy>
