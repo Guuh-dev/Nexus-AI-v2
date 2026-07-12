@@ -37,7 +37,22 @@ class NexusWidgetConfigureActivity : Activity() {
       setPadding(dp(22), dp(24), dp(22), dp(30))
       setBackgroundColor(Color.rgb(5, 5, 5))
     }
-    root.addView(label("WIDGET STUDIO 2.2", 12, Color.rgb(167, 139, 250)))
+    val providerName = AppWidgetManager.getInstance(this).getAppWidgetInfo(widgetId)?.provider?.className.orEmpty()
+    val family = when {
+      providerName.endsWith("NexusMiniWidgetProvider") -> "mini"
+      providerName.endsWith("NexusStripWidgetProvider") -> "strip"
+      providerName.endsWith("NexusCompanionWidgetProvider") -> "companion"
+      providerName.endsWith("NexusMissionWidgetProvider") -> "mission"
+      else -> "command"
+    }
+    val familyLabel = when (family) {
+      "mini" -> "MINI 1×1"
+      "strip" -> "STRIP 2×1 / 4×1"
+      "companion" -> "COMPANION 2×2"
+      "mission" -> "MISSION 4×2"
+      else -> "COMMAND 4×4"
+    }
+    root.addView(label("WIDGET STUDIO • $familyLabel", 12, Color.rgb(167, 139, 250)))
     root.addView(label("Uma instância. Uma personalidade.", 27, Color.WHITE).apply {
       setPadding(0, dp(6), 0, dp(12))
     })
@@ -241,6 +256,7 @@ class NexusWidgetConfigureActivity : Activity() {
       setPadding(dp(12), dp(12), dp(12), dp(12))
       setOnClickListener {
         val config = JSONObject()
+          .put("family", family)
           .put("style", selected(style, "nexus"))
           .put("content", selected(content, "smart"))
           .put("pageCycle", selected(pageCycle, "false") == "true")
@@ -260,8 +276,7 @@ class NexusWidgetConfigureActivity : Activity() {
           .putString("instance_$widgetId", config.toString())
           .putInt("page_$widgetId", 0)
           .apply()
-        val manager = AppWidgetManager.getInstance(this@NexusWidgetConfigureActivity)
-        NexusWidgetProvider.updateWidgets(this@NexusWidgetConfigureActivity, manager, intArrayOf(widgetId))
+        NexusWidgetProvider.updateAllWidgetFamilies(this@NexusWidgetConfigureActivity)
         setResult(
           RESULT_OK,
           Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId),

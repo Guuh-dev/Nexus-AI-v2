@@ -1,4 +1,4 @@
-# Publicação do Nexus AI 2.2.0
+# Publicação do Nexus AI 2.3.0
 
 ## 1. Requisitos
 
@@ -6,7 +6,7 @@
 - pnpm `10.0.0`;
 - conta Expo dona do projeto `littleguhh/nexus-ai`;
 - `EXPO_TOKEN` nos secrets do GitHub;
-- backend Render publicado a partir da `main` 2.2.0.
+- backend Render publicado a partir da `main` 2.3.0.
 
 ```bash
 npx -y pnpm@10.0.0 install --frozen-lockfile
@@ -44,7 +44,7 @@ Depois do deploy:
 curl -sS https://nexus-ai-v1.onrender.com/api/status
 ```
 
-O resultado deve incluir `configured: true`, `apiVersion: "2.2.0"` e `assistantAvailable: true`.
+O resultado deve incluir `configured: true`, `apiVersion: "2.3.0"` e `assistantAvailable: true`.
 
 ## 3. GitHub Actions
 
@@ -65,16 +65,16 @@ Workflows:
 - Nexus Android Build
 - Nexus Release
 
-## 4. APK base 2.2.0
+## 4. APK base 2.3.0
 
-A 2.2.0 muda o runtime e o módulo nativo do widget. Após o merge:
+A 2.3.0 muda o runtime e a família nativa de widgets. Após o merge:
 
 ```bash
 git switch main
 git pull --ff-only origin main
 node -p "require('./package.json').version"
-git tag -a v2.2.0 -m "Nexus AI v2.2.0 Companion"
-git push origin v2.2.0
+git tag -a v2.3.0 -m "Nexus AI v2.3.0 Widget Family"
+git push origin v2.3.0
 ```
 
 A tag dispara **Nexus Release**, que valida o projeto, solicita o build EAS e anexa o APK à GitHub Release quando concluído.
@@ -88,7 +88,7 @@ Antes de instalar:
 
 ## 5. OTAs futuras
 
-Depois do APK 2.2.0 instalado:
+Depois do APK 2.3.0 instalado:
 
 - mudança OTA-compatible na `main` → Preview;
 - teste aprovado → execute OTA Production e confirme `PRODUCTION`;

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.3.0 — Widget Family
+
+- O seletor Android agora oferece cinco widgets reais: Mini, Strip, Companion, Mission e Command.
+- Adicionados tamanhos iniciais e responsivos 1×1, 2×1, 2×2, 4×1, 4×2 e 4×4.
+- Cada família possui metadata, descrição, preview e orçamento de conteúdo próprios.
+- Fundo transparente verdadeiro foi separado dos estilos frosted e card.
+- O Companion ganhou poses reativas e deslocamento seguro dentro dos limites do widget, sem serviço, overlay ou loop contínuo.
+- Todas as famílias compartilham o payload local, preservam configuração por instância, nonce e ações idempotentes.
+- O config plugin registra e atualiza os cinco providers sem quebrar o Expo Web.
+
+> Esta versão altera Kotlin, XML, Manifest e runtime. Ela exige um novo APK-base 2.3.0.
+
 ## 2.2.1 — Flow OTA
 
 - Brain e Professor Atlas agora mantêm o composer visível acima do teclado e virtualizam conversas extensas.

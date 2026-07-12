@@ -2,14 +2,14 @@
 
 <img src="assets/banner.svg" alt="Nexus AI — Personal Mission OS" width="100%" />
 
-# Nexus AI 2.2 · Companion
+# Nexus AI 2.3 · Widget Family
 
 ### A local-first Personal Mission OS that turns ambition into the next clear action.
 
 <p>
   <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/ci.yml?style=for-the-badge&label=CI" /></a>
   <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/security.yml"><img alt="Security" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/security.yml?style=for-the-badge&label=Security" /></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-2.2.0-8B5CF6?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-2.3.0-8B5CF6?style=for-the-badge" />
   <img alt="Expo" src="https://img.shields.io/badge/Expo-57-000020?style=for-the-badge&logo=expo" />
   <img alt="React Native" src="https://img.shields.io/badge/React_Native-0.86-20232A?style=for-the-badge&logo=react" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript" />
@@ -49,6 +49,19 @@ XP, memory, review and the next realistic action
 Nexus is designed as a **Personal Mission OS**, not a generic to-do list. It is local-first, works without an account and remains useful when the AI provider is unavailable.
 
 > **Built for execution:** every useful recommendation should answer five questions: what, why, how, what to deliver and when it is truly done.
+
+## What’s new in 2.3
+
+Nexus now ships a real Android widget family instead of forcing every experience into one compact provider.
+
+- Five picker entries: Mini, Strip, Companion, Mission and Command.
+- Purpose-built 1×1, 2×1, 2×2, 4×1, 4×2 and 4×4 compositions.
+- True transparent, frosted and card surfaces.
+- Reactive Companion poses contained inside the widget, with no continuous background loop.
+- Shared local data, secure actions and independent configuration per instance.
+- Nexus Flow 2.2.1 chat improvements: fixed composer, virtualized history and faster AI fallback.
+
+Version 2.3.0 changes Kotlin, Android resources and widget providers, so it requires a new base APK. Compatible follow-up fixes can use OTA while the runtime stays on 2.3.0.
 
 ---
 
@@ -207,7 +220,7 @@ The widget is a real Android `RemoteViews` implementation, not a screenshot or w
 - compact local payload with no API key or full profile;
 - synchronization whenever relevant app state changes.
 
-Native widget changes require a new APK. Later JavaScript-only improvements that keep runtime `2.2.0` can ship through OTA.
+Native widget changes require a new APK. Later JavaScript-only improvements that keep runtime `2.3.0` can ship through OTA.
 
 Read [the Android widget guide](docs/ANDROID_WIDGET.md) and [the Widget Studio 2.2 guide](docs/WIDGET_STUDIO_2_2.md).
 
@@ -322,7 +335,7 @@ JavaScript-only change → EAS Update preview → production promotion
 Native/runtime change   → EAS Build → new APK → new runtime baseline
 ```
 
-Version `2.2.0` changes the native widget and runtime, so it requires a new base APK. Once that APK is installed, compatible `2.2.x` JavaScript and TypeScript improvements can arrive over the air.
+Version `2.3.0` changes the native widget providers and runtime, so it requires a new base APK. Once that APK is installed, compatible `2.3.x` JavaScript and TypeScript improvements can arrive over the air.
 
 Available workflows:
 
@@ -363,6 +376,7 @@ Read [docs/TESTING.md](docs/TESTING.md).
 ## Documentation
 
 - [Nexus 2.2 release notes](docs/V2_2_RELEASE.md)
+- [Nexus 2.3 Widget Family release notes](docs/V2_3_RELEASE.md)
 - [Companion system](docs/COMPANION.md)
 - [Widget Studio 2.2](docs/WIDGET_STUDIO_2_2.md)
 - [Architecture](docs/ARCHITECTURE.md)

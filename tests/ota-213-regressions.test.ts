@@ -25,11 +25,11 @@ const widgetStyles: WidgetStyle[] = [
 ];
 
 describe("Nexus OTA 2.1.3 Clarity", () => {
-  it("moves the native runtime to 2.2.0 for Companion widgets", () => {
-    expect(OTA_RELEASE.label).toBe("2.2.0");
-    expect(OTA_RELEASE.runtime).toBe("2.2.0");
-    expect(JSON.parse(readFileSync("package.json", "utf8")).version).toBe("2.2.0");
-    expect(JSON.parse(readFileSync("app.json", "utf8")).expo.version).toBe("2.2.0");
+  it("moves the native runtime to 2.3.0 for the widget family", () => {
+    expect(OTA_RELEASE.label).toBe("2.3.0");
+    expect(OTA_RELEASE.runtime).toBe("2.3.0");
+    expect(JSON.parse(readFileSync("package.json", "utf8")).version).toBe("2.3.0");
+    expect(JSON.parse(readFileSync("app.json", "utf8")).expo.version).toBe("2.3.0");
   });
 
   it("gives legacy roadmap lessons concrete instructions", () => {
@@ -81,6 +81,6 @@ describe("Nexus OTA 2.1.3 Clarity", () => {
     const provider = readFileSync("modules/nexus-widget/android/src/main/java/expo/modules/nexuswidget/NexusWidgetProvider.kt", "utf8");
     expect(provider).toContain("ACTION_NEXT_PAGE");
     expect(provider).toContain("companionMood");
-    expect(readFileSync("app.json", "utf8")).toContain('"version": "2.2.0"');
+    expect(readFileSync("app.json", "utf8")).toContain('"version": "2.3.0"');
   });
 });

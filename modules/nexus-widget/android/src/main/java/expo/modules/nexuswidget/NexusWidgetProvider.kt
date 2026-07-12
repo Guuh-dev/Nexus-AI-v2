@@ -18,14 +18,24 @@ import java.text.NumberFormat
 import java.util.Locale
 import java.util.UUID
 
-class NexusWidgetProvider : AppWidgetProvider() {
+enum class NexusWidgetFamily(val storageName: String, val layout: Int) {
+  MINI("mini", R.layout.nexus_widget_mini),
+  STRIP("strip", R.layout.nexus_widget_strip),
+  COMPANION("companion", R.layout.nexus_widget_companion),
+  MISSION("mission", R.layout.nexus_widget_mission),
+  COMMAND("command", R.layout.nexus_widget),
+}
+
+open class NexusWidgetProvider : AppWidgetProvider() {
+  protected open val family = NexusWidgetFamily.COMMAND
+
   override fun onUpdate(context: Context, appWidgetManager: AppWidgetManager, appWidgetIds: IntArray) {
-    updateWidgets(context, appWidgetManager, appWidgetIds)
+    updateWidgets(context, appWidgetManager, appWidgetIds, family, javaClass)
   }
 
   override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, appWidgetId: Int, newOptions: Bundle) {
     super.onAppWidgetOptionsChanged(context, manager, appWidgetId, newOptions)
-    manager.updateAppWidget(appWidgetId, buildRemoteViews(context, appWidgetId))
+    manager.updateAppWidget(appWidgetId, buildRemoteViews(context, appWidgetId, family, javaClass))
   }
 
   override fun onDeleted(context: Context, appWidgetIds: IntArray) {
@@ -55,7 +65,7 @@ class NexusWidgetProvider : AppWidgetProvider() {
         val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
         val current = preferences.getInt("page_$widgetId", 0)
         preferences.edit().putInt("page_$widgetId", (current + 1) % PAGE_MODES.size).apply()
-        AppWidgetManager.getInstance(context).updateAppWidget(widgetId, buildRemoteViews(context, widgetId))
+        AppWidgetManager.getInstance(context).updateAppWidget(widgetId, buildRemoteViews(context, widgetId, family, javaClass))
       }
     }
   }
@@ -67,9 +77,7 @@ class NexusWidgetProvider : AppWidgetProvider() {
   }
 
   private fun refreshAll(context: Context) {
-    val manager = AppWidgetManager.getInstance(context)
-    val ids = manager.getAppWidgetIds(ComponentName(context, NexusWidgetProvider::class.java))
-    updateWidgets(context, manager, ids)
+    updateAllWidgetFamilies(context)
   }
 
   companion object {
@@ -85,9 +93,31 @@ class NexusWidgetProvider : AppWidgetProvider() {
 
     private val PAGE_MODES = listOf("smart", "companion", "finance", "learning", "progress")
 
-    fun updateWidgets(context: Context, manager: AppWidgetManager, ids: IntArray) {
+    private val PROVIDERS: List<Pair<Class<out NexusWidgetProvider>, NexusWidgetFamily>> = listOf(
+      NexusMiniWidgetProvider::class.java to NexusWidgetFamily.MINI,
+      NexusStripWidgetProvider::class.java to NexusWidgetFamily.STRIP,
+      NexusCompanionWidgetProvider::class.java to NexusWidgetFamily.COMPANION,
+      NexusMissionWidgetProvider::class.java to NexusWidgetFamily.MISSION,
+      NexusWidgetProvider::class.java to NexusWidgetFamily.COMMAND,
+    )
+
+    fun updateAllWidgetFamilies(context: Context) {
+      val manager = AppWidgetManager.getInstance(context)
+      PROVIDERS.forEach { (provider, family) ->
+        val ids = manager.getAppWidgetIds(ComponentName(context, provider))
+        updateWidgets(context, manager, ids, family, provider)
+      }
+    }
+
+    fun updateWidgets(
+      context: Context,
+      manager: AppWidgetManager,
+      ids: IntArray,
+      family: NexusWidgetFamily = NexusWidgetFamily.COMMAND,
+      providerClass: Class<out NexusWidgetProvider> = NexusWidgetProvider::class.java,
+    ) {
       ensureNonce(context)
-      ids.forEach { widgetId -> manager.updateAppWidget(widgetId, buildRemoteViews(context, widgetId)) }
+      ids.forEach { widgetId -> manager.updateAppWidget(widgetId, buildRemoteViews(context, widgetId, family, providerClass)) }
     }
 
     private fun ensureNonce(context: Context): String {
@@ -106,19 +136,21 @@ class NexusWidgetProvider : AppWidgetProvider() {
         val payload = try { JSONObject(raw) } catch (_: Exception) { return }
         val tasks = payload.optJSONArray("tasks") ?: return
         var completedValue: Boolean? = null
+        var previousValue: Boolean? = null
         for (index in 0 until tasks.length()) {
           val task = tasks.optJSONObject(index) ?: continue
           if (task.optString("id") == taskId) {
-            completedValue = !task.optBoolean("completed", false)
+            val wasCompleted = task.optBoolean("completed", false)
+            previousValue = wasCompleted
+            completedValue = !wasCompleted
             task.put("completed", completedValue)
             break
           }
         }
         val completed = completedValue ?: return
-        var completedCount = 0
-        for (index in 0 until tasks.length()) {
-          if (tasks.optJSONObject(index)?.optBoolean("completed", false) == true) completedCount += 1
-        }
+        val totalCount = payload.optInt("totalCount", tasks.length()).coerceAtLeast(0)
+        val delta = if (completed && previousValue == false) 1 else if (!completed && previousValue == true) -1 else 0
+        val completedCount = (payload.optInt("completedCount", 0) + delta).coerceIn(0, totalCount)
         payload.put("completedCount", completedCount)
 
         val pending = try { JSONArray(preferences.getString(PENDING_ACTIONS_KEY, "[]")) } catch (_: Exception) { JSONArray() }
@@ -139,8 +171,13 @@ class NexusWidgetProvider : AppWidgetProvider() {
       }
     }
 
-    private fun buildRemoteViews(context: Context, widgetId: Int): RemoteViews {
-      val views = RemoteViews(context.packageName, R.layout.nexus_widget)
+    private fun buildRemoteViews(
+      context: Context,
+      widgetId: Int,
+      family: NexusWidgetFamily,
+      providerClass: Class<out NexusWidgetProvider>,
+    ): RemoteViews {
+      val views = RemoteViews(context.packageName, family.layout)
       val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
       val raw = preferences.getString(PAYLOAD_KEY, null)
       val payload = try { if (raw.isNullOrBlank()) null else JSONObject(raw) } catch (_: Exception) { null }
@@ -149,15 +186,23 @@ class NexusWidgetProvider : AppWidgetProvider() {
 
       val style = instance.optString("style", appearance?.optString("style", "nexus") ?: "nexus")
       val configuredContent = instance.optString("content", appearance?.optString("contentMode", "smart") ?: "smart")
-      val pageCycle = instance.optBoolean("pageCycle", appearance?.optBoolean("allowPageCycle", false) ?: false)
+      val pageCycle = family == NexusWidgetFamily.COMMAND &&
+        instance.optBoolean("pageCycle", appearance?.optBoolean("allowPageCycle", false) ?: false)
       val pageIndex = preferences.getInt("page_$widgetId", 0).coerceAtLeast(0)
-      val contentMode = if (pageCycle) PAGE_MODES[pageIndex % PAGE_MODES.size] else configuredContent
+      val contentMode = when (family) {
+        NexusWidgetFamily.MINI -> "progress"
+        NexusWidgetFamily.COMPANION -> "companion"
+        NexusWidgetFamily.MISSION -> if (configuredContent == "tasks") "tasks" else "mission"
+        NexusWidgetFamily.STRIP -> if (configuredContent in listOf("quote", "progress", "focus")) configuredContent else "mission"
+        NexusWidgetFamily.COMMAND -> if (pageCycle) PAGE_MODES[pageIndex % PAGE_MODES.size] else configuredContent
+      }
       val privateMode = contentMode == "private" || style == "privacy" || appearance?.optBoolean("privacyMode", false) == true
       val background = appearance?.optString("background", "solid") ?: "solid"
       val backgroundResource = when {
+        style == "transparent" || background == "transparent" -> R.drawable.nexus_widget_background_transparent
         style == "light" -> R.drawable.nexus_widget_background_light
         style == "amoled" || background == "amoled" -> R.drawable.nexus_widget_background_amoled
-        style == "transparent" || style == "glass" || background == "translucent" -> R.drawable.nexus_widget_background_translucent
+        style == "glass" || background == "translucent" || background == "frosted" -> R.drawable.nexus_widget_background_translucent
         style == "pixel" -> R.drawable.nexus_widget_background_pixel
         style == "minimal" -> R.drawable.nexus_widget_background_minimal
         style == "gamer" -> R.drawable.nexus_widget_background_gamer
@@ -169,9 +214,10 @@ class NexusWidgetProvider : AppWidgetProvider() {
       val options = AppWidgetManager.getInstance(context).getAppWidgetOptions(widgetId)
       val width = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 250)
       val height = options.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_HEIGHT, 110)
-      val tiny = width < 120 || height < 80
-      val compact = width < 220 || height < 115
-      val large = width >= 250 && height >= 170
+      val tiny = family == NexusWidgetFamily.MINI
+      val compact = family == NexusWidgetFamily.STRIP ||
+        (family == NexusWidgetFamily.COMMAND && (width < 220 || height < 115))
+      val large = family == NexusWidgetFamily.COMMAND && width >= 250 && height >= 170
 
       val selectedMascot = instance.optString("mascot", appearance?.optString("mascot", "nexus") ?: "nexus")
       val mood = instance.optString("mood", appearance?.optString("companionMood", "happy") ?: "happy")
@@ -184,17 +230,20 @@ class NexusWidgetProvider : AppWidgetProvider() {
         else -> appearance?.optBoolean("showProfessor", false) ?: false
       }) && selectedMascot != "atlas"
 
-      val showLearning = contentMode == "learning" || (appearance?.optBoolean("showLearning", false) ?: false)
-      val showMission = contentMode in listOf("full", "smart", "mission") && (appearance?.optBoolean("showMission", true) ?: true)
-      val showTasks = contentMode in listOf("full", "smart", "tasks") && (appearance?.optBoolean("showTasks", true) ?: true)
-      val showStreak = appearance?.optBoolean("showStreak", true) ?: true
-      val showXp = contentMode == "progress" || (appearance?.optBoolean("showXp", false) ?: false)
-      val showLevel = contentMode == "progress" || (appearance?.optBoolean("showLevel", false) ?: false)
-      val showFocus = contentMode == "focus" || (appearance?.optBoolean("showFocus", false) ?: false)
+      val showLearning = family == NexusWidgetFamily.COMMAND &&
+        (contentMode == "learning" || (appearance?.optBoolean("showLearning", false) ?: false))
+      val showMission = family in listOf(NexusWidgetFamily.STRIP, NexusWidgetFamily.MISSION, NexusWidgetFamily.COMMAND) &&
+        contentMode in listOf("full", "smart", "mission") && (appearance?.optBoolean("showMission", true) ?: true)
+      val showTasks = family in listOf(NexusWidgetFamily.MISSION, NexusWidgetFamily.COMMAND) &&
+        contentMode in listOf("full", "smart", "tasks", "mission") && (appearance?.optBoolean("showTasks", true) ?: true)
+      val showStreak = !privateMode && (appearance?.optBoolean("showStreak", true) ?: true)
+      val showXp = !privateMode && (contentMode == "progress" || (appearance?.optBoolean("showXp", false) ?: false))
+      val showLevel = !privateMode && (contentMode == "progress" || (appearance?.optBoolean("showLevel", false) ?: false))
+      val showFocus = !privateMode && (contentMode == "focus" || (appearance?.optBoolean("showFocus", false) ?: false))
       val showProgress = instance.optString("progress", "global").let { mode ->
         when (mode) { "show" -> true; "hide" -> false; else -> appearance?.optBoolean("showProgress", true) ?: true }
-      }
-      val showCapture = instance.optString("capture", "global").let { mode ->
+      } && !privateMode
+      val showCapture = family == NexusWidgetFamily.COMMAND && instance.optString("capture", "global").let { mode ->
         when (mode) { "show" -> true; "hide" -> false; else -> appearance?.optBoolean("showCapture", true) ?: true }
       }
       val compactTasks = instance.optString("density", "global").let { mode ->
@@ -257,7 +306,38 @@ class NexusWidgetProvider : AppWidgetProvider() {
         "ember" -> Color.parseColor("#FB7185")
         else -> skinColor
       }
-      views.setInt(R.id.nexus_widget_mascot, "setColorFilter", mascotColor)
+      // Nexus pose vectors carry their own pixel colors and facial details.
+      // Tint only alternate companions; a global filter would flatten the
+      // celebrating/resting/watching artwork into a single-color silhouette.
+      if (selectedMascot != "nexus") {
+        views.setInt(R.id.nexus_widget_mascot, "setColorFilter", mascotColor)
+      }
+      val completedForPose = payload?.optInt("completedCount", 0) ?: 0
+      val totalForPose = payload?.optInt("totalCount", 0) ?: 0
+      val pose = when {
+        totalForPose > 0 && completedForPose >= totalForPose -> "celebrating"
+        mood == "quiet" || speech == "silent" -> "resting"
+        mood == "strict" -> "watching"
+        (widgetId + completedForPose + (payload?.optString("date", "") ?: "").hashCode()).mod(3) == 0 -> "left"
+        (widgetId + completedForPose).mod(3) == 1 -> "right"
+        else -> "idle"
+      }
+      if (selectedMascot == "nexus") {
+        views.setImageViewResource(R.id.nexus_widget_mascot, when (pose) {
+          "celebrating" -> R.drawable.ic_nexus_mascot_celebrating
+          "resting" -> R.drawable.ic_nexus_mascot_resting
+          "watching" -> R.drawable.ic_nexus_mascot_watching
+          else -> R.drawable.ic_nexus_mascot
+        })
+      }
+      val horizontalPadding = when (pose) { "left" -> 0; "right" -> if (family == NexusWidgetFamily.COMPANION) 24 else 8; else -> if (family == NexusWidgetFamily.COMPANION) 12 else 4 }
+      views.setViewPadding(R.id.nexus_widget_mascot_stage, dp(context, horizontalPadding), 0, 0, 0)
+      views.setInt(R.id.nexus_widget_mascot_stage, "setGravity", when (pose) {
+        "left" -> Gravity.START or Gravity.CENTER_VERTICAL
+        "right" -> Gravity.END or Gravity.CENTER_VERTICAL
+        else -> Gravity.CENTER
+      })
+      views.setContentDescription(R.id.nexus_widget_mascot, "Nexus Companion: $pose")
       views.setInt(R.id.nexus_widget_professor, "setColorFilter", professorColor)
       views.setTextViewText(R.id.nexus_widget_accessory, accessoryGlyph(accessory))
       views.setTextColor(R.id.nexus_widget_accessory, mainText)
@@ -326,12 +406,15 @@ class NexusWidgetProvider : AppWidgetProvider() {
         }
 
         val tasks = payload.optJSONArray("tasks")
-        val maxVisible = when {
-          tiny -> 0
-          compact -> if (compactTasks) 1 else 0
-          large -> 5
-          compactTasks -> 2
-          else -> 3
+        val maxVisible = when (family) {
+          NexusWidgetFamily.MINI, NexusWidgetFamily.STRIP, NexusWidgetFamily.COMPANION -> 0
+          NexusWidgetFamily.MISSION -> if (height < 120) 1 else minOf(3, if (compactTasks) 2 else 3)
+          NexusWidgetFamily.COMMAND -> when {
+            compact -> if (compactTasks) 1 else 0
+            large -> 5
+            compactTasks -> 2
+            else -> 3
+          }
         }
         for (index in 0..4) {
           val task = tasks?.optJSONObject(index)
@@ -379,7 +462,7 @@ class NexusWidgetProvider : AppWidgetProvider() {
       views.setOnClickPendingIntent(R.id.nexus_widget_capture, PendingIntent.getActivity(context, 9500 + widgetId, captureIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
 
       if (pageCycle) {
-        val pageIntent = Intent(context, NexusWidgetProvider::class.java)
+        val pageIntent = Intent(context, providerClass)
           .setAction(ACTION_NEXT_PAGE)
           .putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, widgetId)
           .putExtra(EXTRA_NONCE, ensureNonce(context))
@@ -419,6 +502,9 @@ class NexusWidgetProvider : AppWidgetProvider() {
     }
 
     private fun currency(value: Double): String = NumberFormat.getCurrencyInstance(Locale("pt", "BR")).format(value)
+
+    private fun dp(context: Context, value: Int): Int =
+      (value * context.resources.displayMetrics.density).toInt()
 
     private fun accessoryGlyph(accessory: String): String = when (accessory) {
       "glasses" -> "▣▣"
@@ -464,7 +550,8 @@ class NexusWidgetProvider : AppWidgetProvider() {
       views.setTextViewText(titleIds[index], title)
       views.setTextColor(titleIds[index], if (completed) secondaryText else mainText)
       if (!taskId.isNullOrBlank()) {
-        val intent = Intent(context, NexusWidgetProvider::class.java)
+        val provider = providerClassForWidget(context, widgetId)
+        val intent = Intent(context, provider)
           .setAction(ACTION_TOGGLE_TASK)
           .putExtra(EXTRA_TASK_ID, taskId)
           .putExtra(EXTRA_NONCE, ensureNonce(context))
@@ -472,5 +559,26 @@ class NexusWidgetProvider : AppWidgetProvider() {
         views.setOnClickPendingIntent(containerIds[index], PendingIntent.getBroadcast(context, requestCode, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE))
       }
     }
+
+    private fun providerClassForWidget(context: Context, widgetId: Int): Class<out NexusWidgetProvider> {
+      val configured = AppWidgetManager.getInstance(context).getAppWidgetInfo(widgetId)?.provider?.className
+      return PROVIDERS.firstOrNull { it.first.name == configured }?.first ?: NexusWidgetProvider::class.java
+    }
   }
+}
+
+class NexusMiniWidgetProvider : NexusWidgetProvider() {
+  protected override val family = NexusWidgetFamily.MINI
+}
+
+class NexusStripWidgetProvider : NexusWidgetProvider() {
+  protected override val family = NexusWidgetFamily.STRIP
+}
+
+class NexusCompanionWidgetProvider : NexusWidgetProvider() {
+  protected override val family = NexusWidgetFamily.COMPANION
+}
+
+class NexusMissionWidgetProvider : NexusWidgetProvider() {
+  protected override val family = NexusWidgetFamily.MISSION
 }

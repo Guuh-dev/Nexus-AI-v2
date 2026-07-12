@@ -22,11 +22,11 @@ describe("Nexus OTA 2.1.3 regressions", () => {
   it("declares the Companion native runtime consistently", () => {
     const app = JSON.parse(readFileSync("app.json", "utf8")) as { expo?: { version?: string; runtimeVersion?: { policy?: string } } };
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { version?: string };
-    expect(app.expo?.version).toBe("2.2.0");
-    expect(pkg.version).toBe("2.2.0");
+    expect(app.expo?.version).toBe("2.3.0");
+    expect(pkg.version).toBe("2.3.0");
     expect(app.expo?.runtimeVersion?.policy).toBe("appVersion");
-    expect(OTA_RELEASE.label).toBe("2.2.0");
-    expect(OTA_RELEASE.runtime).toBe("2.2.0");
+    expect(OTA_RELEASE.label).toBe("2.3.0");
+    expect(OTA_RELEASE.runtime).toBe("2.3.0");
   });
 
   it("does not replace the themed tab bar with the white default in Focus OS", () => {

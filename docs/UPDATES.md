@@ -2,7 +2,7 @@
 
 ## Regra principal
 
-A versão 2.2.0 inaugura um novo runtime porque altera o widget Kotlin, layouts XML e o armazenamento. Portanto, **primeiro gere e instale o APK 2.2.0**. Depois disso, mudanças compatíveis 2.2.x podem chegar por OTA.
+A versão 2.3.0 inaugura um novo runtime porque adiciona providers Kotlin, layouts XML e recursos nativos. Portanto, **primeiro gere e instale o APK 2.3.0**. Depois disso, mudanças compatíveis 2.3.x podem chegar por OTA.
 
 ### Pode ser OTA
 
@@ -10,7 +10,7 @@ A versão 2.2.0 inaugura um novo runtime porque altera o widget Kotlin, layouts 
 - prompts, streaming, regras locais, textos, estilos e temas;
 - ajustes do Brain, Atlas, Companion e Money Mission que não alterem módulos nativos;
 - presets/preview do Widget Studio que utilizem capacidades já instaladas;
-- assets comuns compatíveis com runtime 2.2.0.
+- assets comuns compatíveis com runtime 2.3.0.
 
 ### Exige APK novo
 

@@ -1,7 +1,5 @@
 package expo.modules.nexuswidget
 
-import android.appwidget.AppWidgetManager
-import android.content.ComponentName
 import android.content.Context
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -20,10 +18,7 @@ class NexusWidgetModule : Module() {
           .apply()
       }
 
-      val manager = AppWidgetManager.getInstance(context)
-      val component = ComponentName(context, NexusWidgetProvider::class.java)
-      val widgetIds = manager.getAppWidgetIds(component)
-      NexusWidgetProvider.updateWidgets(context, manager, widgetIds)
+      NexusWidgetProvider.updateAllWidgetFamilies(context)
     }
 
     AsyncFunction("consumePendingActions") {
