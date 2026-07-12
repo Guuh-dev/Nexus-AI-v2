@@ -68,7 +68,7 @@ function statusFromError(error: unknown): number {
   if (typeof value.status === "number") return value.status;
   if (typeof value.statusCode === "number") return value.statusCode;
   if (typeof value.message === "string") {
-    const match = value.message.match(/(?:STREAM_|status\D*)(400|401|402|429|500|502|503|529)\b/i);
+    const match = value.message.match(/(?:STREAM_|status\D*)(400|401|402|408|425|429|500|502|503|504|529)\b/i);
     if (match?.[1]) return Number(match[1]);
   }
   return 503;
@@ -108,7 +108,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!allow(request, data.clientId)) return json(request, { error: { code: "rate_limit", message: "O Nexus está recebendo muitas solicitações. Tente novamente em instantes." } }, 429);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 28_000);
+  const timeout = setTimeout(() => controller.abort(), 32_000);
   const promise = runAssistant(data, controller.signal);
   inFlight.set(requestCacheKey, promise);
   try {
@@ -122,6 +122,7 @@ export async function POST(request: Request): Promise<Response> {
     if (status === 401) return json(request, { error: { code: "unauthorized", message: "Não foi possível validar a inteligência do Nexus." } }, 401);
     if (status === 402) return json(request, { error: { code: "payment_required", message: "A cota da inteligência terminou. O modo local continua disponível." } }, 402);
     if (status === 429) return json(request, { error: { code: "rate_limit", message: "O Nexus está recebendo muitas solicitações. Tente novamente em instantes." } }, 429);
+    if ([408, 425, 504, 529].includes(status)) return json(request, { error: { code: "timeout", message: "O provedor remoto demorou ou está temporariamente sobrecarregado." } }, 504);
     return json(request, { error: { code: "provider_unavailable", message: "A inteligência está temporariamente indisponível." } }, 503);
   } finally {
     clearTimeout(timeout);

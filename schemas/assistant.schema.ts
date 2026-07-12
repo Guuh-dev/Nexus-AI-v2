@@ -23,7 +23,11 @@ const roadmapDraftSchema = z.object({
     objective: z.string().trim().min(2).max(500),
     lessons: z.array(z.object({
       title: z.string().trim().min(2).max(160),
-      description: z.string().trim().min(2).max(500),
+      description: z.string().trim().min(2).max(700),
+      objective: z.string().trim().min(2).max(400).optional(),
+      steps: z.array(z.string().trim().min(2).max(240)).min(1).max(6).optional(),
+      deliverable: z.string().trim().min(2).max(400).optional(),
+      successCriteria: z.string().trim().min(2).max(400).optional(),
       estimatedMinutes: z.number().int().min(5).max(180),
     }).strict()).min(1).max(12),
   }).strict()).min(1).max(10),
@@ -117,7 +121,13 @@ export const ASSISTANT_JSON_SCHEMA = {
         phases: { type: "array", minItems: 1, maxItems: 10, items: { type: "object", additionalProperties: false, required: ["title", "objective", "lessons"], properties: {
           title: { type: "string", maxLength: 160 }, objective: { type: "string", maxLength: 500 },
           lessons: { type: "array", minItems: 1, maxItems: 12, items: { type: "object", additionalProperties: false, required: ["title", "description", "estimatedMinutes"], properties: {
-            title: { type: "string", maxLength: 160 }, description: { type: "string", maxLength: 500 }, estimatedMinutes: { type: "integer", minimum: 5, maximum: 180 },
+            title: { type: "string", maxLength: 160 },
+            description: { type: "string", maxLength: 700 },
+            objective: { type: "string", maxLength: 400 },
+            steps: { type: "array", minItems: 1, maxItems: 6, items: { type: "string", maxLength: 240 } },
+            deliverable: { type: "string", maxLength: 400 },
+            successCriteria: { type: "string", maxLength: 400 },
+            estimatedMinutes: { type: "integer", minimum: 5, maximum: 180 },
           } } },
         } } },
       },

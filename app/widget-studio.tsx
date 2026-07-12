@@ -94,7 +94,7 @@ export default function WidgetStudioScreen() {
       <View style={styles.header}>
         <NexusButton label="Voltar" variant="ghost" onPress={() => router.back()} />
         <View style={styles.flex}>
-          <NexusText variant="mono" color={colors.primarySoft}>WIDGET STUDIO 2.1.2</NexusText>
+          <NexusText variant="mono" color={colors.primarySoft}>WIDGET STUDIO 2.1.3</NexusText>
           <NexusText variant="display">Sua tela inicial, do seu jeito.</NexusText>
         </View>
         <CompanionMascot mascot="byte" size={58} />

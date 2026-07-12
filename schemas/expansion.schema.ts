@@ -76,7 +76,11 @@ export const brainStateSchema = z.object({
 const roadmapLessonSchema = z.object({
   id,
   title: shortText,
-  description: z.string().trim().max(500),
+  description: z.string().trim().max(700),
+  objective: z.string().trim().max(400).optional(),
+  steps: z.array(z.string().trim().min(2).max(240)).min(1).max(6).optional(),
+  deliverable: z.string().trim().max(400).optional(),
+  successCriteria: z.string().trim().max(400).optional(),
   estimatedMinutes: z.number().int().min(5).max(360),
   completed: z.boolean(),
   completedAt: dateTime.optional(),

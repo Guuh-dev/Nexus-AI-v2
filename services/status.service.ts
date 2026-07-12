@@ -14,7 +14,20 @@ export type IntelligenceStatus = {
   checkedAt?: string;
   reachable?: boolean;
   errorCode?: string;
+  probeOk?: boolean;
+  probeModel?: string;
+  probeLatencyMs?: number;
+  probeMessage?: string;
 };
+
+const probeSchema = z.object({
+  ok: z.boolean(),
+  model: z.string().trim().max(200).optional(),
+  latencyMs: z.number().int().nonnegative().max(120_000).optional(),
+  checkedAt: z.string().trim().max(80).optional(),
+  errorCode: z.string().trim().max(80).optional(),
+  message: z.string().trim().max(300).optional(),
+}).strict();
 
 const intelligenceStatusSchema = z.object({
   configured: z.boolean(),
@@ -25,27 +38,41 @@ const intelligenceStatusSchema = z.object({
   service: z.string().trim().max(100).optional(),
   capabilities: z.array(z.string().trim().max(80)).max(20).optional(),
   serverTime: z.string().trim().max(80).optional(),
+  probe: probeSchema.optional(),
 }).strict();
 
-export async function getIntelligenceStatus(signal?: AbortSignal): Promise<IntelligenceStatus | null> {
+export async function getIntelligenceStatus(signal?: AbortSignal, deep = false): Promise<IntelligenceStatus | null> {
   const startedAt = Date.now();
   try {
     const response = await fetchNexusApi("/api/status", {
+      method: deep ? "POST" : "GET",
       ...(signal ? { signal } : {}),
       headers: { Accept: "application/json" },
     });
-    if (!response.ok || !(response.headers.get("content-type") ?? "").includes("application/json")) return null;
+    if (!(response.headers.get("content-type") ?? "").includes("application/json")) return null;
     const parsed = intelligenceStatusSchema.safeParse(await response.json());
     if (!parsed.success) return null;
     const compatible = Boolean(parsed.data.apiVersion && /^2\.(?:[1-9]|\d{2,})(?:\.|$)/.test(parsed.data.apiVersion));
+    const probe = parsed.data.probe;
     return {
-      ...parsed.data,
-      assistantAvailable: compatible && parsed.data.assistantAvailable !== false,
+      configured: parsed.data.configured,
+      primaryModel: parsed.data.primaryModel,
+      fallback: parsed.data.fallback,
+      ...(parsed.data.apiVersion ? { apiVersion: parsed.data.apiVersion } : {}),
+      ...(parsed.data.service ? { service: parsed.data.service } : {}),
+      ...(parsed.data.capabilities ? { capabilities: parsed.data.capabilities } : {}),
+      assistantAvailable: compatible && parsed.data.assistantAvailable !== false && (!deep || probe?.ok === true),
       endpoint: response.url || undefined,
       latencyMs: Date.now() - startedAt,
-      checkedAt: new Date().toISOString(),
+      checkedAt: probe?.checkedAt ?? new Date().toISOString(),
       reachable: true,
-      ...(!compatible ? { errorCode: "incompatible_backend" } : {}),
+      ...(probe ? {
+        probeOk: probe.ok,
+        ...(probe.model ? { probeModel: probe.model } : {}),
+        ...(probe.latencyMs !== undefined ? { probeLatencyMs: probe.latencyMs } : {}),
+        ...(probe.message ? { probeMessage: probe.message } : {}),
+      } : {}),
+      ...(!compatible ? { errorCode: "incompatible_backend" } : probe?.errorCode ? { errorCode: probe.errorCode } : !response.ok ? { errorCode: `http_${response.status}` } : {}),
     };
   } catch {
     return null;

@@ -372,6 +372,10 @@ export type RoadmapLesson = {
   id: string;
   title: string;
   description: string;
+  objective?: string;
+  steps?: string[];
+  deliverable?: string;
+  successCriteria?: string;
   estimatedMinutes: number;
   completed: boolean;
   completedAt?: string;

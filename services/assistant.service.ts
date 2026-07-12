@@ -1,7 +1,12 @@
 import { PRIORITY_XP } from "@/constants/defaults";
 import { assistantClientResponseSchema } from "@/schemas/assistant.schema";
 import { professorIntakeSchema } from "@/schemas/expansion.schema";
-import { createStarterRoadmap, nextRoadmapLesson } from "@/features/learning/roadmap";
+import {
+  createStarterRoadmap,
+  nextRoadmapLesson,
+} from "@/features/learning/roadmap";
+import { getLessonGuidance } from "@/features/learning/lesson-guidance";
+import { getTaskGuidance } from "@/features/planning/task-guidance";
 import type {
   AppData,
   AssistantMeta,
@@ -18,7 +23,7 @@ import { createId } from "@/utils/ids";
 import { sanitizeText } from "@/utils/text";
 import { fetchNexusApi, NexusApiError } from "@/services/api-config";
 
-const ASSISTANT_TIMEOUT_MS = 24_000;
+export const ASSISTANT_TIMEOUT_MS = 35_000;
 
 type AssistantRunOptions = {
   signal?: AbortSignal;
@@ -42,8 +47,13 @@ function arrayValue(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-export function compactAssistantContext(context: Record<string, unknown>, mode: AssistantRequest["mode"]): Record<string, unknown> {
-  const memories = arrayValue(context.memories) as Array<{ pinned?: unknown; content?: unknown } & Record<string, unknown>>;
+export function compactAssistantContext(
+  context: Record<string, unknown>,
+  mode: AssistantRequest["mode"],
+): Record<string, unknown> {
+  const memories = arrayValue(context.memories) as Array<
+    { pinned?: unknown; content?: unknown } & Record<string, unknown>
+  >;
   const pinned = memories.filter((memory) => memory?.pinned === true).slice(-8);
   const recentMemories = memories.slice(-10);
   const compactMemories = [...pinned, ...recentMemories]
@@ -52,7 +62,10 @@ export function compactAssistantContext(context: Record<string, unknown>, mode: 
       kind: memory.kind,
       confidence: memory.confidence,
       pinned: memory.pinned === true,
-      content: sanitizeText(typeof memory.content === "string" ? memory.content : "", 280),
+      content: sanitizeText(
+        typeof memory.content === "string" ? memory.content : "",
+        280,
+      ),
     }));
 
   const conversationLimit = mode === "roadmap" ? 4 : mode === "capture" ? 2 : 8;
@@ -63,16 +76,31 @@ export function compactAssistantContext(context: Record<string, unknown>, mode: 
     recentHistory: arrayValue(context.recentHistory).slice(-7),
     focus: arrayValue(context.focus).slice(-10),
     memories: compactMemories,
-    conversation: arrayValue(context.conversation).slice(-conversationLimit).map((message) => {
-      if (!message || typeof message !== "object") return message;
-      const item = message as { role?: unknown; content?: unknown };
-      return { role: item.role, content: sanitizeText(typeof item.content === "string" ? item.content : "", 1200) };
-    }),
-    roadmaps: arrayValue(context.roadmaps).slice(0, mode === "professor" || mode === "roadmap" ? 3 : 1),
+    conversation: arrayValue(context.conversation)
+      .slice(-conversationLimit)
+      .map((message) => {
+        if (!message || typeof message !== "object") return message;
+        const item = message as { role?: unknown; content?: unknown };
+        return {
+          role: item.role,
+          content: sanitizeText(
+            typeof item.content === "string" ? item.content : "",
+            1200,
+          ),
+        };
+      }),
+    roadmaps: arrayValue(context.roadmaps).slice(
+      0,
+      mode === "professor" || mode === "roadmap" ? 3 : 1,
+    ),
     operations: arrayValue(context.operations).slice(0, 3),
     habits: arrayValue(context.habits).slice(0, 8),
-    ...(typeof context.conversationSummary === "string" ? { conversationSummary: sanitizeText(context.conversationSummary, 1600) } : {}),
-    ...(mode === "roadmap" && context.professorIntake ? { professorIntake: context.professorIntake } : {}),
+    ...(typeof context.conversationSummary === "string"
+      ? { conversationSummary: sanitizeText(context.conversationSummary, 1600) }
+      : {}),
+    ...(mode === "roadmap" && context.professorIntake
+      ? { professorIntake: context.professorIntake }
+      : {}),
   };
 
   // Last safety net: keep client payload comfortably below the API body limit.
@@ -84,7 +112,9 @@ export function compactAssistantContext(context: Record<string, unknown>, mode: 
     progress: compact.progress,
     memories: compactMemories.slice(-6),
     conversation: compact.conversation.slice(-6),
-    ...(mode === "roadmap" && context.professorIntake ? { professorIntake: context.professorIntake } : {}),
+    ...(mode === "roadmap" && context.professorIntake
+      ? { professorIntake: context.professorIntake }
+      : {}),
   };
 }
 
@@ -100,7 +130,11 @@ function safeTask(task: Task) {
   };
 }
 
-export function buildAssistantContext(data: AppData, kind: ChatKind, messages: ChatMessage[] = []): Record<string, unknown> {
+export function buildAssistantContext(
+  data: AppData,
+  kind: ChatKind,
+  messages: ChatMessage[] = [],
+): Record<string, unknown> {
   const recentHistory = data.history.slice(-10).map((day) => ({
     date: day.date,
     completion: day.completionPercentage,
@@ -116,50 +150,82 @@ export function buildAssistantContext(data: AppData, kind: ChatKind, messages: C
     at: session.completedAt,
     mode: session.mode,
   }));
-  const pinnedMemories = data.brain.memories.filter((memory) => memory.pinned).slice(-10);
-  const memoryPool = [...pinnedMemories, ...data.brain.memories.slice(-14)]
-    .filter((memory, index, all) => all.findIndex((candidate) => candidate.id === memory.id) === index);
+  const pinnedMemories = data.brain.memories
+    .filter((memory) => memory.pinned)
+    .slice(-10);
+  const memoryPool = [
+    ...pinnedMemories,
+    ...data.brain.memories.slice(-14),
+  ].filter(
+    (memory, index, all) =>
+      all.findIndex((candidate) => candidate.id === memory.id) === index,
+  );
   return {
     kind,
-    today: data.activePlan ? {
-      date: data.activePlan.date,
-      mission: data.activePlan.mainMission,
-      tasks: data.activePlan.tasks.slice(0, 10).map(safeTask),
-      totalMinutes: data.activePlan.totalEstimatedMinutes,
-    } : null,
+    today: data.activePlan
+      ? {
+          date: data.activePlan.date,
+          mission: data.activePlan.mainMission,
+          tasks: data.activePlan.tasks.slice(0, 10).map(safeTask),
+          totalMinutes: data.activePlan.totalEstimatedMinutes,
+        }
+      : null,
     recentHistory,
     focus,
-    progress: { xp: data.progress.totalXp, streak: data.progress.currentStreak, attributes: data.progress.attributes },
-    memories: memoryPool.map(({ kind: memoryKind, content, confidence, pinned }) => ({
-      kind: memoryKind,
-      content: sanitizeText(content, 300),
-      confidence,
-      pinned,
-    })),
-    conversation: messages.slice(-12).map(({ role, content }) => ({ role, content: sanitizeText(content, 1200) })),
-    roadmaps: data.learning.roadmaps.filter((roadmap) => roadmap.status === "active").slice(0, 3).map((roadmap) => ({
-      topic: roadmap.topic,
-      outcome: roadmap.outcome,
-      ...(roadmap.intake ? { intake: {
-        knowledgeLevel: roadmap.intake.knowledgeLevel,
-        knownConcepts: sanitizeText(roadmap.intake.knownConcepts, 350),
-        previousAttempts: sanitizeText(roadmap.intake.previousAttempts, 350),
-        proofProject: sanitizeText(roadmap.intake.proofProject, 350),
-        motivation: sanitizeText(roadmap.intake.motivation, 250),
-        deadline: roadmap.intake.deadline,
-        weeklyMinutes: roadmap.intake.weeklyMinutes,
-        sessionMinutes: roadmap.intake.sessionMinutes,
-        resources: roadmap.intake.resources.slice(0, 8),
-        constraints: roadmap.intake.constraints.slice(0, 8),
-        preferredMethods: roadmap.intake.preferredMethods.slice(0, 8),
-      } } : {}),
-      phases: roadmap.phases.slice(0, 8).map((phase) => ({
-        title: phase.title,
-        completed: phase.lessons.filter((lesson) => lesson.completed).length,
-        total: phase.lessons.length,
+    progress: {
+      xp: data.progress.totalXp,
+      streak: data.progress.currentStreak,
+      attributes: data.progress.attributes,
+    },
+    memories: memoryPool.map(
+      ({ kind: memoryKind, content, confidence, pinned }) => ({
+        kind: memoryKind,
+        content: sanitizeText(content, 300),
+        confidence,
+        pinned,
+      }),
+    ),
+    conversation: messages
+      .slice(-12)
+      .map(({ role, content }) => ({
+        role,
+        content: sanitizeText(content, 1200),
       })),
-    })),
-    operations: data.operations.filter((operation) => operation.status === "active").slice(0, 3),
+    roadmaps: data.learning.roadmaps
+      .filter((roadmap) => roadmap.status === "active")
+      .slice(0, 3)
+      .map((roadmap) => ({
+        topic: roadmap.topic,
+        outcome: roadmap.outcome,
+        ...(roadmap.intake
+          ? {
+              intake: {
+                knowledgeLevel: roadmap.intake.knowledgeLevel,
+                knownConcepts: sanitizeText(roadmap.intake.knownConcepts, 350),
+                previousAttempts: sanitizeText(
+                  roadmap.intake.previousAttempts,
+                  350,
+                ),
+                proofProject: sanitizeText(roadmap.intake.proofProject, 350),
+                motivation: sanitizeText(roadmap.intake.motivation, 250),
+                deadline: roadmap.intake.deadline,
+                weeklyMinutes: roadmap.intake.weeklyMinutes,
+                sessionMinutes: roadmap.intake.sessionMinutes,
+                resources: roadmap.intake.resources.slice(0, 8),
+                constraints: roadmap.intake.constraints.slice(0, 8),
+                preferredMethods: roadmap.intake.preferredMethods.slice(0, 8),
+              },
+            }
+          : {}),
+        phases: roadmap.phases.slice(0, 8).map((phase) => ({
+          title: phase.title,
+          completed: phase.lessons.filter((lesson) => lesson.completed).length,
+          total: phase.lessons.length,
+        })),
+      })),
+    operations: data.operations
+      .filter((operation) => operation.status === "active")
+      .slice(0, 3),
     habits: data.habits.slice(0, 8).map((habit) => ({
       title: habit.title,
       target: habit.targetPerWeek,
@@ -171,21 +237,41 @@ export function buildAssistantContext(data: AppData, kind: ChatKind, messages: C
 
 function localCapture(message: string, data: AppData): AssistantResponse {
   const normalized = message.toLocaleLowerCase("pt-BR");
-  const category = /cliente|proposta|venda|dinheiro|orçamento|pagamento/.test(normalized) ? "dinheiro"
-    : /estud|prova|exercício|trabalho da escola|revis/.test(normalized) ? "estudos"
-      : /treino|saúde|correr|academia|futebol/.test(normalized) ? "saude"
-        : /código|program|app|site|deploy|github/.test(normalized) ? "desenvolvimento"
-          : /arrumar|organizar|limpar/.test(normalized) ? "organizacao" : "pessoal";
-  const priority = /urgente|hoje|importante|prazo/.test(normalized) ? "alta" : /quando der|sem pressa/.test(normalized) ? "baixa" : "media";
+  const category = /cliente|proposta|venda|dinheiro|orçamento|pagamento/.test(
+    normalized,
+  )
+    ? "dinheiro"
+    : /estud|prova|exercício|trabalho da escola|revis/.test(normalized)
+      ? "estudos"
+      : /treino|saúde|correr|academia|futebol/.test(normalized)
+        ? "saude"
+        : /código|program|app|site|deploy|github/.test(normalized)
+          ? "desenvolvimento"
+          : /arrumar|organizar|limpar/.test(normalized)
+            ? "organizacao"
+            : "pessoal";
+  const priority = /urgente|hoje|importante|prazo/.test(normalized)
+    ? "alta"
+    : /quando der|sem pressa/.test(normalized)
+      ? "baixa"
+      : "media";
   const minutesMatch = normalized.match(/(\d{1,3})\s*(?:min|minutos)/);
-  const estimatedMinutes = Math.max(5, Math.min(240, minutesMatch?.[1] ? Number(minutesMatch[1]) : 25));
+  const estimatedMinutes = Math.max(
+    5,
+    Math.min(240, minutesMatch?.[1] ? Number(minutesMatch[1]) : 25),
+  );
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const scheduledDate = normalized.includes("amanhã") ? localDateKey(tomorrow, data.profile?.timezone) : undefined;
+  const scheduledDate = normalized.includes("amanhã")
+    ? localDateKey(tomorrow, data.profile?.timezone)
+    : undefined;
   return {
     message: "Organizei sua captura. Revise antes de adicionar ao plano.",
     capture: {
-      title: sanitizeText(message.replace(/^(tenho que|preciso|lembrar de)\s+/i, ""), 120),
+      title: sanitizeText(
+        message.replace(/^(tenho que|preciso|lembrar de)\s+/i, ""),
+        120,
+      ),
       category,
       priority,
       estimatedMinutes,
@@ -199,31 +285,62 @@ function localCapture(message: string, data: AppData): AssistantResponse {
 
 export function createLocalWeeklyReview(data: AppData): WeeklyReview {
   const days = data.history.slice(-7);
-  const completion = days.length ? Math.round(days.reduce((sum, day) => sum + day.completionPercentage, 0) / days.length) : 0;
+  const completion = days.length
+    ? Math.round(
+        days.reduce((sum, day) => sum + day.completionPercentage, 0) /
+          days.length,
+      )
+    : 0;
   const xp = days.reduce((sum, day) => sum + day.xpEarned, 0);
   const focusMinutes = days.reduce((sum, day) => sum + day.focusMinutes, 0);
   const end = localDateKey(new Date(), data.profile?.timezone);
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - 6);
   return {
-    id: createId("review"), weekStart: localDateKey(startDate, data.profile?.timezone), weekEnd: end,
-    completionPercentage: completion, xpEarned: xp, focusMinutes, consistencyScore: completion,
-    highlights: completion >= 70 ? ["Você manteve uma semana de execução consistente."] : ["Você registrou dados reais para ajustar a próxima semana."],
-    patterns: days.length < 3 ? ["Ainda faltam alguns dias para identificar padrões com confiança."] : [completion >= 70 ? "Planos menores parecem estar funcionando." : "A capacidade planejada pode estar acima do tempo real."],
-    keep: ["Registrar conclusões e sessões de foco."], cut: ["Tarefas vagas ou grandes demais para um único bloco."],
-    nextWeekFocus: data.profile?.mainGoal ?? "Avançar na missão principal.", challenge: "Concluir a missão principal em três dias da próxima semana.",
-    source: "local", createdAt: new Date().toISOString(),
+    id: createId("review"),
+    weekStart: localDateKey(startDate, data.profile?.timezone),
+    weekEnd: end,
+    completionPercentage: completion,
+    xpEarned: xp,
+    focusMinutes,
+    consistencyScore: completion,
+    highlights:
+      completion >= 70
+        ? ["Você manteve uma semana de execução consistente."]
+        : ["Você registrou dados reais para ajustar a próxima semana."],
+    patterns:
+      days.length < 3
+        ? ["Ainda faltam alguns dias para identificar padrões com confiança."]
+        : [
+            completion >= 70
+              ? "Planos menores parecem estar funcionando."
+              : "A capacidade planejada pode estar acima do tempo real.",
+          ],
+    keep: ["Registrar conclusões e sessões de foco."],
+    cut: ["Tarefas vagas ou grandes demais para um único bloco."],
+    nextWeekFocus: data.profile?.mainGoal ?? "Avançar na missão principal.",
+    challenge: "Concluir a missão principal em três dias da próxima semana.",
+    source: "local",
+    createdAt: new Date().toISOString(),
   };
 }
 
 function localBrainMessage(request: AssistantRequest, data: AppData): string {
-  const goal = sanitizeText(data.profile?.mainGoal ?? "sua missão principal", 120);
+  const goal = sanitizeText(
+    data.profile?.mainGoal ?? "sua missão principal",
+    120,
+  );
   const message = request.message.toLocaleLowerCase("pt-BR");
   if (/agora|próxim|começ|fazer/.test(message)) {
     const nextTask = data.activePlan?.tasks.find((task) => !task.completed);
-    return nextTask
-      ? `Estou em modo local. Seu melhor próximo passo é “${nextTask.title}”. Separe ${nextTask.estimatedMinutes} minutos, remova uma distração e comece pela menor ação possível.`
-      : `Estou em modo local. Escolha uma ação de 15 minutos que mova ${goal} para frente e registre o resultado ao terminar.`;
+    if (nextTask) {
+      const guidance = getTaskGuidance(nextTask);
+      return `Estou em modo local. Seu melhor próximo passo é “${nextTask.title}”. Faça agora: ${guidance.steps
+        .slice(0, 3)
+        .map((step, index) => `${index + 1}) ${step}`)
+        .join(" ")} Resultado esperado: ${guidance.deliverable}`;
+    }
+    return `Estou em modo local. Escolha uma ação de 15 minutos que mova ${goal} para frente e termine com uma entrega visível, não apenas tempo gasto.`;
   }
   if (/trav|difícil|desanim|procrast/.test(message)) {
     return `Estou em modo local. Reduza o problema para um bloco de 10 minutos: abra o material, execute uma única ação e pare somente depois de registrar o que avançou.`;
@@ -231,12 +348,23 @@ function localBrainMessage(request: AssistantRequest, data: AppData): string {
   return `Estou em modo local, mas seu histórico continua seguro. Para avançar em ${goal}, transforme sua pergunta em uma ação pequena, com duração e resultado observável.`;
 }
 
-function localFallback(request: AssistantRequest, data: AppData, meta: AssistantMeta): AssistantResponse {
-  if (request.mode === "capture") return { ...localCapture(request.message, data), meta };
+function localFallback(
+  request: AssistantRequest,
+  data: AppData,
+  meta: AssistantMeta,
+): AssistantResponse {
+  if (request.mode === "capture")
+    return { ...localCapture(request.message, data), meta };
   if (request.mode === "roadmap") {
-    const intakeResult = professorIntakeSchema.safeParse(request.context.professorIntake);
+    const intakeResult = professorIntakeSchema.safeParse(
+      request.context.professorIntake,
+    );
     const intake = intakeResult.success ? intakeResult.data : undefined;
-    const roadmap = createStarterRoadmap(intake?.topic ?? request.message, request.profile, intake);
+    const roadmap = createStarterRoadmap(
+      intake?.topic ?? request.message,
+      request.profile,
+      intake,
+    );
     return {
       message: `Preparei uma trilha local inicial para ${roadmap.topic}. Assim que a conexão remota voltar, o Professor Atlas poderá refiná-la com você.`,
       roadmap,
@@ -245,13 +373,29 @@ function localFallback(request: AssistantRequest, data: AppData, meta: Assistant
     };
   }
   if (request.mode === "professor") {
-    const activeRoadmap = data.learning.roadmaps.find((roadmap) => roadmap.id === data.learning.activeRoadmapId && roadmap.status === "active");
+    const activeRoadmap = data.learning.roadmaps.find(
+      (roadmap) =>
+        roadmap.id === data.learning.activeRoadmapId &&
+        roadmap.status === "active",
+    );
     const lesson = activeRoadmap ? nextRoadmapLesson(activeRoadmap) : undefined;
-    const nextStep = lesson
-      ? `Abra a lição “${lesson.title}” e faça ${Math.min(lesson.estimatedMinutes, 25)} minutos de prática sem trocar de assunto.`
-      : `Escolha uma habilidade concreta, descreva o que já sabe e defina uma pequena prova de domínio para hoje.`;
+    const phase = activeRoadmap?.phases.find((item) =>
+      item.lessons.some((candidate) => candidate.id === lesson?.id),
+    );
+    const nextStep =
+      activeRoadmap && phase && lesson
+        ? (() => {
+            const guidance = getLessonGuidance(activeRoadmap, phase, lesson);
+            return `Lição: “${lesson.title}”. Objetivo: ${guidance.objective} Passos: ${guidance.steps
+              .slice(0, 4)
+              .map((step, index) => `${index + 1}) ${step}`)
+              .join(
+                " ",
+              )} Entrega: ${guidance.deliverable} Conclua quando: ${guidance.successCriteria}`;
+          })()
+        : "Escolha uma habilidade concreta, descreva o que já sabe e produza uma pequena prova de domínio hoje.";
     return {
-      message: `Atlas está em modo local. ${nextStep} Ao terminar, registre em uma frase o que conseguiu fazer sem ajuda.`,
+      message: `Atlas está em modo local. ${nextStep}`,
       warning: "Professor Atlas em modo local. Nenhum roadmap novo foi criado.",
       meta,
     };
@@ -264,41 +408,73 @@ function localFallback(request: AssistantRequest, data: AppData, meta: Assistant
       meta,
     };
   }
-  return { message: localBrainMessage(request, data), warning: "Nexus Brain em modo local.", meta };
+  return {
+    message: localBrainMessage(request, data),
+    warning: "Nexus Brain em modo local.",
+    meta,
+  };
 }
 
-function extractRemoteError(body: unknown, status: number): { code: string; message: string } {
+function extractRemoteError(
+  body: unknown,
+  status: number,
+): { code: string; message: string } {
   if (body && typeof body === "object" && "error" in body) {
-    const error = (body as { error?: { code?: unknown; message?: unknown } }).error;
+    const error = (body as { error?: { code?: unknown; message?: unknown } })
+      .error;
     return {
       code: typeof error?.code === "string" ? error.code : `http_${status}`,
-      message: typeof error?.message === "string" ? error.message : `Falha HTTP ${status}`,
+      message:
+        typeof error?.message === "string"
+          ? error.message
+          : `Falha HTTP ${status}`,
     };
   }
   return { code: `http_${status}`, message: `Falha HTTP ${status}` };
 }
 
-async function remote(request: AssistantRequest, signal: AbortSignal): Promise<AssistantResponse> {
+async function remote(
+  request: AssistantRequest,
+  signal: AbortSignal,
+): Promise<AssistantResponse> {
   const startedAt = Date.now();
   const response = await fetchNexusApi("/api/assistant", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Nexus-Client-Id": request.clientId },
+    headers: {
+      "Content-Type": "application/json",
+      "X-Nexus-Client-Id": request.clientId,
+    },
     body: JSON.stringify(request),
     signal,
   });
   const endpoint = response.url || undefined;
   const type = response.headers.get("content-type") ?? "";
   if (!type.includes("application/json")) {
-    throw new AssistantRemoteError("invalid_response", "O backend respondeu em um formato inesperado.", response.status, endpoint);
+    throw new AssistantRemoteError(
+      "invalid_response",
+      "O backend respondeu em um formato inesperado.",
+      response.status,
+      endpoint,
+    );
   }
-  const body = await response.json() as unknown;
+  const body = (await response.json()) as unknown;
   if (!response.ok) {
     const details = extractRemoteError(body, response.status);
-    throw new AssistantRemoteError(details.code, details.message, response.status, endpoint);
+    throw new AssistantRemoteError(
+      details.code,
+      details.message,
+      response.status,
+      endpoint,
+    );
   }
   const parsed = assistantClientResponseSchema.safeParse(body);
   if (!parsed.success) {
-    throw new AssistantRemoteError("invalid_response", "A resposta remota não passou pela validação do Nexus.", response.status, endpoint);
+    throw new AssistantRemoteError(
+      "invalid_response",
+      "A resposta remota não passou pela validação do Nexus.",
+      response.status,
+      endpoint,
+    );
   }
   return {
     ...parsed.data,
@@ -307,7 +483,9 @@ async function remote(request: AssistantRequest, signal: AbortSignal): Promise<A
       latencyMs: Date.now() - startedAt,
       attempts: parsed.data.meta?.attempts ?? 1,
       ...(parsed.data.meta?.model ? { model: parsed.data.meta.model } : {}),
-      ...(parsed.data.meta?.reasoningTokens !== undefined ? { reasoningTokens: parsed.data.meta.reasoningTokens } : {}),
+      ...(parsed.data.meta?.reasoningTokens !== undefined
+        ? { reasoningTokens: parsed.data.meta.reasoningTokens }
+        : {}),
       ...(endpoint ? { endpoint } : {}),
       requestId: request.requestId,
     },
@@ -317,17 +495,27 @@ async function remote(request: AssistantRequest, signal: AbortSignal): Promise<A
 function errorCode(error: unknown): string {
   if (error instanceof AssistantRemoteError) return error.code;
   if (error instanceof NexusApiError) return error.code;
-  if (error instanceof Error && /abort|timeout/i.test(error.message)) return "timeout";
+  if (error instanceof Error && /abort|timeout/i.test(error.message))
+    return "timeout";
   return "unreachable";
 }
 
 function warningFor(error: unknown): string {
   if (error instanceof AssistantRemoteError) {
-    if (error.code === "missing_key") return "O backend está online, mas a chave do OpenRouter não foi configurada no Render.";
-    if (error.code === "unauthorized") return "A chave do OpenRouter foi recusada. Atualize o secret no Render.";
-    if (error.code === "rate_limit") return "Os modelos gratuitos estão ocupados. Usei o modo local nesta tentativa.";
-    if (error.code === "timeout") return "A IA demorou demais. Ativei o modo local sem prender a tela.";
-    if (error.status === 404 || error.status === 405) return "O APK encontrou um backend antigo. Publique a versão atual no Render.";
+    if (error.code === "missing_key")
+      return "O backend está online, mas a chave do OpenRouter não foi configurada no Render.";
+    if (error.code === "unauthorized")
+      return "A chave do OpenRouter foi recusada. Atualize o secret no Render.";
+    if (error.code === "rate_limit")
+      return "Os modelos gratuitos estão ocupados. Usei o modo local nesta tentativa.";
+    if (error.code === "payment_required")
+      return "A cota remota terminou. O modo local continua disponível.";
+    if (error.code === "provider_unavailable")
+      return "O provedor remoto não respondeu. O modo local assumiu esta tentativa.";
+    if (error.code === "timeout")
+      return "A IA demorou demais. Ativei o modo local sem prender a tela.";
+    if (error.status === 404 || error.status === 405)
+      return "O APK encontrou um backend antigo. Publique a versão atual no Render.";
   }
   if (error instanceof NexusApiError && error.code === "incompatible") {
     return "O APK está conectado a um backend antigo. Publique a versão atual no Render para reativar a IA.";
@@ -336,7 +524,10 @@ function warningFor(error: unknown): string {
 }
 
 export async function askNexus(
-  input: Omit<AssistantRequest, "requestId" | "clientId" | "profile" | "context"> & { data: AppData; context?: Record<string, unknown> },
+  input: Omit<
+    AssistantRequest,
+    "requestId" | "clientId" | "profile" | "context"
+  > & { data: AppData; context?: Record<string, unknown> },
   options: AssistantRunOptions = {},
 ): Promise<AssistantResponse> {
   const profile = input.data.profile;
@@ -347,10 +538,19 @@ export async function askNexus(
     clientId: input.data.installationId,
     message: sanitizeText(input.message, 4000),
     profile,
-    context: compactAssistantContext({
-      ...buildAssistantContext(input.data, input.mode === "professor" || input.mode === "roadmap" ? "professor" : "brain", options.messages),
-      ...(input.context ?? {}),
-    }, input.mode),
+    context: compactAssistantContext(
+      {
+        ...buildAssistantContext(
+          input.data,
+          input.mode === "professor" || input.mode === "roadmap"
+            ? "professor"
+            : "brain",
+          options.messages,
+        ),
+        ...(input.context ?? {}),
+      },
+      input.mode,
+    ),
   };
   const startedAt = Date.now();
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -368,7 +568,10 @@ export async function askNexus(
   const parentAbort = () => controller.abort();
   options.signal?.addEventListener("abort", parentAbort, { once: true });
   const timeout = setTimeout(() => controller.abort(), ASSISTANT_TIMEOUT_MS);
-  const generatingTimer = setTimeout(() => options.onStage?.("generating"), 650);
+  const generatingTimer = setTimeout(
+    () => options.onStage?.("generating"),
+    650,
+  );
   options.onStage?.("connecting");
   try {
     const result = await remote(request, controller.signal);
@@ -377,7 +580,8 @@ export async function askNexus(
   } catch (error) {
     if (options.signal?.aborted) throw new Error("cancelled");
     options.onStage?.("local");
-    const endpoint = error instanceof AssistantRemoteError ? error.endpoint : undefined;
+    const endpoint =
+      error instanceof AssistantRemoteError ? error.endpoint : undefined;
     const fallback = localFallback(request, input.data, {
       source: "local",
       latencyMs: Date.now() - startedAt,
