@@ -50,6 +50,7 @@ const palettes: Record<Exclude<ThemeId, "custom">, NexusColors> = {
   ember: { ...base, background: "#0B0300", surface: "#1A0B06", surfaceAlt: "#2C120A", surfaceRaised: "#421C0E", primary: "#FF6B1A", primarySoft: "#FFD09A", border: "#5A2613", borderStrong: "#93421F", overlay: "rgba(10,2,0,0.88)", tabBar: "#130603" },
   rose: { ...base, background: "#0C0209", surface: "#1C0B18", surfaceAlt: "#321226", surfaceRaised: "#48203A", primary: "#FF4FA0", primarySoft: "#FFD0E7", border: "#5C284A", borderStrong: "#98436F", overlay: "rgba(10,1,7,0.88)", tabBar: "#160611" },
   monochrome: { ...base, background: "#070707", surface: "#111111", surfaceAlt: "#1C1C1C", surfaceRaised: "#292929", primary: "#F4F4F5", primarySoft: "#FFFFFF", border: "#333333", borderStrong: "#696969", overlay: "rgba(0,0,0,0.90)", tabBar: "#0A0A0A" },
+  light: { background: "#F3F5FA", surface: "#FFFFFF", surfaceAlt: "#EEF1F8", surfaceRaised: "#E5EAF5", primary: "#6D3BEF", primarySoft: "#5730C2", text: "#15131B", textSecondary: "#625D70", success: "#168B4B", warning: "#B86E00", danger: "#D4355A", border: "#D9DEEA", borderStrong: "#B8C1D5", overlay: "rgba(21,19,27,0.44)", tabBar: "#FBFCFF" },
 };
 
 const visuals: Record<Exclude<ThemeId, "custom">, NexusVisuals> = {
@@ -62,6 +63,7 @@ const visuals: Record<Exclude<ThemeId, "custom">, NexusVisuals> = {
   ember: { cardRadius: 10, buttonRadius: 8, chipRadius: 8, borderWidth: 1, shadowOpacity: 0.3, shadowRadius: 16, elevation: 4, backdrop: "scanlines", cardStyle: "sharp", tabActiveFill: "24" },
   rose: { cardRadius: 26, buttonRadius: 24, chipRadius: 999, borderWidth: 1, shadowOpacity: 0.3, shadowRadius: 24, elevation: 6, backdrop: "aurora", cardStyle: "glass", tabActiveFill: "24" },
   monochrome: { cardRadius: 0, buttonRadius: 2, chipRadius: 2, borderWidth: 1, shadowOpacity: 0, shadowRadius: 0, elevation: 0, backdrop: "scanlines", cardStyle: "minimal", tabActiveFill: "16" },
+  light: { cardRadius: 26, buttonRadius: 18, chipRadius: 999, borderWidth: 1, shadowOpacity: 0.12, shadowRadius: 18, elevation: 3, backdrop: "glow", cardStyle: "soft", tabActiveFill: "18" },
 };
 
 export function getColors(preferences: Preferences): NexusColors {

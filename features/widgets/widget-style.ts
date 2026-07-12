@@ -6,6 +6,8 @@ export type WidgetStyleTokens = {
   borderColor: string;
   borderWidth: number;
   accent: string;
+  textColor?: string;
+  secondaryTextColor?: string;
   shadowOpacity: number;
   shadowRadius: number;
   decoration:
@@ -25,6 +27,19 @@ export function getWidgetStyleTokens(
   requestedAccent: string,
 ): WidgetStyleTokens {
   switch (style) {
+    case "light":
+      return {
+        backgroundColor: "#F8FAFC",
+        borderColor: "#D8DEE9",
+        borderWidth: 1,
+        accent: requestedAccent,
+        textColor: "#111827",
+        secondaryTextColor: "#5B6473",
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+        decoration: "none",
+        radius: 22,
+      };
     case "amoled":
       return {
         backgroundColor: "#000000",

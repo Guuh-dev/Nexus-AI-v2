@@ -84,6 +84,7 @@ function migrate(raw: unknown): unknown {
     operations: Array.isArray(raw.operations) ? raw.operations : [],
     habits: Array.isArray(raw.habits) ? raw.habits : [],
     weeklyPlan: Array.isArray(raw.weeklyPlan) ? raw.weeklyPlan : [],
+    finance: isRecord(raw.finance) ? { ...DEFAULT_APP_DATA.finance, ...raw.finance } : DEFAULT_APP_DATA.finance,
   };
 }
 
@@ -136,6 +137,14 @@ function recoverAppData(raw: unknown): AppData {
     operations: section("operations", { safeParse: (value) => operationSchema.array().max(100).safeParse(value) }, defaults.operations),
     habits: section("habits", { safeParse: (value) => habitSchema.array().max(200).safeParse(value) }, defaults.habits),
     weeklyPlan: section("weeklyPlan", { safeParse: (value) => weeklyPlanItemSchema.array().max(1000).safeParse(value) }, defaults.weeklyPlan),
+    finance: (() => {
+      const value = source.finance;
+      if (!isRecord(value)) return defaults.finance;
+      const candidate = { ...defaults.finance, ...value };
+      const valid = typeof candidate.monthlyGoal === "number" && typeof candidate.monthlyRevenue === "number" && typeof candidate.prospectsToday === "number" && typeof candidate.followUpsPending === "number" && typeof candidate.activeClients === "number" && typeof candidate.closedDeals === "number" && typeof candidate.updatedAt === "string";
+      if (!valid) { warnings.push("A seção “finance” estava corrompida e foi restaurada."); return defaults.finance; }
+      return candidate;
+    })(),
     ...(lastGeneratedDate ? { lastGeneratedDate } : {}),
     ...(lastAiAttemptDate ? { lastAiAttemptDate } : {}),
     corruptionWarnings: [

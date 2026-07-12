@@ -369,6 +369,12 @@ export default function ProfileScreen() {
                   onPress={() => router.push("/habits")}
                 />
                 <ControlCard
+                  title="Money Mission"
+                  description="Receita, clientes e follow-ups"
+                  icon="R$"
+                  onPress={() => router.push("/finance")}
+                />
+                <ControlCard
                   title="Semana"
                   description="Capacidade em sete dias"
                   icon="▥"
@@ -961,7 +967,7 @@ export default function ProfileScreen() {
           </Card>
         ) : null}
         <NexusText variant="caption" secondary style={styles.footer}>
-          Nexus AI 2.1.1 • OTA 2.1.3 Clarity • Personal Mission OS
+          Nexus AI 2.2.0 • Companion • Personal Mission OS
         </NexusText>
       </Screen>
 

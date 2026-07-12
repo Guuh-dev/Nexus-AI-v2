@@ -37,12 +37,12 @@ class NexusWidgetConfigureActivity : Activity() {
       setPadding(dp(22), dp(24), dp(22), dp(30))
       setBackgroundColor(Color.rgb(5, 5, 5))
     }
-    root.addView(label("CONFIGURAR INSTÂNCIA", 12, Color.rgb(167, 139, 250)))
-    root.addView(label("Seu Widget Nexus", 28, Color.WHITE).apply {
+    root.addView(label("WIDGET STUDIO 2.2", 12, Color.rgb(167, 139, 250)))
+    root.addView(label("Uma instância. Uma personalidade.", 27, Color.WHITE).apply {
       setPadding(0, dp(6), 0, dp(12))
     })
     root.addView(label(
-      "Este widget pode ser diferente dos outros. O Widget Studio define o padrão global; aqui você cria uma instância exclusiva.",
+      "Cada widget pode ter conteúdo, visual, humor, mascote e ação próprios. Crie um Nexus feliz ao lado de um Nexus sério sem alterar o app inteiro.",
       14,
       Color.rgb(161, 161, 170),
     ).apply { setPadding(0, 0, 0, dp(14)) })
@@ -68,6 +68,7 @@ class NexusWidgetConfigureActivity : Activity() {
         "neon" to "Neon controlado",
         "mascot" to "Mascote em destaque",
         "privacy" to "Privacidade",
+        "light" to "Light Clean",
       ),
       saved.optString("style", "nexus"),
     )
@@ -75,14 +76,30 @@ class NexusWidgetConfigureActivity : Activity() {
       root,
       "Conteúdo",
       listOf(
+        "smart" to "Plano inteligente / faça agora",
         "full" to "Missão + tarefas",
         "mission" to "Somente missão",
         "tasks" to "Somente tarefas",
-        "progress" to "Progresso, XP e foco",
-        "learning" to "Aula do Atlas",
+        "focus" to "Focus OS",
+        "learning" to "Professor Atlas",
+        "companion" to "Nexus Companion",
+        "finance" to "Money Mission / freelas",
+        "quote" to "Frase Nexus",
+        "progress" to "XP, nível e streak",
+        "habits" to "Hábitos",
+        "boss" to "Boss Battle",
         "private" to "Conteúdo privado",
       ),
-      saved.optString("content", "full"),
+      saved.optString("content", "smart"),
+    )
+    val pageCycle = radioSection(
+      root,
+      "Troca de página",
+      listOf(
+        "false" to "Uma tela fixa",
+        "true" to "Botão para alternar Smart, Companion, Finanças, Atlas e Progresso",
+      ),
+      saved.optString("pageCycle", "false"),
     )
     val mascot = radioSection(
       root,
@@ -93,9 +110,58 @@ class NexusWidgetConfigureActivity : Activity() {
         "nova" to "Nova",
         "byte" to "Byte",
         "pulse" to "Pulse",
+        "orbit" to "Orbit",
+        "ember" to "Ember",
         "none" to "Sem mascote",
       ),
       saved.optString("mascot", "nexus"),
+    )
+    val mood = radioSection(
+      root,
+      "Humor desta instância",
+      listOf(
+        "happy" to "Feliz",
+        "playful" to "Zoeiro",
+        "motivational" to "Motivador",
+        "serious" to "Sério",
+        "strict" to "Bravo / exigente",
+        "calm" to "Calmo",
+        "quiet" to "Quieto",
+      ),
+      saved.optString("mood", "happy"),
+    )
+    val speech = radioSection(
+      root,
+      "Falas",
+      listOf(
+        "contextual" to "Contextuais ao seu dia",
+        "motivational" to "Motivacionais",
+        "fun" to "Mais humor",
+        "silent" to "Silencioso",
+      ),
+      saved.optString("speech", "contextual"),
+    )
+    val accessory = radioSection(
+      root,
+      "Acessório",
+      listOf(
+        "" to "Nenhum",
+        "glasses" to "Óculos",
+        "crown" to "Coroa",
+        "headphones" to "Headset",
+        "cap" to "Boné",
+        "scarf" to "Cachecol",
+        "backpack" to "Mochila",
+        "laptop" to "Notebook",
+        "book" to "Livro",
+        "coffee" to "Café",
+        "sword" to "Espada",
+        "controller" to "Controle",
+        "wizard_hat" to "Chapéu do Atlas",
+        "medal" to "Medalha",
+        "cape" to "Capa",
+      ),
+      saved.optString("accessory", ""),
     )
     val professor = radioSection(
       root,
@@ -160,6 +226,9 @@ class NexusWidgetConfigureActivity : Activity() {
         "focus" to "Abrir Focus OS",
         "capture" to "Abrir captura",
         "progress" to "Abrir Progresso",
+        "finance" to "Abrir Money Mission",
+        "habits" to "Abrir Hábitos",
+        "week" to "Abrir Semana",
       ),
       saved.optString("tapAction", "today"),
     )
@@ -173,8 +242,12 @@ class NexusWidgetConfigureActivity : Activity() {
       setOnClickListener {
         val config = JSONObject()
           .put("style", selected(style, "nexus"))
-          .put("content", selected(content, "full"))
+          .put("content", selected(content, "smart"))
+          .put("pageCycle", selected(pageCycle, "false") == "true")
           .put("mascot", selected(mascot, "nexus"))
+          .put("mood", selected(mood, "happy"))
+          .put("speech", selected(speech, "contextual"))
+          .put("accessory", selected(accessory, ""))
           .put("professor", selected(professor, "global"))
           .put("accentColor", selected(accent, "#8B5CF6"))
           .put("alignment", selected(alignment, "global"))
@@ -183,7 +256,10 @@ class NexusWidgetConfigureActivity : Activity() {
           .put("progressStyle", selected(progressStyle, "bar"))
           .put("capture", selected(capture, "global"))
           .put("tapAction", selected(tapAction, "today"))
-        preferences.edit().putString("instance_$widgetId", config.toString()).apply()
+        preferences.edit()
+          .putString("instance_$widgetId", config.toString())
+          .putInt("page_$widgetId", 0)
+          .apply()
         val manager = AppWidgetManager.getInstance(this@NexusWidgetConfigureActivity)
         NexusWidgetProvider.updateWidgets(this@NexusWidgetConfigureActivity, manager, intArrayOf(widgetId))
         setResult(

@@ -1,6 +1,5 @@
 import "@/global.css";
-import { useEffect } from "react";
-import { Platform, View } from "react-native";
+import { View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack } from "expo-router";
 import { NavigationBar } from "expo-navigation-bar";
@@ -17,17 +16,12 @@ import { NexusProvider, useNexus } from "@/providers/NexusProvider";
 export { RouteErrorBoundary as ErrorBoundary };
 
 function Navigation() {
-  const { colors } = useNexus();
-
-  useEffect(() => {
-    if (Platform.OS !== "android") return;
-    NavigationBar.setStyle("dark");
-    NavigationBar.setHidden(false);
-  }, []);
+  const { colors, data } = useNexus();
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <StatusBar style="light" />
+      <StatusBar style={data.preferences.theme === "light" ? "dark" : "light"} />
+      <NavigationBar style={data.preferences.theme === "light" ? "light" : "dark"} />
       <Stack
         screenOptions={{
           headerShown: false,
@@ -46,6 +40,7 @@ function Navigation() {
         <Stack.Screen name="habits" />
         <Stack.Screen name="week" />
         <Stack.Screen name="privacy" />
+        <Stack.Screen name="finance" />
         <Stack.Screen name="(tabs)" />
       </Stack>
       <NotificationBootstrap />

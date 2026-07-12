@@ -1,4 +1,4 @@
-# Arquitetura do Nexus AI
+# Arquitetura do Nexus AI 2.2
 
 ## Visão geral
 
@@ -6,54 +6,83 @@
 flowchart TD
   UI[Expo Router UI] --> Store[NexusProvider]
   Store --> Repo[Local Repository]
-  Repo --> Storage[AsyncStorage / Web storage]
-  Store --> Client[Planning service]
-  Store --> Brain[Nexus Brain + Professor]
-  Brain --> Memory[Chats + controlled memories]
-  Brain --> Learning[Subject intake + roadmaps]
-  Client --> API[Expo API Route]
+  Repo --> Storage[AsyncStorage / Web storage v5]
+  Store --> Client[Assistant client]
+  Client --> API[Expo API route]
   API --> Router[OpenRouter SDK]
-  Router --> Zod[JSON + Zod]
-  Zod --> Store
+  Router --> Stream[SSE text stream]
+  Router --> Structured[JSON + Zod]
+  Stream --> Store
+  Structured --> Store
+  Store --> Companion[Deterministic Companion engine]
+  Store --> Finance[Money Mission]
   Store --> Bridge[WidgetDataService]
   Bridge --> Native[Android RemoteViews]
+  Native --> Queue[Nonce-protected action queue]
+  Queue --> Store
 ```
 
 ## Limites de confiança
 
-1. A interface e o armazenamento são ambientes não confiáveis: todo JSON carregado é validado.
-2. O endpoint aceita somente perfil e contexto dentro dos limites do schema.
-3. A resposta da IA nunca vira código ou estilo; ela passa por extração JSON, parse, Zod, normalização e hidratação.
-4. O módulo do widget recebe apenas um payload compacto, sem chave ou perfil completo.
-5. Memórias extraídas pela IA são limitadas, validadas, visíveis e removíveis pelo usuário.
-6. Ações sugeridas no chat exigem confirmação antes de alterar plano, objetivo ou tarefas.
+1. Interface, AsyncStorage, backup importado e widget actions são entradas não confiáveis.
+2. Todo JSON persistido ou recebido por API passa por schema e limites de complexidade.
+3. A chave OpenRouter só existe no servidor.
+4. Respostas estruturadas da IA passam por extração, parse, Zod e normalização.
+5. O widget recebe apenas um payload compacto.
+6. Ações propostas por Brain/Atlas exigem confirmação antes de alterar dados.
+7. Intents do widget que modificam estado usam nonce e consumo idempotente.
 
-## Planejamento
+## Assistente
 
-O cliente tenta uma única operação com timeout. O servidor usa primeiro `openrouter/free` e finalmente o modo local. A contingência paga `deepseek/deepseek-v4-flash` só é considerada quando `OPENROUTER_ALLOW_PAID_FALLBACK=true` existe exclusivamente no servidor. A resposta é acumulada por streaming e lida somente no servidor. Se o JSON falhar, há uma reparação remota. Se ainda falhar, um gerador local determinístico cria a missão.
+Existem dois caminhos:
 
-## Estado local
+### Conversacional
 
-`NexusRepository` isola a interface da implementação AsyncStorage. A UI não depende do provedor concreto; uma sincronização futura pode implementar a mesma interface.
+Brain e Atlas usam SSE. O servidor envia eventos `ready`, `delta`, `result` e `error`. A UI mantém uma mensagem transitória durante o stream e substitui por uma mensagem persistida quando o resultado final chega.
 
-As mutações de tarefa são atômicas. O XP deriva da transição anterior → próxima, impedindo concessões repetidas. O estado em memória é atualizado antes da persistência para que toques rápidos usem a versão mais nova.
+### Estruturado
 
-O storage v4 migra perfil, plano, histórico e XP sem apagá-los, cria um backup anterior à migração e recupera seções corrompidas de forma independente. Conversas completas ficam locais; resumos progressivos e memórias estruturadas mantêm continuidade sem enviar todo o histórico em cada requisição.
+Planejamento, ações e outros contratos usam JSON validado. O cliente envia contexto compactado, o servidor tenta um modelo gratuito compatível e o modo local assume quando a rede ou o provider falham.
+
+A política evita retry em erros permanentes como autenticação e aplica nova tentativa apenas em falhas temporárias.
+
+## Estado local e storage v5
+
+`NexusRepository` isola a UI da implementação de armazenamento. O storage v5 inclui:
+
+- preferências de Companion e Atlas;
+- Widget Studio 2.2;
+- Money Mission;
+- dados anteriores de perfil, plano, progresso, Brain, roadmaps, hábitos, operações e semana.
+
+Migrações criam backup anterior, validam o resultado e recuperam seções corrompidas de forma independente.
+
+Mutações de tarefa são atômicas. XP deriva da transição anterior → próxima, impedindo concessão repetida.
+
+## Companion
+
+O motor em `features/companion` é determinístico e local. Ele escolhe uma linha com base em humor, data e estado do plano, sem abrir uma nova requisição de IA. A presença dentro do app é global, enquanto widgets armazenam humor e fala por instância.
 
 ## Professor Atlas
 
-O Atlas não gera um roadmap apenas com o nome do assunto. A entrevista registra nível, conceitos conhecidos, tentativas, objetivo, prova de domínio, motivação, prazo, tempo, recursos, limitações e métodos preferidos. Esse diagnóstico permanece anexado ao roadmap e orienta tanto a IA quanto o fallback local.
+A entrevista registra nível, conceitos, tentativas, objetivo, prova de domínio, prazo, tempo e limitações. O Atlas 2.2 recebe uma personalidade configurável e responde uma etapa por vez, com ação, entrega e critério de conclusão.
 
-Quando autorizado, a próxima lição entra no contexto do plano diário e no payload do widget. A integração pode ser desligada separadamente para o plano, conteúdo do widget e personagem do Professor.
+## Widget Android
 
-## Datas e streak
+O módulo `modules/nexus-widget` é isolado do bundle web. O provider renderiza `RemoteViews`, mantém preferências por `appWidgetId` e consome um JSON compacto produzido pelo app.
 
-Datas são chaves locais `YYYY-MM-DD` no fuso do perfil. O rollover arquiva uma data uma única vez, preserva hábitos, carrega até duas pendências prioritárias e cria o próximo plano. Dias sem histórico não destroem automaticamente o streak; um dia arquivado sem atingir a meta encerra a sequência.
+Ações:
 
-## Segurança de contexto
+- concluir tarefa;
+- alternar página;
+- abrir uma rota do app.
 
-A V2.1.1 limita tamanho, profundidade, quantidade de nós e chaves por objeto antes de encaminhar contexto ao assistente. Chaves relacionadas a prototype pollution são rejeitadas antes do Zod. O roteador OpenRouter tenta JSON Schema e repete em JSON simples quando um modelo gratuito não oferece structured output.
+As duas primeiras validam nonce. A fila de tarefa é consumida atomicamente pelo app para manter XP idempotente.
+
+## OTA e runtime
+
+`runtimeVersion` segue `appVersion`. Código OTA só é entregue a binários com runtime compatível. Como 2.2 altera Kotlin/XML e runtime, ela inaugura uma nova base APK. Atualizações 2.2.x compatíveis podem usar OTA sem tocar no módulo nativo.
 
 ## Web e código nativo
 
-Componentes visuais usam somente primitives React Native. Nenhum array de estilo é encaminhado a elemento DOM. O widget vive em `modules/nexus-widget` e só é carregado no Android; o módulo web é um no-op.
+Componentes visuais usam primitives React Native. Nenhum array de estilo é encaminhado a elemento DOM. O módulo do widget só é carregado no Android; a implementação web é no-op.

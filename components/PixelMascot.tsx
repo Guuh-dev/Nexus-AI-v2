@@ -73,6 +73,52 @@ export function PixelMascot({ state = "idle", size = 48, skin, accessory }: { st
         {block(7.5, 6, 1.4, 3.2, colors.danger, "scarf-tail")}
         {block(8.8, 8.3, 1.3, .8, "#FCA5A5", "scarf-tip")}
       </> : null}
+      {selectedAccessory === "backpack" ? <>
+        {block(8.7, 5.6, 2.1, 3.8, colors.warning, "backpack-body")}
+        {block(9.1, 6.2, 1.3, .5, "#FDE68A", "backpack-pocket")}
+        {block(8.25, 5.8, .45, 2.7, colors.textSecondary, "backpack-strap")}
+      </> : null}
+      {selectedAccessory === "laptop" ? <>
+        {block(2.2, 7.7, 7.7, 2.2, colors.surfaceRaised, "laptop-screen")}
+        {block(2.6, 8.05, 6.9, 1.35, colors.primarySoft, "laptop-display")}
+        {block(1.8, 9.95, 8.6, .55, colors.textSecondary, "laptop-base")}
+      </> : null}
+      {selectedAccessory === "book" ? <>
+        {block(1.3, 7.4, 4.3, 2.8, colors.primarySoft, "book-left")}
+        {block(5.7, 7.4, 4.3, 2.8, colors.warning, "book-right")}
+        {block(5.45, 7.4, .35, 2.8, colors.text, "book-spine")}
+      </> : null}
+      {selectedAccessory === "coffee" ? <>
+        {block(8.6, 7.7, 2.1, 2.1, colors.warning, "coffee-cup")}
+        <View style={{ position: "absolute", left: 10.15 * pixel, top: 8 * pixel, width: 1.2 * pixel, height: 1.35 * pixel, borderWidth: Math.max(1, pixel * .24), borderColor: colors.warning, borderRadius: pixel }} />
+        {block(9.1, 6.8, .25, .65, colors.textSecondary, "steam-1")}
+        {block(9.8, 6.45, .25, .75, colors.textSecondary, "steam-2")}
+      </> : null}
+      {selectedAccessory === "sword" ? <>
+        <View style={{ position: "absolute", left: 9.2 * pixel, top: 4.2 * pixel, width: .55 * pixel, height: 5.6 * pixel, backgroundColor: colors.text, transform: [{ rotate: "35deg" }] }} />
+        {block(8.1, 8.2, 2.1, .45, colors.warning, "sword-guard")}
+      </> : null}
+      {selectedAccessory === "controller" ? <>
+        {block(2.1, 7.5, 7.9, 2.4, colors.surfaceRaised, "controller-body")}
+        {block(3.1, 8.1, 1.7, .42, colors.text, "controller-h")}
+        {block(3.72, 7.48, .42, 1.7, colors.text, "controller-v")}
+        {block(8.1, 8.1, .55, .55, colors.danger, "controller-a")}
+        {block(8.9, 7.65, .55, .55, colors.success, "controller-b")}
+      </> : null}
+      {selectedAccessory === "wizard_hat" ? <>
+        {block(3.1, .95, 6, .7, colors.primarySoft, "wizard-brim")}
+        <View style={{ position: "absolute", left: 4.1 * pixel, top: -.4 * pixel, width: 4.2 * pixel, height: 2.2 * pixel, backgroundColor: colors.primary, transform: [{ skewX: "-12deg" }] }} />
+        {block(6.2, .2, .55, .55, colors.warning, "wizard-star")}
+      </> : null}
+      {selectedAccessory === "medal" ? <>
+        {block(5.25, 5.5, .45, 2.2, colors.primarySoft, "medal-ribbon-l")}
+        {block(6.35, 5.5, .45, 2.2, colors.primarySoft, "medal-ribbon-r")}
+        <View style={{ position: "absolute", left: 4.95 * pixel, top: 7.2 * pixel, width: 2.2 * pixel, height: 2.2 * pixel, borderRadius: 999, backgroundColor: colors.warning, borderWidth: Math.max(1, pixel * .18), borderColor: "#FDE68A" }} />
+      </> : null}
+      {selectedAccessory === "cape" ? <>
+        <View style={{ position: "absolute", left: 8.2 * pixel, top: 5.2 * pixel, width: 3.2 * pixel, height: 5.3 * pixel, backgroundColor: colors.danger, transform: [{ skewY: "-8deg" }] }} />
+        {block(7.7, 5.1, 1.6, .65, "#FCA5A5", "cape-clasp")}
+      </> : null}
     </Animated.View>
   );
 }

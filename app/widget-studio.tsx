@@ -13,6 +13,7 @@ import { Screen } from "@/components/ui/Screen";
 import { applyWidgetPreset, WIDGET_PRESETS } from "@/features/widget/presets";
 import { useNexus } from "@/providers/NexusProvider";
 import type {
+  CompanionMood,
   MascotId,
   WidgetPreferences,
   WidgetSize,
@@ -23,7 +24,7 @@ import { normalizeHexColor } from "@/utils/text";
 
 export { RouteErrorBoundary as ErrorBoundary };
 
-type StudioTab = "presets" | "content" | "visual" | "actions";
+type StudioTab = "presets" | "content" | "visual" | "companion" | "actions";
 
 const SIZES: { value: WidgetSize; label: string; hint: string }[] = [
   { value: "1x1", label: "1×1", hint: "Mascote ou streak" },
@@ -48,6 +49,7 @@ const STYLES: { value: WidgetStyle; label: string; description: string }[] = [
   { value: "neon", label: "Neon", description: "Brilho futurista moderado" },
   { value: "mascot", label: "Mascot", description: "Personagem em destaque" },
   { value: "privacy", label: "Privacidade", description: "Oculta conteúdo sensível" },
+  { value: "light", label: "Light Clean", description: "Claro, legível e premium" },
 ];
 
 const COLOR_PRESETS = ["#8B5CF6", "#38BDF8", "#10B981", "#F59E0B", "#F97316", "#EC4899", "#E4E4E7"];
@@ -94,7 +96,7 @@ export default function WidgetStudioScreen() {
       <View style={styles.header}>
         <NexusButton label="Voltar" variant="ghost" onPress={() => router.back()} />
         <View style={styles.flex}>
-          <NexusText variant="mono" color={colors.primarySoft}>WIDGET STUDIO 2.1.3</NexusText>
+          <NexusText variant="mono" color={colors.primarySoft}>WIDGET STUDIO 2.2</NexusText>
           <NexusText variant="display">Sua tela inicial, do seu jeito.</NexusText>
         </View>
         <CompanionMascot mascot="byte" size={58} />
@@ -119,6 +121,7 @@ export default function WidgetStudioScreen() {
           ["presets", "Presets"],
           ["content", "Conteúdo"],
           ["visual", "Visual"],
+          ["companion", "Companion"],
           ["actions", "Ações"],
         ] as const).map(([value, label]) => (
           <Pressable
@@ -155,11 +158,11 @@ export default function WidgetStudioScreen() {
                     ]}
                   >
                     <View style={styles.rowBetween}>
-                      <NexusText variant="subtitle">{preset.label}</NexusText>
+                      <NexusText variant="subtitle">{preset.icon} {preset.label}</NexusText>
                       <NexusText color={selected ? colors.primarySoft : colors.textSecondary}>{selected ? "●" : "○"}</NexusText>
                     </View>
                     <NexusText variant="caption" secondary>{preset.description}</NexusText>
-                    <NexusText variant="mono" color={colors.primarySoft}>{preset.recommendedSize}</NexusText>
+                    <View style={styles.rowBetween}><NexusText variant="mono" color={colors.primarySoft}>{preset.recommendedSize}</NexusText><NexusText variant="caption" secondary>{preset.category.toUpperCase()}</NexusText></View>
                   </Pressable>
                 );
               })}
@@ -199,6 +202,11 @@ export default function WidgetStudioScreen() {
             <Toggle label="Tarefas" description="Permite concluir diretamente quando houver espaço." value={widget.showTasks} onChange={(value) => patch({ showTasks: value })} />
             <Toggle label="Progresso" description="Barra, círculo, texto ou porcentagem." value={widget.showProgress} onChange={(value) => patch({ showProgress: value })} />
             <Toggle label="Captura rápida" description="Botão para registrar uma tarefa sem navegar pelo app." value={widget.showCapture} onChange={(value) => patch({ showCapture: value })} />
+            <Toggle label="Próxima ação" description="Mostra a tarefa mais importante ainda pendente." value={widget.showNextAction} onChange={(value) => patch({ showNextAction: value })} />
+            <Toggle label="Placar financeiro" description="Receita, meta, prospects e follow-ups." value={widget.showFinance} onChange={(value) => patch({ showFinance: value, contentMode: value ? "finance" : widget.contentMode })} />
+            <Toggle label="Frase do Companion" description="Fala contextual ou motivacional." value={widget.showQuote} onChange={(value) => patch({ showQuote: value })} />
+            <Toggle label="Hábitos" description="Resumo de hábitos concluídos hoje." value={widget.showHabits} onChange={(value) => patch({ showHabits: value, contentMode: value ? "habits" : widget.contentMode })} />
+            <Toggle label="Boss Battle" description="Desafio ativo e barra de progresso." value={widget.showBoss} onChange={(value) => patch({ showBoss: value, contentMode: value ? "boss" : widget.contentMode })} />
           </Section>
 
           <Section title="Métricas">
@@ -295,7 +303,7 @@ export default function WidgetStudioScreen() {
 
           <Section title="Mascote do widget" subtitle="Atlas pode continuar ao lado, sem substituir a cobrinha principal.">
             <View style={styles.mascots}>
-              {(["nexus", "atlas", "nova", "byte", "pulse"] as MascotId[]).map((mascot) => (
+              {(["nexus", "atlas", "nova", "byte", "pulse", "orbit", "ember"] as MascotId[]).map((mascot) => (
                 <Pressable
                   key={mascot}
                   onPress={() => patch({ mascot })}
@@ -313,6 +321,37 @@ export default function WidgetStudioScreen() {
               ))}
             </View>
           </Section>
+        </View>
+      ) : null}
+
+      {tab === "companion" ? (
+        <View style={styles.sectionStack}>
+          <Section title="Personalidade desta instância" subtitle="Dois widgets podem ter humores diferentes lado a lado.">
+            <View style={styles.moodGrid}>
+              {([
+                ["happy", "Feliz", "Celebra e incentiva"],
+                ["playful", "Zoeiro", "Humor leve e cobrança"],
+                ["motivational", "Motivador", "Foco na evolução"],
+                ["serious", "Sério", "Direto e estratégico"],
+                ["strict", "Bravo", "Sem negociação"],
+                ["calm", "Calmo", "Leve e acolhedor"],
+                ["quiet", "Quieto", "Pouquíssimas falas"],
+              ] as [CompanionMood, string, string][]).map(([mood, label, description]) => (
+                <Pressable key={mood} onPress={() => patch({ companionMood: mood })} style={[styles.moodCard, { backgroundColor: widget.companionMood === mood ? `${colors.primary}14` : colors.surface, borderColor: widget.companionMood === mood ? colors.primary : colors.border }]}>
+                  <CompanionMascot mascot={widget.mascot} size={42} state={mood === "strict" ? "warning" : mood === "happy" ? "celebrating" : "idle"} />
+                  <View style={styles.flex}><NexusText variant="subtitle">{label}</NexusText><NexusText variant="caption" secondary>{description}</NexusText></View>
+                </Pressable>
+              ))}
+            </View>
+          </Section>
+          <Section title="Tipo de fala">
+            <OptionRow title="Mensagem" options={[["contextual", "Contextual"], ["motivational", "Motivacional"], ["fun", "Zoeira"], ["silent", "Silencioso"]]} value={widget.companionSpeech} onChange={(value) => patch({ companionSpeech: value as WidgetPreferences["companionSpeech"] })} />
+            <Toggle label="Alternar páginas" description="Adiciona um botão no widget real para circular entre missão, Companion e métricas." value={widget.allowPageCycle} onChange={(value) => patch({ allowPageCycle: value })} />
+          </Section>
+          <Card style={[styles.instanceCard, { borderColor: `${colors.primary}44`, backgroundColor: `${colors.primary}0B` }]}>
+            <NexusText variant="mono" color={colors.primarySoft}>PERSONALIDADE POR WIDGET</NexusText>
+            <NexusText secondary>Ao adicionar o widget no Android, você poderá escolher novamente o humor. Assim, um Nexus feliz e outro bravo podem coexistir.</NexusText>
+          </Card>
         </View>
       ) : null}
 
@@ -340,7 +379,7 @@ export default function WidgetStudioScreen() {
       ) : null}
 
       <NexusText variant="caption" secondary style={styles.note}>
-        Esta OTA melhora presets, dados e previews do motor já instalado. Novos layouts Android fora desse motor continuam exigindo outro APK.
+        Nexus 2.2 amplia o motor nativo: novos conteúdos, humor por instância e troca de página exigem o novo APK-base.
       </NexusText>
     </Screen>
   );
@@ -390,6 +429,9 @@ function ActionGrid({ value, onChange }: { value: WidgetTapAction; onChange: (va
     ["focus", "Foco", "Abrir Focus OS"],
     ["capture", "Captura", "Criar tarefa rapidamente"],
     ["progress", "Progresso", "Abrir XP e estatísticas"],
+    ["finance", "Dinheiro", "Abrir placar de freelas"],
+    ["habits", "Hábitos", "Abrir rotinas"],
+    ["week", "Semana", "Abrir planejamento semanal"],
   ];
   return (
     <View style={styles.actionGrid}>
@@ -439,6 +481,8 @@ const styles = StyleSheet.create({
   mascots: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   mascot: { minWidth: 92, flexGrow: 1, alignItems: "center", gap: 7, borderWidth: 1, borderRadius: 16, padding: 10 },
   actionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  moodGrid: { gap: 9 },
+  moodCard: { minHeight: 68, flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1, borderRadius: 16, padding: 11 },
   actionCard: { width: "47%", minWidth: 145, flexGrow: 1, borderRadius: 16, borderWidth: 1, padding: 14, gap: 5 },
   instanceCard: { gap: 12 },
   instanceHeader: { flexDirection: "row", alignItems: "center", gap: 12 },

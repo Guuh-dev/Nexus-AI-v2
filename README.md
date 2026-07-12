@@ -1,247 +1,407 @@
 <div align="center">
 
-  <img src="assets/banner.svg" alt="Nexus AI — Personal Mission OS" width="100%" />
+<img src="assets/banner.svg" alt="Nexus AI — Personal Mission OS" width="100%" />
 
-  <h1>Nexus AI · Personal Mission OS</h1>
+# Nexus AI 2.2 · Companion
 
-  <p>
-    <strong>A personal execution system that turns ambitious goals into one realistic mission for today.</strong>
-  </p>
+### A local-first Personal Mission OS that turns ambition into the next clear action.
 
-  <p>
-    <a href="https://github.com/Guuh-dev/Nexus-AI-v2"><img alt="GitHub repository" src="https://img.shields.io/badge/GitHub-Nexus--AI--v2-181717?style=for-the-badge&logo=github" /></a>
-    <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/ci.yml?style=for-the-badge&label=CI" /></a>
-    <img alt="Expo 57" src="https://img.shields.io/badge/Expo-57-000020?style=for-the-badge&logo=expo" />
-    <img alt="React Native" src="https://img.shields.io/badge/React_Native-0.86-20232A?style=for-the-badge&logo=react" />
-    <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript" />
-  </p>
+<p>
+  <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/ci.yml?style=for-the-badge&label=CI" /></a>
+  <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/security.yml"><img alt="Security" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/security.yml?style=for-the-badge&label=Security" /></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-2.2.0-8B5CF6?style=for-the-badge" />
+  <img alt="Expo" src="https://img.shields.io/badge/Expo-57-000020?style=for-the-badge&logo=expo" />
+  <img alt="React Native" src="https://img.shields.io/badge/React_Native-0.86-20232A?style=for-the-badge&logo=react" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript" />
+</p>
 
-  <p>
-    <a href="#the-idea">The idea</a> ·
-    <a href="#features">Features</a> ·
-    <a href="#architecture">Architecture</a> ·
-    <a href="#android-widget">Android widget</a> ·
-    <a href="#contact">Contact</a>
-  </p>
+<p>
+  <a href="#why-nexus">Why Nexus</a> ·
+  <a href="#whats-new-in-22">What’s new</a> ·
+  <a href="#widget-studio-22">Widgets</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#getting-started">Run it</a> ·
+  <a href="#release-system">Release system</a>
+</p>
 
 </div>
 
-<br />
+---
 
-> **Nexus AI is not a generic to-do list.** It is a local-first personal execution system that understands your goals, routine, available time and progress to create the next realistic step — without turning planning into another form of procrastination.
+## Why Nexus
 
-## The idea
+Most productivity apps store tasks. Nexus tries to understand the person behind them.
 
-You describe where you want to go, why it matters and what your real life looks like. Nexus turns that context into a daily mission with prioritized tasks, estimated time, XP and a focus message.
-
-The result is a personal command center designed to be opened every day:
+It combines goals, routine, energy, available time, learning, money targets and progress into one execution loop:
 
 ```text
-Long-term goal
-      ↓
-Profile + routine + energy + available time
-      ↓
-Today's main mission
-      ↓
-Executable tasks + focus + progress + streak
+Ambition
+   ↓
+Personal diagnosis + current reality
+   ↓
+One main mission for today
+   ↓
+Clear tasks + focus block + proof of completion
+   ↓
+XP, memory, review and the next realistic action
 ```
 
-## Features
+Nexus is designed as a **Personal Mission OS**, not a generic to-do list. It is local-first, works without an account and remains useful when the AI provider is unavailable.
 
-| Area | What Nexus delivers |
+> **Built for execution:** every useful recommendation should answer five questions: what, why, how, what to deliver and when it is truly done.
+
+---
+
+## What’s new in 2.2
+
+### 🐍 Nexus Companion
+
+The mascot is now an active execution companion instead of decoration.
+
+- Seven personalities: happy, playful, motivational, serious, strict, calm and quiet.
+- Three presence levels: quiet, balanced and active.
+- Contextual reactions to progress, completed days, stalled missions and offline mode.
+- User-controlled voice: fun, motivational, contextual or silent.
+- Independent personality, style, accessory and speech configuration for every Android widget instance.
+- Redesigned pixel art, clearer expressions, two new companions (Orbit and Ember) and more recognizable accessories.
+
+A happy Companion and a strict Companion can live side by side on the same home screen because every widget stores its own configuration.
+
+### ⚡ Brain and Professor Atlas
+
+The assistant experience was rebuilt around clarity and speed.
+
+- Server-sent streaming makes answers appear progressively instead of arriving as one large block.
+- Brain answers are compact by default and optimized for the next action.
+- Atlas teaches one step at a time with a clear goal, action, deliverable and completion criterion.
+- Long Markdown is rendered as readable headings, steps and short paragraphs.
+- Quick actions can simplify an answer, turn it into a task or request guided execution.
+- User-selectable Atlas styles: teacher, mentor, coach, strict or friendly.
+- User-selectable response density: compact, balanced or detailed.
+- Sanitized diagnostics record source, model, latency and attempt count without exposing prompts or secrets.
+
+### 🧩 Widget Studio 2.2
+
+The widget system now covers execution, learning, focus, gamification, habits, money and Companion presence.
+
+**16 presets are included:**
+
+| Category | Presets |
 | --- | --- |
-| Deep onboarding | An eight-stage Brazilian Portuguese diagnosis covering identity, mission, reality, evolution, blockers, learning style and execution. |
-| Planning | Structured daily plans validated with Zod, automatic repair and a local fallback. |
-| Nexus Brain | Persistent contextual chats with controlled memories, conversation history and proposed actions. |
-| Professor Atlas | A subject-specific interview followed by adaptive roadmaps, lessons, practical proof and progress tracking. |
-| Today | Main mission, tasks, categories, priorities, estimated time, XP and daily progress. |
-| Execution | Complete, undo, edit, postpone and delete tasks without duplicated XP. |
-| Focus OS | Sprint, Pomodoro, 50-minute deep work, flow, custom sessions, recovery after closing and local ambient sound. |
-| Progression | Levels, attributes, achievements, XP, challenges, Boss Battles, streak and AI-assisted weekly reviews. |
-| Operations & habits | Multi-stage operations, milestones, intelligent routines and individual habit streaks. |
-| Weekly planning | Seven-day capacity view, overload signals and movable scheduled tasks. |
-| Offline | The app remains useful without internet through a deterministic plan based on the saved profile. |
-| Privacy | Profile, chats, roadmaps and history stay on the device; no account is required. |
-| Personalization | Nine themes, command-center presets, rearrangeable sections, mascot skins, accessories and Professor variants. |
-| Backup | JSON export/import with validation and selective recovery of corrupted sections. |
-| Notifications | Optional daily Android reminders that do not break the web preview. |
-| Widget Studio | Native widgets from 1×1 to 5×2 with per-instance styles, up to five tasks, direct completion, learning status, Nexus + Atlas and privacy controls. |
-| Safe recovery | A 50-second generation watchdog, explicit cancellation, retry and deterministic local-plan recovery prevent onboarding deadlocks. |
-| OTA updates | Preview and production channels, in-app update status, controlled reloads, rollback and native-change detection. |
+| Execution | Mission Card, Smart Plan, Daily Command, Do It Now |
+| Focus | Focus Card |
+| Learning | Atlas Lesson, Roadmap Pulse |
+| Companion | Nexus Companion, Nexus Quote, Quiet Status |
+| Progress | XP Core, Streak Flame, Boss Battle |
+| Routine | Habit Grid |
+| Money | Money Mission, Freelance Radar |
 
-## Designed to be opened every day
+Every instance can independently choose:
 
-The visual direction is a personal command center: dark, premium, futuristic and minimal, with purple as the action color and restrained feedback.
+- content mode;
+- size and density;
+- Nexus, AMOLED, transparent, glass, pixel, minimal, gamer, neon, mascot, privacy or Light Clean style;
+- accent, border, corners, glow, opacity, alignment and font scale;
+- mascot, Companion mood, speech style and accessory;
+- tap destination;
+- task count and visible metrics;
+- privacy mode;
+- multi-page cycling.
 
-| Element | Direction |
+The native widget supports direct task completion with nonce validation and idempotent XP synchronization.
+
+### 💸 Money Mission
+
+A lightweight local-first freelance dashboard tracks:
+
+- monthly revenue and goal;
+- today’s prospects;
+- pending follow-ups;
+- active clients;
+- closed deals.
+
+The same state can power the in-app Money Mission screen and finance widgets without sending private business data to a third party.
+
+### 🎨 Stronger visual identities
+
+Themes now affect complete visual systems instead of only changing one accent color.
+
+- Nexus
+- AMOLED
+- One UI
+- HUD
+- Aurora
+- Ocean
+- Ember
+- Rose
+- Monochrome
+- Light Clean
+- Custom
+
+The system coordinates backgrounds, surfaces, borders, glow, tab bar, system bar, cards, inputs and widget previews. Light widget previews also use their own readable text palette.
+
+---
+
+## Core experience
+
+| Area | What it does |
 | --- | --- |
-| Background | `#050505` |
-| Surfaces | `#111114` and `#19191F` |
-| Primary action | `#8B5CF6` |
-| Text | `#F7F7F8` and `#A1A1AA` |
-| Feedback | Green for progress, yellow for attention and pink for risk |
-| Mascot | Original pixel-art Python-inspired mascot with idle, thinking, celebrating, offline and warning states |
+| Deep onboarding | Eight-stage diagnosis covering identity, mission, reality, energy, blockers, learning and execution. |
+| Daily planning | Builds one main mission with priorities, time estimates, XP and concrete proof of completion. |
+| Nexus Brain | Persistent contextual conversations, controlled memories and confirm-before-apply actions. |
+| Professor Atlas | Interviews the learner, creates adaptive roadmaps and teaches through practical proof. |
+| Focus OS | Sprint, Pomodoro, deep work, flow and custom sessions with recovery after app closure. |
+| Operations | Multi-stage objectives, milestones and deadlines. |
+| Habits | Local routines, individual streaks and daily completion. |
+| Weekly planning | Capacity view, overload warnings and movable scheduled tasks. |
+| Progression | XP, levels, attributes, achievements, streaks, challenges and Boss Battles. |
+| Quick Capture | Fast task creation from the app and widget entry points. |
+| Backup | Validated JSON export/import with selective corruption recovery. |
+| OTA updates | Preview, production, rollback and runtime-safe change classification. |
+| Offline mode | Deterministic planning and continued execution without AI or network access. |
 
-## Secure, structured AI
+---
 
-The client never instantiates OpenRouter and never receives the API key. The integration runs through a server-side endpoint using the `OPENROUTER_API_KEY` secret.
+## A clear AI contract
 
-The pipeline:
+The OpenRouter key exists only on the server. The client receives no API key and never instantiates the provider SDK.
 
-1. Sends only the required, sanitized and size-limited context.
-2. Streams the response through `@openrouter/sdk`.
-3. Tries `openrouter/free`, which dynamically selects compatible free models.
-4. Falls back locally without spending credits; a paid `deepseek/deepseek-v4-flash` contingency is available only when explicitly enabled on the server.
-5. Removes Markdown fences, parses the JSON and validates the contract with Zod.
-6. Performs one repair attempt when the response is invalid.
-7. Uses a safe local plan when AI is unavailable.
+```mermaid
+flowchart LR
+  A[Brain / Atlas / Planner] --> B[Compact client context]
+  B --> C[Expo server route]
+  C --> D[OpenRouter free router]
+  D --> E[Streamed text or validated JSON]
+  E --> F[Readable cards / local state]
+  D -. timeout or provider failure .-> G[Deterministic local fallback]
+  G --> F
+```
 
-The key is never stored in AsyncStorage, `localStorage`, the client bundle, browser responses or logs.
+The assistant layer applies:
+
+1. schema validation and payload limits;
+2. history and context compaction;
+3. server-side provider routing;
+4. streaming for conversational modes;
+5. structured validation for plans and actions;
+6. retry only for temporary failures;
+7. a deterministic local fallback;
+8. sanitized diagnostics without private content.
+
+No profile, conversation or roadmap is uploaded for permanent storage by Nexus. Only the minimum context required for the current request is sent to the configured AI endpoint.
+
+---
+
+## Widget Studio 2.2
+
+The widget is a real Android `RemoteViews` implementation, not a screenshot or web view.
+
+### Native capabilities
+
+- adaptive layouts from 1×1 through 5×2;
+- multiple independent widget instances;
+- direct task completion;
+- secure page cycling;
+- mission, task, learning, focus, XP, streak, habits, Boss Battle, Companion and finance modes;
+- tap routes to Today, Brain, Focus, Capture, Progress, Finance, Habits and Week;
+- compact local payload with no API key or full profile;
+- synchronization whenever relevant app state changes.
+
+Native widget changes require a new APK. Later JavaScript-only improvements that keep runtime `2.2.0` can ship through OTA.
+
+Read [the Android widget guide](docs/ANDROID_WIDGET.md) and [the Widget Studio 2.2 guide](docs/WIDGET_STUDIO_2_2.md).
+
+---
+
+## Local-first and private by design
+
+Nexus does not require login.
+
+- Profile, tasks, XP, chats, roadmaps, habits and finance state live on the device.
+- Storage is versioned, validated and migrated with pre-migration backup.
+- Corrupted sections are recovered independently instead of deleting the entire user history.
+- AI actions require confirmation before modifying the plan.
+- Native widgets receive only a compact payload.
+- `.env`, provider keys and Expo tokens are never included in client storage or widget data.
+
+Read [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md).
+
+---
 
 ## Architecture
 
 ```text
-app/                  Expo Router screens, tabs and server-side API routes
-components/           Cards, mascot, loading, error, progress and UI primitives
-features/             Pure planning, task and statistics logic
-providers/            Local-first state and atomic operations
-schemas/              Zod contracts for profile, plans and storage
-services/             OpenRouter, storage, widget, backup and notifications
-modules/nexus-widget/ Isolated Kotlin native module for Android
-tests/                Domain, API, rollover and web-safety regression tests
-docs/                 Architecture, deployment, testing and widget guides
+app/                    Expo Router screens, tabs and server API routes
+components/             UI primitives, assistant renderer, mascot and widget preview
+features/assistant/     Message parsing and response presentation
+features/companion/     Mood, presence and contextual speech engine
+features/widget/        Preset catalog
+features/widgets/       Widget visual tokens
+providers/              Local-first state and atomic mutations
+schemas/                Zod contracts for storage and API boundaries
+services/               AI, storage, widgets, updates, backup and notifications
+modules/nexus-widget/   Kotlin Android RemoteViews module
+scripts/                Release, security and native-change checks
+tests/                  Domain, API, UI, security, OTA and native regressions
+docs/                   Architecture, release, testing and widget guides
 ```
 
-Key decisions:
+```mermaid
+flowchart TD
+  UI[Expo Router UI] --> Store[NexusProvider]
+  Store --> Repo[Versioned local repository]
+  Repo --> Async[AsyncStorage / web storage]
+  Store --> Assistant[Assistant client]
+  Assistant --> API[Expo API route]
+  API --> Provider[OpenRouter SDK]
+  Store --> Companion[Companion engine]
+  Store --> Finance[Money Mission]
+  Store --> WidgetService[Compact widget payload]
+  WidgetService --> Native[Android RemoteViews]
+  Native --> Actions[Nonce-protected actions]
+  Actions --> Store
+```
 
-- Expo Router, React Native Web and TypeScript remain the core stack.
-- Storage is versioned and validated before it is consumed.
-- The first stable version requires no login or Supabase.
-- Native widget code is isolated and never reaches the browser bundle.
-- Render failures are contained by Error Boundaries without deleting profile or history.
+More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+---
 
 ## Getting started
 
-Requirements: Node.js 22.13+ and pnpm 10.
+### Requirements
+
+- Node.js `22.13+ <23`
+- pnpm `10.0.0`
+- Android Studio only for local native builds
+- an Expo project/token only for EAS Build or EAS Update
 
 ```bash
 corepack enable
 corepack prepare pnpm@10.0.0 --activate
 pnpm install --frozen-lockfile
 cp .env.example .env
-# optional: add OPENROUTER_API_KEY to .env for server-side AI planning
 pnpm run web
 ```
 
-Without a key, the app still opens and uses local planning. On Replit, add the key under **Tools → Secrets**. Never expose this server secret through an Expo public environment variable.
+Server-side AI is optional. Without a key, Nexus continues with local planning.
 
-Useful commands:
+```env
+OPENROUTER_API_KEY=server_only_secret
+OPENROUTER_ALLOW_PAID_FALLBACK=false
+```
+
+Never expose the provider key through `EXPO_PUBLIC_*`.
+
+### Useful commands
 
 ```bash
-pnpm run typecheck       # TypeScript
-pnpm run lint            # Expo ESLint
-pnpm test                # Vitest suite
+pnpm run typecheck
+pnpm run lint
+pnpm test
 pnpm run security:secrets
 pnpm run release:check
-pnpm run export:web      # web/Replit export
-pnpm run verify          # complete verification
+pnpm run export:web
+pnpm run verify
+bash scripts/verify-native-widget.sh
 ```
 
-## Android widget
+---
 
-The real widget is native: it does not run inside Expo Go and cannot be validated in a browser. It is compiled into the APK/AAB and can be added to the home screen after installing the app.
+## Release system
 
-It supports:
+Nexus uses a protected release train:
 
-- adaptive layouts from 1×1 through 5×2, including 2×2, 4×2 and 4×4;
-- today's mission, up to five tasks, progress, streak, XP, level and focus time;
-- Nexus, Professor Atlas and optional companions, including Nexus + Atlas together;
-- the next roadmap lesson and learning progress when enabled;
-- Nexus, AMOLED, transparent, glass, pixel, minimal, gamer and privacy styles;
-- direct task completion with idempotent XP synchronization when the app resumes;
-- independent configuration for multiple widget instances;
-- refreshes when the plan, task, streak or preferences change;
-- tap actions for Today and Quick Capture.
-
-Read the complete guide in [docs/ANDROID_WIDGET.md](docs/ANDROID_WIDGET.md).
-
-## OTA updates and publishing
-
-Nexus 2.1.1 includes `expo-updates` with separate `preview` and `production` channels. JavaScript, TypeScript, styles and compatible assets can be delivered over the air after the 2.1.1 base APK is installed. Native modules, app configuration, dependencies, icons, splash screens and runtime-version changes require a new APK.
-
-The Profile screen shows the native version, runtime, channel and active update, and offers a controlled update check/reload. GitHub workflows classify each change before publishing.
-
-## Deployment and publishing
-
-The complete Replit, GitHub, EAS, personal APK and future Play Store flow is documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
-
-Quick commands:
-
-```bash
-# Personal APK / native widget
-pnpm dlx eas-cli@20.5.1 build --platform android --profile preview
-
-# Production AAB for Google Play, when the product is ready
-pnpm dlx eas-cli@20.5.1 build --platform android --profile production
+```text
+feature/release branch
+        ↓
+Pull Request
+        ↓
+CI + Security + Native Change Detector
+        ↓
+JavaScript-only change → EAS Update preview → production promotion
+Native/runtime change   → EAS Build → new APK → new runtime baseline
 ```
 
-Use the preview APK for personal testing. Google Play requires a production AAB and the required developer-account publishing steps.
+Version `2.2.0` changes the native widget and runtime, so it requires a new base APK. Once that APK is installed, compatible `2.2.x` JavaScript and TypeScript improvements can arrive over the air.
+
+Available workflows:
+
+- **Nexus CI**
+- **Nexus Security**
+- **Nexus Native Change Detector**
+- **Nexus OTA Preview**
+- **Nexus OTA Production**
+- **Nexus OTA Rollback**
+- **Nexus Android Build**
+- **Nexus Release**
+
+Read [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+---
 
 ## Verification
 
-The project includes GitHub Actions CI that runs TypeScript, lint, tests, secret scanning and the web export on every push or pull request.
+The 2.2 release includes automated coverage for:
 
-The V2.1.1 test suite covers cases such as:
+- streaming assistant UX and compact prompts;
+- Brain and Atlas fallback behavior;
+- Companion personalities and deterministic contextual lines;
+- Widget Studio presets and per-instance configuration;
+- nonce-protected native actions;
+- storage v5 migration;
+- task and XP idempotency;
+- onboarding recovery and timeout watchdogs;
+- untrusted payload depth, complexity and prototype-pollution keys;
+- OTA/runtime configuration and native-change classification;
+- React Native Web style safety;
+- secret scanning and workflow input hardening.
 
-- invalid AI responses, structured-output incompatibility and repair/fallback;
-- missing key, timeout, offline mode and unavailable servers;
-- duplicate onboarding submissions;
-- idempotent XP when checking and unchecking tasks;
-- date rollover without duplicate plans;
-- keyboard-safe forms and precise Professor Atlas validation;
-- unsafe nested payloads and prototype-related keys;
-- widget presets, storage v3 → v4 migration and safe styles for React Native Web;
-- Android module isolation from the web build.
+Read [docs/TESTING.md](docs/TESTING.md).
+
+---
 
 ## Documentation
 
+- [Nexus 2.2 release notes](docs/V2_2_RELEASE.md)
+- [Companion system](docs/COMPANION.md)
+- [Widget Studio 2.2](docs/WIDGET_STUDIO_2_2.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Android widget](docs/ANDROID_WIDGET.md)
-- [Complete deployment guide](docs/DEPLOYMENT.md)
-- [Testing guide](docs/TESTING.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Testing](docs/TESTING.md)
 - [Changelog](CHANGELOG.md)
-- [Privacy policy](PRIVACY.md)
-- [Security model](SECURITY.md)
+- [Security](SECURITY.md)
+- [Privacy](PRIVACY.md)
+
+---
 
 ## Roadmap
 
-- [x] Nexus AI v1: daily planning, execution, offline mode, progress and base widget.
-- [x] Nexus AI v2: Brain, Professor Atlas, roadmaps, Focus OS, operations, habits, weekly planning, deep personalization and Widget Studio.
+- [x] Daily planning, execution, offline fallback and progress.
+- [x] Brain, Professor Atlas, operations, habits, Focus OS and Widget Studio.
+- [x] OTA release train, rollback and native-change detection.
+- [x] Nexus Companion, streaming assistant UX, finance dashboard and Widget Studio 2.2.
 - [ ] Optional encrypted multi-device synchronization.
 - [ ] Voice capture after native permission and privacy review.
-- [ ] Public beta and Google Play testing track.
+- [ ] Public beta and Google Play closed testing.
 
-## About the project
+---
 
-Nexus AI was created by **Gustavo Araújo** as a personal app, portfolio project and product laboratory: a complete React Native/Expo experience with server-side AI, local persistence, web compatibility and native Android code.
+## Creator
 
-## Contact
-
-<div align="center">
-
-  <a href="https://github.com/Guuh-dev"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-Guuh--dev-181717?style=for-the-badge&logo=github" /></a>
-  <a href="https://www.linkedin.com/in/gustavo-araujo-542019316"><img alt="LinkedIn" src="https://img.shields.io/badge/LinkedIn-Gustavo_Araújo-0A66C2?style=for-the-badge&logo=linkedin" /></a>
-  <a href="https://www.upwork.com/freelancers/~0150fe8d8539ae61d9"><img alt="Upwork" src="https://img.shields.io/badge/Upwork-Profile-14A800?style=for-the-badge&logo=upwork" /></a>
-  <a href="mailto:gustavobebe720@gmail.com"><img alt="Email" src="https://img.shields.io/badge/Email-gustavobebe720%40gmail.com-EA4335?style=for-the-badge&logo=gmail" /></a>
-
-  <p>Personal portfolio coming soon · Brazil</p>
-
-</div>
-
-<br />
+Nexus AI is designed and built by **Gustavo Araújo** as a personal operating system, portfolio project and product laboratory.
 
 <div align="center">
-  <sub>Built with Expo, React Native, TypeScript, Zod and curiosity.</sub>
+
+<a href="https://github.com/Guuh-dev"><img alt="GitHub" src="https://img.shields.io/badge/GitHub-Guuh--dev-181717?style=for-the-badge&logo=github" /></a>
+<a href="https://www.linkedin.com/in/gustavo-araujo-542019316"><img alt="LinkedIn" src="https://img.shields.io/badge/LinkedIn-Gustavo_Araújo-0A66C2?style=for-the-badge&logo=linkedin" /></a>
+<a href="https://www.upwork.com/freelancers/~0150fe8d8539ae61d9"><img alt="Upwork" src="https://img.shields.io/badge/Upwork-Profile-14A800?style=for-the-badge&logo=upwork" /></a>
+<a href="mailto:gustavobebe720@gmail.com"><img alt="Email" src="https://img.shields.io/badge/Email-gustavobebe720%40gmail.com-EA4335?style=for-the-badge&logo=gmail" /></a>
+
+<br /><br />
+
+<sub>Built with Expo, React Native, TypeScript, Zod, Kotlin and one unusually determined purple snake.</sub>
+
 </div>
 
 ## License

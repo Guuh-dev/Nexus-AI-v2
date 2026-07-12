@@ -1,4 +1,4 @@
-# Publicação do Nexus AI v2.1.1
+# Publicação do Nexus AI 2.2.0
 
 ## 1. Requisitos
 
@@ -6,9 +6,7 @@
 - pnpm `10.0.0`;
 - conta Expo dona do projeto `littleguhh/nexus-ai`;
 - `EXPO_TOKEN` nos secrets do GitHub;
-- backend Render com a V2.1.1 publicada.
-
-Instalação e validação:
+- backend Render publicado a partir da `main` 2.2.0.
 
 ```bash
 npx -y pnpm@10.0.0 install --frozen-lockfile
@@ -16,38 +14,41 @@ pnpm run verify
 pnpm run release:check
 pnpm run export:web
 pnpm exec expo install --check
+bash scripts/verify-native-widget.sh
 ```
 
-O projeto usa somente `pnpm-lock.yaml`. Não recrie `package-lock.json`, pois o EAS escolheria npm novamente.
+O projeto usa somente `pnpm-lock.yaml`. Não recrie `package-lock.json`, pois EAS pode selecionar npm.
 
 ## 2. Backend e IA
 
-A URL nativa está em `eas.json`:
+URL nativa:
 
 ```text
 https://nexus-ai-v1.onrender.com
 ```
 
-O nome `v1` é histórico; o serviço precisa executar o código V2.1.1 atual. O `render.yaml` instala com pnpm, exporta o servidor web e usa `/api/status` como health check.
+O nome `v1` é histórico. O serviço deve executar a `main` atual.
 
-No Render, configure somente como segredo de servidor:
+Secrets exclusivos do servidor:
 
 ```text
-OPENROUTER_API_KEY=sua_chave
+OPENROUTER_API_KEY
 OPENROUTER_ALLOW_PAID_FALLBACK=false
 ```
 
-Nunca use prefixo `EXPO_PUBLIC_` para a chave. Após o deploy, confirme:
+Nunca prefixe a chave com `EXPO_PUBLIC_`.
+
+Depois do deploy:
 
 ```bash
 curl -sS https://nexus-ai-v1.onrender.com/api/status
 ```
 
-O resultado deve incluir `configured: true`, `apiVersion: "2.1"` e `assistantAvailable: true`.
+O resultado deve incluir `configured: true`, `apiVersion: "2.2.0"` e `assistantAvailable: true`.
 
 ## 3. GitHub Actions
 
-Crie em **Settings → Secrets and variables → Actions**:
+Secret obrigatório:
 
 ```text
 EXPO_TOKEN
@@ -55,37 +56,43 @@ EXPO_TOKEN
 
 Workflows:
 
-- **Nexus CI**: TypeScript, lint, testes, secret scan, release check e export web.
-- **Nexus Security**: audit, regressões defensivas e CodeQL.
-- **Nexus Native Change Detector**: decide OTA ou APK no PR.
-- **Nexus OTA Preview**: publica mudanças compatíveis na `main` para `preview`.
-- **Nexus OTA Production**: promoção manual protegida para `production`.
-- **Nexus Android Build**: APK manual `preview` ou `release`.
-- **Nexus Release**: tag semântica, APK Release e GitHub Release.
-- **Nexus OTA Rollback**: rollback manual confirmado.
+- Nexus CI
+- Nexus Security
+- Nexus Native Change Detector
+- Nexus OTA Preview
+- Nexus OTA Production
+- Nexus OTA Rollback
+- Nexus Android Build
+- Nexus Release
 
-## 4. Primeiro APK 2.1.1
+## 4. APK base 2.2.0
 
-A V2.1.1 muda dependências e configuração nativa, portanto a primeira instalação precisa de APK novo.
-
-Depois do merge na `main` e dos checks verdes:
+A 2.2.0 muda o runtime e o módulo nativo do widget. Após o merge:
 
 ```bash
 git switch main
 git pull --ff-only origin main
-git tag -a v2.1.1 -m "Nexus AI v2.1.1"
-git push origin v2.1.1
+node -p "require('./package.json').version"
+git tag -a v2.2.0 -m "Nexus AI v2.2.0 Companion"
+git push origin v2.2.0
 ```
 
-A tag dispara **Nexus Release**, aguarda o EAS, baixa o APK e o anexa ao GitHub Release. Para um teste mais rápido, use **Nexus Android Build → preview**.
+A tag dispara **Nexus Release**, que valida o projeto, solicita o build EAS e anexa o APK à GitHub Release quando concluído.
 
-Antes de instalar, exporte o backup JSON. Instale por cima da versão atual para testar a migração; remova e adicione widgets novamente caso o launcher mantenha layouts antigos.
+Antes de instalar:
 
-## 5. Atualizações futuras
+1. exporte backup JSON;
+2. mantenha o APK anterior disponível;
+3. instale por cima para testar migração;
+4. remova e adicione novamente widgets com cache antigo.
 
-- Merge OTA-compatible na `main`: publica automaticamente em `preview`.
-- Depois do teste: execute **Nexus OTA Production** e confirme `PRODUCTION`.
-- Mudança nativa: gere APK `release` ou uma nova tag.
-- Problema em OTA: execute **Nexus OTA Rollback** com o group ID.
+## 5. OTAs futuras
 
-O `runtimeVersion` usa a política `appVersion`. OTAs só chegam a builds com runtime compatível, evitando misturar código JavaScript novo com binários nativos antigos.
+Depois do APK 2.2.0 instalado:
+
+- mudança OTA-compatible na `main` → Preview;
+- teste aprovado → execute OTA Production e confirme `PRODUCTION`;
+- mudança nativa/runtime → nova versão e novo APK;
+- regressão OTA → execute OTA Rollback com o group ID.
+
+O `runtimeVersion` usa `appVersion`, impedindo código 2.2 de ser enviado a um binário 2.1.1 incompatível.

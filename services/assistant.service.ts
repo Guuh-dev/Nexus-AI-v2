@@ -29,6 +29,7 @@ type AssistantRunOptions = {
   signal?: AbortSignal;
   messages?: ChatMessage[];
   onStage?: (stage: AssistantStage) => void;
+  onDelta?: (delta: string) => void;
 };
 
 class AssistantRemoteError extends Error {
@@ -433,6 +434,108 @@ function extractRemoteError(
   return { code: `http_${status}`, message: `Falha HTTP ${status}` };
 }
 
+type StreamEnvelope = {
+  delta?: unknown;
+  error?: { code?: unknown; message?: unknown };
+} & Partial<AssistantResponse>;
+
+function parseSseBlock(
+  block: string,
+  onDelta: (delta: string) => void,
+): { result?: AssistantResponse; error?: AssistantRemoteError } {
+  const event = block.split("\n").find((line) => line.startsWith("event:"))?.slice(6).trim() ?? "message";
+  const data = block.split("\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
+  if (!data) return {};
+  let parsed: StreamEnvelope;
+  try { parsed = JSON.parse(data) as StreamEnvelope; } catch { return {}; }
+  if (event === "delta" && typeof parsed.delta === "string") {
+    onDelta(parsed.delta);
+    return {};
+  }
+  if (event === "error") {
+    const code = typeof parsed.error?.code === "string" ? parsed.error.code : "provider_unavailable";
+    const message = typeof parsed.error?.message === "string" ? parsed.error.message : "A inteligência está temporariamente indisponível.";
+    return { error: new AssistantRemoteError(code, message) };
+  }
+  if (event === "result") {
+    const validated = assistantClientResponseSchema.safeParse(parsed);
+    if (validated.success) return { result: validated.data };
+    return { error: new AssistantRemoteError("invalid_response", "A resposta em streaming não passou pela validação do Nexus.") };
+  }
+  return {};
+}
+
+async function remoteStream(
+  request: AssistantRequest,
+  signal: AbortSignal,
+  onDelta: (delta: string) => void,
+): Promise<AssistantResponse> {
+  const startedAt = Date.now();
+  const response = await fetchNexusApi("/api/assistant", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      "X-Nexus-Client-Id": request.clientId,
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
+  const endpoint = response.url || undefined;
+  const type = response.headers.get("content-type") ?? "";
+  if (!type.includes("text/event-stream")) {
+    const body = type.includes("application/json") ? await response.json() as unknown : null;
+    if (!response.ok) {
+      const details = extractRemoteError(body, response.status);
+      throw new AssistantRemoteError(details.code, details.message, response.status, endpoint);
+    }
+    const parsed = assistantClientResponseSchema.safeParse(body);
+    if (!parsed.success) throw new AssistantRemoteError("invalid_response", "O backend não abriu o canal de streaming.", response.status, endpoint);
+    return parsed.data;
+  }
+
+  let buffer = "";
+  let result: AssistantResponse | undefined;
+  const consume = (chunk: string) => {
+    buffer += chunk.replace(/\r\n/g, "\n");
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      const block = buffer.slice(0, boundary);
+      buffer = buffer.slice(boundary + 2);
+      const parsed = parseSseBlock(block, onDelta);
+      if (parsed.error) throw parsed.error;
+      if (parsed.result) result = parsed.result;
+      boundary = buffer.indexOf("\n\n");
+    }
+  };
+
+  const reader = response.body?.getReader?.();
+  if (reader) {
+    const decoder = new TextDecoder();
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      consume(decoder.decode(value, { stream: true }));
+    }
+  } else {
+    consume(await response.text());
+  }
+  if (buffer.trim()) consume(`${buffer}\n\n`);
+  if (!result) throw new AssistantRemoteError("invalid_response", "O streaming terminou sem resposta final.", response.status, endpoint);
+  return {
+    ...result,
+    meta: {
+      source: "remote",
+      latencyMs: Date.now() - startedAt,
+      attempts: result.meta?.attempts ?? 1,
+      ...(result.meta?.model ? { model: result.meta.model } : {}),
+      ...(result.meta?.reasoningTokens !== undefined ? { reasoningTokens: result.meta.reasoningTokens } : {}),
+      ...(endpoint ? { endpoint } : {}),
+      requestId: request.requestId,
+    },
+  };
+}
+
 async function remote(
   request: AssistantRequest,
   signal: AbortSignal,
@@ -547,6 +650,11 @@ export async function askNexus(
             : "brain",
           options.messages,
         ),
+        experience: {
+          assistantVerbosity: input.data.preferences.mascot.assistantVerbosity,
+          atlasPersonality: input.data.preferences.mascot.atlasPersonality,
+          companionMood: input.data.preferences.mascot.companionMood,
+        },
         ...(input.context ?? {}),
       },
       input.mode,
@@ -574,7 +682,10 @@ export async function askNexus(
   );
   options.onStage?.("connecting");
   try {
-    const result = await remote(request, controller.signal);
+    const canStream = Boolean(options.onDelta) && (request.mode === "brain" || request.mode === "professor");
+    const result = canStream
+      ? await remoteStream(request, controller.signal, options.onDelta!)
+      : await remote(request, controller.signal);
     options.onStage?.("finalizing");
     return result;
   } catch (error) {

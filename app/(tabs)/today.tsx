@@ -15,6 +15,7 @@ import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Screen } from "@/components/ui/Screen";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { nextRoadmapLesson } from "@/features/learning/roadmap";
+import { getCompanionLine } from "@/features/companion/companion";
 import { detectReplanSignal } from "@/features/planning/smart-replan";
 import { useNexus } from "@/providers/NexusProvider";
 import type { DashboardSection, Task } from "@/types";
@@ -52,6 +53,12 @@ export default function TodayScreen() {
   const activeRoadmap = data.learning.roadmaps.find((roadmap) => roadmap.id === data.learning.activeRoadmapId && roadmap.status === "active");
   const nextLesson = activeRoadmap?.intake?.includeInDailyPlan === false ? undefined : activeRoadmap ? nextRoadmapLesson(activeRoadmap) : undefined;
   const pendingProfessorTopic = data.learning.pendingTopics[0];
+  const companionLine = getCompanionLine(data, data.preferences.mascot.companionMood, "today");
+  const companionPresence = data.preferences.mascot.companionPresence;
+  const companionVisible = data.preferences.mascot.showCompanion
+    && data.preferences.mascot.speechEnabled
+    && (companionPresence === "active"
+      || (companionPresence === "balanced" && Boolean(signal || stats.completed > 0 || stats.percentage === 100)));
 
   if (!plan || !data.profile) return <Screen scroll={false}><View style={styles.empty}><PixelMascot state="warning" size={72} /><NexusText variant="title">Nenhum plano ativo</NexusText><NexusText secondary style={styles.center}>Seu perfil está seguro. Volte ao início para preparar a missão de hoje.</NexusText><NexusButton label="Voltar ao início" onPress={() => router.replace("/")} /></View></Screen>;
 
@@ -62,6 +69,16 @@ export default function TodayScreen() {
   const renderSection = (section: DashboardSection) => {
     if (section === "smart") return (
       <View key={section} style={[styles.section, { marginTop: sectionGap }]}>
+        {companionVisible ? (
+          <Card style={[styles.companionCard, { borderColor: `${colors.primary}44`, backgroundColor: `${colors.primary}0A` }]}>
+            <CompanionMascot mascot={data.preferences.mascot.companion} state={stats.percentage === 100 ? "celebrating" : signal ? "warning" : "idle"} size={54} />
+            <View style={styles.flex}>
+              <NexusText variant="mono" color={colors.primarySoft}>NEXUS COMPANION • {data.preferences.mascot.companionMood.toUpperCase()}</NexusText>
+              <NexusText variant="subtitle">{companionLine}</NexusText>
+              <NexusText variant="caption" secondary>{companionPresence === "active" ? "Modo ativo: reage ao seu dia e aos seus resultados." : "Modo equilibrado: aparece quando existe algo relevante."}</NexusText>
+            </View>
+          </Card>
+        ) : null}
         {signal && !signalDismissed ? <Card style={[styles.smartCard, { backgroundColor: `${signal.severity === "high" ? colors.warning : colors.primary}0D`, borderColor: `${signal.severity === "high" ? colors.warning : colors.primary}55` }]}><View style={styles.smartTop}><CompanionMascot mascot="byte" state="warning" size={46} /><View style={styles.flex}><NexusText variant="mono" color={signal.severity === "high" ? colors.warning : colors.primarySoft}>REPLANEJAMENTO INTELIGENTE</NexusText><NexusText variant="title">{signal.title}</NexusText></View></View><NexusText secondary>{signal.message}</NexusText><View style={styles.actions}><NexusButton label="Agora não" variant="ghost" onPress={() => setSignalDismissed(true)} style={styles.flex} /><NexusButton label="Ver ajuste" onPress={() => { setSmartReplan(true); setPreserveIds(signal.candidates.slice(0, 2).map((task) => task.id)); setReplanOpen(true); }} style={styles.flex} /></View></Card> : pendingProfessorTopic ? <Card style={[styles.smartCard, { backgroundColor: `${colors.primary}0C`, borderColor: `${colors.primary}44` }]}><View style={styles.smartTop}><CompanionMascot mascot="atlas" state="thinking" size={46} /><View style={styles.flex}><NexusText variant="mono" color={colors.primarySoft}>ENTREVISTA DO PROFESSOR</NexusText><NexusText variant="title">Vamos mapear {pendingProfessorTopic}?</NexusText></View></View><NexusText secondary>Atlas quer entender seu nível e objetivo antes de criar uma trilha que realmente sirva para você.</NexusText><NexusButton label="Responder ao Atlas" onPress={() => router.push({ pathname: "/professor-intake", params: { topic: pendingProfessorTopic } })} fullWidth /></Card> : nextLesson && activeRoadmap ? <Card style={[styles.smartCard, { backgroundColor: `${colors.primary}0C` }]}><View style={styles.smartTop}><CompanionMascot mascot="atlas" state="idle" size={46} /><View style={styles.flex}><NexusText variant="mono" color={colors.primarySoft}>PRÓXIMA EVOLUÇÃO</NexusText><NexusText variant="title">{nextLesson.title}</NexusText></View></View><NexusText variant="caption" secondary>{activeRoadmap.topic} • {nextLesson.estimatedMinutes} min</NexusText><NexusButton label="Abrir roadmap" variant="secondary" onPress={() => router.push("/(tabs)/brain")} fullWidth /></Card> : null}
       </View>
     );
@@ -112,6 +129,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 }, header: { gap: 6, marginBottom: 8 }, brandRow: { flexDirection: "row", alignItems: "center", gap: 12 }, onlineRow: { flexDirection: "row", alignItems: "center", gap: 7 }, onlineDot: { width: 7, height: 7, borderRadius: 4 },
   streak: { minWidth: 54, height: 42, borderRadius: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5 }, warningCard: { marginTop: 14, flexDirection: "row", alignItems: "center", gap: 10 }, warningText: { flex: 1, gap: 3 }, closeButton: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
   sourceNotice: { marginTop: 12, borderRadius: 13, borderWidth: 1, padding: 11 }, section: { gap: 13 }, sectionHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 }, addButton: { width: 46, height: 46, borderRadius: 15, borderWidth: 1, alignItems: "center", justifyContent: "center" }, taskList: { gap: 11 },
+  companionCard: { flexDirection: "row", alignItems: "center", gap: 12 },
   smartCard: { gap: 12 }, smartTop: { flexDirection: "row", alignItems: "center", gap: 10 }, actions: { flexDirection: "row", gap: 9 }, operationCard: { gap: 10 }, miniRow: { flexDirection: "row", alignItems: "center", gap: 9, minHeight: 34 }, habitCard: { paddingVertical: 4 }, habitRow: { minHeight: 60, flexDirection: "row", alignItems: "center", gap: 11, borderBottomWidth: StyleSheet.hairlineWidth },
   quickGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 }, quickAction: { width: "31%", minWidth: 104, minHeight: 94, flexGrow: 1, borderRadius: 18, borderWidth: 1, padding: 12, justifyContent: "space-between", gap: 8 }, quickIcon: { width: 38, height: 38, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   progressCard: { gap: 15 }, metrics: { flexDirection: "row", justifyContent: "space-between", gap: 8 }, metric: { flex: 1, alignItems: "center", gap: 2 }, focusMessage: { marginBottom: 8, gap: 10 }, empty: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14 }, center: { textAlign: "center" },

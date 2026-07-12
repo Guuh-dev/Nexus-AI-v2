@@ -41,6 +41,20 @@ function json(request: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: headers(request) });
 }
 
+function sseHeaders(request: Request): HeadersInit {
+  return {
+    ...headers(request),
+    "Content-Type": "text/event-stream; charset=utf-8",
+    "Cache-Control": "no-cache, no-store, max-age=0",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  };
+}
+
+function streamEvent(type: string, body: unknown): Uint8Array {
+  return new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify(body)}\n\n`);
+}
+
 function key(request: Request, clientId: string): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
   return `${request.headers.get("cf-connecting-ip") ?? forwarded ?? "native"}:${clientId}`;
@@ -107,6 +121,43 @@ export async function POST(request: Request): Promise<Response> {
   if (!process.env.OPENROUTER_API_KEY) return json(request, { error: { code: "missing_key", message: "A inteligência do Nexus ainda não foi configurada." } }, 503);
   if (!allow(request, data.clientId)) return json(request, { error: { code: "rate_limit", message: "O Nexus está recebendo muitas solicitações. Tente novamente em instantes." } }, 429);
 
+  const wantsStream = request.headers.get("accept")?.includes("text/event-stream") === true
+    && (data.mode === "brain" || data.mode === "professor");
+  if (wantsStream) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 32_000);
+    const stream = new ReadableStream<Uint8Array>({
+      start(streamController) {
+        void (async () => {
+          try {
+            streamController.enqueue(streamEvent("ready", { requestId: data.requestId }));
+            const response = await runAssistant(data, controller.signal, (delta) => {
+              if (!controller.signal.aborted) streamController.enqueue(streamEvent("delta", { delta }));
+            });
+            cache.set(requestCacheKey, { expiresAt: Date.now() + WINDOW_MS, response });
+            streamController.enqueue(streamEvent("result", response));
+          } catch (error) {
+            const status = controller.signal.aborted ? 504 : statusFromError(error);
+            const code = status === 401 ? "unauthorized"
+              : status === 402 ? "payment_required"
+                : status === 429 ? "rate_limit"
+                  : [408, 425, 504, 529].includes(status) ? "timeout"
+                    : "provider_unavailable";
+            streamController.enqueue(streamEvent("error", { error: { code, message: code === "timeout" ? "A IA demorou mais que o esperado." : "A inteligência está temporariamente indisponível." } }));
+          } finally {
+            clearTimeout(timeout);
+            streamController.close();
+          }
+        })();
+      },
+      cancel() {
+        controller.abort();
+        clearTimeout(timeout);
+      },
+    });
+    return new Response(stream, { status: 200, headers: sseHeaders(request) });
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 32_000);
   const promise = runAssistant(data, controller.signal);
@@ -131,5 +182,5 @@ export async function POST(request: Request): Promise<Response> {
 }
 
 export function OPTIONS(request: Request): Response {
-  return new Response(null, { status: 204, headers: { ...headers(request), "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, X-Nexus-Client-Id", "Access-Control-Max-Age": "86400" } });
+  return new Response(null, { status: 204, headers: { ...headers(request), "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Accept, Content-Type, X-Nexus-Client-Id", "Access-Control-Max-Age": "86400" } });
 }

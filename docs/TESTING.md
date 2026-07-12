@@ -1,4 +1,4 @@
-# Estratégia de testes — Nexus AI 2.1.1
+# Estratégia de testes — Nexus AI 2.2
 
 ## Automatizados
 
@@ -11,6 +11,7 @@ pnpm run release:check
 pnpm audit --audit-level=high
 pnpm run export:web
 pnpm exec expo install --check
+bash scripts/verify-native-widget.sh
 ```
 
 Validação nativa completa:
@@ -19,30 +20,36 @@ Validação nativa completa:
 bash scripts/post-build-check.sh
 ```
 
-Ela também executa prebuild Android limpo e valida o manifest/provider do widget.
-
 ## Regressões cobertas
 
-- geração do onboarding não é cancelada por mudança de estágio ou rerender;
-- timeout absoluto de 50 segundos ativa plano local;
-- cancelamento explícito preserva perfil e oferece retry/recuperação;
-- teclado Android, Safe Area, fundo e rodapés permanecem acessíveis;
-- configuração OTA, canais, runtime e detector de mudanças nativas;
-- workflow_dispatch não injeta entradas diretamente em comandos shell;
-- IDs de idempotência são isolados por cliente e headers inconsistentes são rejeitados;
-- fórmula de nível, XP idempotente, rollover, storage v4 e backup;
+- streaming SSE e renderer de resposta compacta;
+- prompts Brain/Atlas com clareza e limite;
+- fallback local e diagnóstico sanitizado;
+- personalidade, presença e falas determinísticas do Companion;
+- 16 presets e novos modos do Widget Studio;
+- preferências independentes por instância;
+- nonce em conclusão de tarefa e troca de página;
+- storage v5 e defaults de finanças/Companion;
+- XP idempotente, rollover e backup;
+- onboarding, timeout e recuperação;
 - limites de payload, profundidade, complexidade e prototype pollution;
-- Atlas, roadmaps, widget, isolamento Android/web e secret scan.
+- OTA/runtime e detector de mudança nativa;
+- isolamento Android/web e estilos seguros;
+- secret scan e workflow input hardening.
 
-## Teste manual Android
+## Teste manual Android 2.2
 
-1. Exporte backup JSON e instale o APK 2.1.1 por cima.
-2. Conclua o onboarding com Gboard e Samsung Keyboard.
-3. Deixe a rede indisponível e confirme que o plano local abre em até 50 segundos.
-4. Cancele manualmente, teste **Tentar novamente** e **Continuar com plano local**.
-5. Verifique que não existe faixa branca inferior nos formulários.
-6. Teste Brain e Atlas com backend configurado e depois sem rede.
-7. Abra Perfil → Atualizações e confira versão, runtime e canal.
-8. Publique OTA Preview, verifique e aplique pelo Perfil.
-9. Reinicie app/aparelho e confirme dados, tarefas, XP e widgets.
-10. Teste várias instâncias do widget e conclusão repetida sem XP duplicado.
+1. Exporte backup na versão atual.
+2. Instale o APK 2.2.0 por cima.
+3. Confirme migração de perfil, XP, chats e roadmaps.
+4. Teste Brain e Atlas com streaming remoto.
+5. Desligue a rede e confirme fallback local.
+6. Teste todas as personalidades e níveis de presença.
+7. Teste tema Light Clean e todos os temas escuros.
+8. Abra Money Mission e altere os indicadores.
+9. Crie widgets de Companion feliz e estrito lado a lado.
+10. Teste finanças, hábitos, Boss Battle e troca de página.
+11. Conclua uma tarefa várias vezes e confirme XP único.
+12. Reinicie app e aparelho e confirme persistência.
+13. Teste backup/restore.
+14. Após uma OTA 2.2.x, confira update, reload e rollback.

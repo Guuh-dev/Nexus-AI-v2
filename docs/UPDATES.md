@@ -1,59 +1,60 @@
-# Fluxo de atualização — Nexus AI 2.1.1
+# Fluxo de atualização — Nexus AI 2.2
 
 ## Regra principal
 
-A versão 2.1.1 instala a base nativa de `expo-updates`. Por isso, **o primeiro passo é gerar e instalar um APK 2.1.1**. Depois disso, mudanças compatíveis podem chegar por OTA sem baixar outro APK.
+A versão 2.2.0 inaugura um novo runtime porque altera o widget Kotlin, layouts XML e o armazenamento. Portanto, **primeiro gere e instale o APK 2.2.0**. Depois disso, mudanças compatíveis 2.2.x podem chegar por OTA.
 
 ### Pode ser OTA
 
 - telas, componentes e navegação em JavaScript/TypeScript;
-- regras locais, textos, estilos e temas;
-- correções no Brain, Atlas, onboarding e planejamento que não mudem módulos nativos;
-- assets comuns compatíveis com o mesmo runtime.
+- prompts, streaming, regras locais, textos, estilos e temas;
+- ajustes do Brain, Atlas, Companion e Money Mission que não alterem módulos nativos;
+- presets/preview do Widget Studio que utilizem capacidades já instaladas;
+- assets comuns compatíveis com runtime 2.2.0.
 
 ### Exige APK novo
 
-- `app.json`, `eas.json`, versão do app ou runtime;
-- dependências ou plugins Expo/React Native;
-- Kotlin, widget, permissões, ícone, adaptive icon ou splash;
-- qualquer alteração em `modules/`, `plugins/`, `android/` ou `ios/`.
+- `app.json`, `eas.json`, app version ou runtime;
+- dependências/plugins Expo ou React Native;
+- Kotlin, XML, widget provider, permissões, ícone ou splash;
+- mudanças em `modules/`, `plugins/`, `android/` ou `ios/`.
 
-O workflow **Nexus Native Change Detector** classifica cada pull request e falha de forma conservadora: em caso de dúvida, exige APK em vez de arriscar uma OTA incompatível.
+O **Nexus Native Change Detector** classifica cada pull request. Em caso de erro ou dúvida, exige APK por segurança.
 
 ## Canais
 
-- `preview`: atualização privada para teste no APK Preview.
+- `preview`: teste privado em builds ligados ao canal Preview.
 - `production`: atualização estável para o APK Release.
 
-O Perfil mostra versão nativa, runtime, canal, ID da atualização e estado de emergência. O botão **Verificar atualização** consulta o canal atual; quando existe pacote novo, **Baixar e reiniciar** aplica a atualização com reload controlado.
+O Perfil mostra versão nativa, runtime, canal e update ativo. O usuário pode verificar, baixar e reiniciar de forma controlada.
 
-## Fluxo preview automático
+## Fluxo OTA 2.2.x
 
-Depois do APK-base 2.1.1:
+1. crie branch a partir da `main`;
+2. rode `pnpm run verify`, `pnpm run release:check` e `pnpm run export:web`;
+3. abra PR;
+4. confirme `Native APK required: false`;
+5. faça merge somente com CI e Security verdes;
+6. valide o Preview;
+7. execute **Nexus OTA Production**, informe a mensagem e confirme `PRODUCTION`.
 
-1. crie uma branch;
-2. rode `pnpm run verify` e `pnpm run release:check`;
-3. abra PR e confirme o classificador;
-4. faça merge na `main` somente com CI e Security verdes;
-5. se a mudança for OTA, **Nexus OTA Preview** publica automaticamente no canal `preview`;
-6. se for nativa, o workflow explica por que foi ignorada e você gera novo APK.
+## Fluxo nativo
 
-## Produção
-
-Depois de validar no preview:
-
-1. abra **Actions → Nexus OTA Production**;
-2. informe a mensagem;
-3. digite exatamente `PRODUCTION`;
-4. o workflow bloqueia mudanças nativas, repete testes e publica no canal `production`.
+1. incremente app version/runtime;
+2. classificador deve indicar mudança nativa;
+3. faça merge após checks;
+4. crie tag semântica;
+5. **Nexus Release** gera e anexa o APK;
+6. faça backup e instale por cima;
+7. remova/recrie widgets quando o launcher mantiver layout antigo.
 
 ## Rollback
 
-Abra **Actions → Nexus OTA Rollback**, informe o group ID da atualização mais recente, a mensagem e digite exatamente `ROLLBACK`. O rollback é publicado no mesmo runtime e os metadados ficam guardados como artifact do workflow.
+Abra **Nexus OTA Rollback**, informe o group ID, mensagem e confirme `ROLLBACK`. Rollback só funciona dentro do mesmo runtime compatível.
 
 Mantenha sempre:
 
-- backup JSON exportado pelo Perfil;
-- tag do APK-base estável;
-- group ID da última OTA estável;
-- branch de release até todos os checks ficarem verdes.
+- backup JSON;
+- tag/APK-base estável;
+- group ID da OTA estável;
+- branch de release até todos os checks terminarem.

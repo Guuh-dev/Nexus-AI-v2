@@ -2,7 +2,7 @@
 
 ## Modelo de ameaça inicial
 
-O Nexus 2.1.1 é local-first e não possui autenticação. Dados pessoais ficam no armazenamento privado da instalação. As operações de IA remotas (planejamento, Brain, Professor Atlas, captura e revisão) são mediadas pelo backend do Nexus; nenhuma chave é enviada ao aplicativo.
+O Nexus 2.2.0 é local-first e não possui autenticação. Dados pessoais ficam no armazenamento privado da instalação. As operações de IA remotas (planejamento, Brain, Professor Atlas, captura e revisão) são mediadas pelo backend do Nexus; nenhuma chave é enviada ao aplicativo.
 
 ## Controles implementados
 
@@ -12,8 +12,9 @@ O Nexus 2.1.1 é local-first e não possui autenticação. Dados pessoais ficam 
 - Tamanhos máximos para corpo, textos, arrays, tarefas e backups.
 - Conteúdo da IA tratado como texto; nenhum código gerado é executado.
 - Sem `dangerouslySetInnerHTML`.
-- Timeout remoto de 45 segundos, watchdog absoluto de 50 segundos, retry e fallback local controlado.
+- Timeouts por fluxo, watchdog absoluto do onboarding, retry apenas em falhas temporárias e fallback local controlado.
 - Idempotência isolada por instalação e request ID para impedir duplicação e colisão entre clientes.
+- Streaming SSE sem exposição de chave, prompt integral ou contexto em logs públicos.
 - Rate limit por IP/instalação, teto global diário e limpeza de caches expirados.
 - Fallback local quando a rede, chave ou provedor falham.
 - Erros públicos sem stack trace, chave, prompt completo ou perfil.
@@ -22,6 +23,7 @@ O Nexus 2.1.1 é local-first e não possui autenticação. Dados pessoais ficam 
 - Recuperação apenas da seção local corrompida e validação do estado antes de persistir.
 - Busca automatizada por padrões de segredo no repositório e bundle web.
 - OTA separada por runtime/canal, baseline de tag instalada e detector conservador de mudanças nativas.
+- Ações de widget que alteram estado ou página exigem nonce por instalação e são consumidas de forma idempotente.
 - Inputs manuais de GitHub Actions passam por variáveis de ambiente e confirmações explícitas.
 
 ## Limites conhecidos

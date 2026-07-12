@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.2.0 — Companion, Streaming AI & Widget Studio 2.2
+
+- Adicionado Nexus Companion com sete personalidades, três níveis de presença, falas contextuais e configuração independente por widget.
+- Brain e Professor Atlas agora usam streaming SSE, respostas compactas, Markdown legível e ações rápidas para simplificar, guiar ou transformar conteúdo em tarefa.
+- Professor Atlas passou a ensinar uma etapa por vez, com objetivo, ação, entrega e critério de conclusão claros.
+- Criados 16 presets de widget cobrindo missão, foco, Atlas, Companion, XP, streak, Boss Battle, hábitos, finanças e freelance.
+- Widget Android ampliado com humor, fala, acessório, conteúdo e páginas independentes por instância, além de troca de página protegida por nonce.
+- Adicionado Money Mission local-first para receita, meta mensal, prospects, follow-ups, clientes e fechamentos.
+- Storage atualizado para v5 com migração segura de Companion, Widget Studio e finanças.
+- Adicionados tema Light Clean, barra de sistema dinâmica, temas mais distintos e contraste correto no preview claro de widgets.
+- Mascotes e acessórios ganharam maior legibilidade e expressões; Orbit e Ember entraram como novos companheiros.
+- Atualizadas API, runtime, release checks, documentação e testes para a base nativa 2.2.0.
+- Reforçadas validações do assistente, limites de contexto, diagnóstico sanitizado e segurança de ações nativas.
+
 ## 2.1.1 — Recovery, OTA & Build Reliability
 
 - Corrigido o travamento infinito em 2 de 4 após o onboarding, causado pelo cleanup que abortava a geração durante rerenders do loading.
