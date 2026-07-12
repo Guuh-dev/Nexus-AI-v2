@@ -1,0 +1,117 @@
+name: Nexus OTA Preview
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexus-ota-preview
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve installed runtime baseline
+        id: base
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          BASE_TAG="v${VERSION}"
+          HAS_TAG=false
+          HAS_APK=false
+          if git rev-parse --verify --quiet "refs/tags/${BASE_TAG}" >/dev/null; then HAS_TAG=true; fi
+          if gh release view "$BASE_TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -Eq '\.apk$'; then HAS_APK=true; fi
+          if [ "$HAS_TAG" = true ] && [ "$HAS_APK" = true ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "ref=${BASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Explain missing base APK
+        if: steps.base.outputs.found != 'true'
+        env:
+          BASE_TAG: ${{ steps.base.outputs.ref }}
+        run: |
+          {
+            echo "## OTA skipped"
+            echo
+            echo "No installed runtime baseline tag **${BASE_TAG}** exists yet."
+            echo "Build and publish the matching APK first, then future compatible changes can use OTA."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Detect changes since the installed runtime
+        if: steps.base.outputs.found == 'true'
+        id: scope
+        env:
+          BASE_REF: ${{ steps.base.outputs.ref }}
+          HEAD_REF: ${{ github.sha }}
+        run: node scripts/detect-native-changes.mjs "$BASE_REF" "$HEAD_REF"
+
+      - name: Explain native build requirement
+        if: steps.base.outputs.found == 'true' && steps.scope.outputs.native_changed == 'true'
+        env:
+          REASONS: ${{ steps.scope.outputs.native_reasons }}
+          BASE_REF: ${{ steps.base.outputs.ref }}
+        run: |
+          {
+            echo "## OTA skipped"
+            echo
+            echo "Changes since **${BASE_REF}** affect the native runtime, so a new APK and app version are required."
+            echo "Reasons: ${REASONS}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Explain no-op update
+        if: steps.base.outputs.found == 'true' && steps.scope.outputs.native_changed != 'true' && steps.scope.outputs.ota_changed != 'true'
+        run: echo "No app runtime files changed since the installed base, so there is no OTA bundle to publish." >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: pnpm/action-setup@v4
+        if: steps.base.outputs.found == 'true' && steps.scope.outputs.native_changed != 'true' && steps.scope.outputs.ota_changed == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.base.outputs.found == 'true' && steps.scope.outputs.native_changed != 'true' && steps.scope.outputs.ota_changed == 'true'
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        if: steps.base.outputs.found == 'true' && steps.scope.outputs.native_changed != 'true' && steps.scope.outputs.ota_changed == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify update
+        if: steps.base.outputs.found == 'true' && steps.scope.outputs.native_changed != 'true' && steps.scope.outputs.ota_changed == 'true'
+        run: pnpm run verify && pnpm run release:check
+
+      - name: Validate EAS token
+        if: steps.base.outputs.found == 'true' && steps.scope.outputs.native_changed != 'true' && steps.scope.outputs.ota_changed == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN is not configured." >&2; exit 1)
+
+      - name: Publish preview OTA
+        if: steps.base.outputs.found == 'true' && steps.scope.outputs.native_changed != 'true' && steps.scope.outputs.ota_changed == 'true'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_APP_ENV: preview
+          EXPO_PUBLIC_API_URL: https://nexus-ai-v1.onrender.com
+        run: |
+          pnpm dlx eas-cli@20.5.1 update \
+            --channel preview \
+            --platform android \
+            --message "Preview ${GITHUB_SHA::7}" \
+            --non-interactive
+          VERSION="$(node -p "require('./package.json').version")"
+          echo "Preview OTA published for runtime ${VERSION}." >> "$GITHUB_STEP_SUMMARY"

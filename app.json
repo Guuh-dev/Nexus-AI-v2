@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nexus AI",
     "slug": "nexus-ai",
-    "version": "2.1.0",
+    "version": "2.1.1",
     "orientation": "portrait",
     "scheme": "nexusai",
     "userInterfaceStyle": "dark",
@@ -18,7 +18,10 @@
         "backgroundColor": "#050505"
       },
       "predictiveBackGestureEnabled": true,
-      "permissions": ["POST_NOTIFICATIONS", "VIBRATE"],
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "VIBRATE"
+      ],
       "blockedPermissions": [
         "android.permission.SYSTEM_ALERT_WINDOW",
         "android.permission.READ_EXTERNAL_STORAGE",
@@ -47,6 +50,14 @@
           "imageWidth": 180
         }
       ],
+      [
+        "expo-navigation-bar",
+        {
+          "enforceContrast": false,
+          "hidden": false,
+          "style": "dark"
+        }
+      ],
       "./plugins/withNexusWidget"
     ],
     "experiments": {
@@ -58,6 +69,16 @@
         "projectId": "3d477828-f7f9-407d-ab4c-868df567dff0"
       }
     },
-    "owner": "littleguhh"
+    "owner": "littleguhh",
+    "backgroundColor": "#050505",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/3d477828-f7f9-407d-ab4c-868df567dff0",
+      "enabled": true,
+      "checkAutomatically": "ON_LOAD",
+      "fallbackToCacheTimeout": 0
+    }
   }
 }

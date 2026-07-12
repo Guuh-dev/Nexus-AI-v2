@@ -41,6 +41,25 @@ describe("assistant API security", () => {
     expect(response.status).toBe(400);
   });
 
+  it("rejects mismatched body and header client identifiers", async () => {
+    delete process.env.OPENROUTER_API_KEY;
+    const request = new Request("https://nexus.example/api/assistant", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Nexus-Client-Id": "install-header-client" },
+      body: JSON.stringify({
+        mode: "brain",
+        requestId: "request-client-mismatch-123",
+        clientId: "install-body-client",
+        message: "Organize meu dia",
+        profile: makeProfile(),
+        context: {},
+      }),
+    });
+    const response = await POST(request);
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "bad_request" } });
+  });
+
   it("does not expose stack traces when the key is missing", async () => {
     delete process.env.OPENROUTER_API_KEY;
     const response = await POST(requestWith({ today: null }));

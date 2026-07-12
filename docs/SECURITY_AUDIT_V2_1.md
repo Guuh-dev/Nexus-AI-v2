@@ -1,4 +1,4 @@
-# Auditoria defensiva Nexus AI v2.1
+# Auditoria defensiva Nexus AI v2.1 (histórico)
 
 ## Superfícies revisadas
 

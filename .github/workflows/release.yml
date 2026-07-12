@@ -1,0 +1,91 @@
+name: Nexus Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nexus-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release tag
+        shell: bash
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "v${VERSION}" ]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version v${VERSION}." >&2
+            exit 1
+          fi
+
+      - name: Verify release
+        run: pnpm run verify && pnpm run release:check && pnpm exec expo install --check
+
+      - name: Validate EAS token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN is not configured." >&2; exit 1)
+
+      - name: Build release APK
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          pnpm dlx eas-cli@20.5.1 build \
+            --platform android \
+            --profile release \
+            --non-interactive \
+            --wait \
+            --json | tee eas-build.json
+
+      - name: Download APK
+        id: apk
+        shell: bash
+        run: |
+          URL="$(node <<'NODE'
+          const fs = require('fs');
+          const value = JSON.parse(fs.readFileSync('eas-build.json', 'utf8'));
+          const build = Array.isArray(value) ? value[0] : value;
+          const url = build?.artifacts?.buildUrl ?? build?.artifact?.buildUrl ?? build?.artifacts?.applicationArchiveUrl;
+          if (!url) process.exit(1);
+          process.stdout.write(url);
+          NODE
+          )"
+          VERSION="$(node -p "require('./package.json').version")"
+          FILE="nexus-ai-v${VERSION}.apk"
+          curl --fail --location --retry 3 "$URL" --output "$FILE"
+          echo "file=$FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APK_FILE: ${{ steps.apk.outputs.file }}
+        shell: bash
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$APK_FILE" eas-build.json --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$APK_FILE" eas-build.json \
+              --title "Nexus AI $GITHUB_REF_NAME" \
+              --generate-notes
+          fi

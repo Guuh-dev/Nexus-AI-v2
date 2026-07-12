@@ -11,9 +11,13 @@ concurrency:
   group: nexus-ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
 
     steps:
       - uses: actions/checkout@v4
@@ -33,6 +37,9 @@ jobs:
 
       - name: Run release check
         run: pnpm run release:check
+
+      - name: Validate Expo configuration
+        run: pnpm exec expo config --type public --json > /tmp/nexus-expo-config.json
 
       - name: Export web
         run: pnpm run export:web

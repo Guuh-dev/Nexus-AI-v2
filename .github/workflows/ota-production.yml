@@ -1,0 +1,111 @@
+name: Nexus OTA Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type PRODUCTION to publish to installed production APKs
+        required: true
+        type: string
+      message:
+        description: Release message
+        required: true
+        default: Nexus production hotfix
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexus-ota-production
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Confirm production release
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" != "PRODUCTION" ]; then
+            echo "Confirmation must be exactly PRODUCTION." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve installed runtime baseline
+        id: base
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          BASE_TAG="v${VERSION}"
+          if ! git rev-parse --verify --quiet "refs/tags/${BASE_TAG}" >/dev/null; then
+            echo "Missing base tag ${BASE_TAG}. Publish the matching APK before any production OTA." >&2
+            exit 1
+          fi
+          if ! gh release view "$BASE_TAG" --json assets --jq '.assets[].name' 2>/dev/null | grep -Eq '\.apk$'; then
+            echo "GitHub Release ${BASE_TAG} has no APK asset. Complete the base release first." >&2
+            exit 1
+          fi
+          echo "ref=${BASE_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Block native changes since the installed runtime
+        id: scope
+        env:
+          BASE_REF: ${{ steps.base.outputs.ref }}
+        run: node scripts/detect-native-changes.mjs "$BASE_REF" HEAD
+
+      - name: Require an OTA-compatible change
+        env:
+          NATIVE_CHANGED: ${{ steps.scope.outputs.native_changed }}
+          OTA_CHANGED: ${{ steps.scope.outputs.ota_changed }}
+          REASONS: ${{ steps.scope.outputs.native_reasons }}
+        run: |
+          if [ "$NATIVE_CHANGED" = "true" ]; then
+            echo "A new APK/version is required before production OTA. Reasons: $REASONS" >&2
+            exit 1
+          fi
+          if [ "$OTA_CHANGED" != "true" ]; then
+            echo "No OTA-compatible app files changed since the installed base tag." >&2
+            exit 1
+          fi
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify production update
+        run: pnpm run verify && pnpm run release:check
+
+      - name: Validate EAS token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN is not configured." >&2; exit 1)
+
+      - name: Publish production OTA
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EXPO_PUBLIC_APP_ENV: production
+          EXPO_PUBLIC_API_URL: https://nexus-ai-v1.onrender.com
+          RELEASE_MESSAGE: ${{ inputs.message }}
+        run: |
+          pnpm dlx eas-cli@20.5.1 update \
+            --channel production \
+            --platform android \
+            --message "$RELEASE_MESSAGE" \
+            --non-interactive
+          echo "Production OTA published from commit ${GITHUB_SHA::7}." >> "$GITHUB_STEP_SUMMARY"

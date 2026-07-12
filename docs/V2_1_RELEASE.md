@@ -1,4 +1,4 @@
-# Nexus AI v2.1 — relatório da atualização
+# Nexus AI v2.1 — relatório histórico da atualização
 
 ## Bugs corrigidos
 

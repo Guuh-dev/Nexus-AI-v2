@@ -1,0 +1,35 @@
+name: Nexus Native Change Detector
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  classify:
+    name: Classify update scope
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect native and OTA changes
+        id: scope
+        run: node scripts/detect-native-changes.mjs "${{ github.event.pull_request.base.sha }}" "${{ github.event.pull_request.head.sha }}"
+
+      - name: Write scope summary
+        env:
+          NATIVE_CHANGED: ${{ steps.scope.outputs.native_changed }}
+          OTA_CHANGED: ${{ steps.scope.outputs.ota_changed }}
+          NATIVE_REASONS: ${{ steps.scope.outputs.native_reasons }}
+        run: |
+          {
+            echo "## Nexus release scope"
+            echo
+            echo "- Native APK required: **${NATIVE_CHANGED}**"
+            echo "- OTA-compatible app changes: **${OTA_CHANGED}**"
+            echo "- Native reasons: \`${NATIVE_REASONS}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

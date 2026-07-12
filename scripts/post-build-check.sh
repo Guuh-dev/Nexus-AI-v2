@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-npm run typecheck
-npm run lint
-npm test
-npm run security:secrets
-npx expo install --check
-npm audit --audit-level=high
-npm run export:web
-npx expo prebuild --platform android --no-install --clean
+pnpm run typecheck
+pnpm run lint
+pnpm test
+pnpm run security:secrets
+pnpm run release:check
+pnpm exec expo install --check
+pnpm audit --audit-level=high
+pnpm run export:web
+pnpm exec expo prebuild --platform android --no-install --clean
+
+bash scripts/verify-native-widget.sh
 
 echo "Nexus verification completed. The Android source is ready for EAS Build."

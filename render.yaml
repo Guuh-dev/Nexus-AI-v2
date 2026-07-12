@@ -3,13 +3,13 @@ services:
     name: nexus-ai-v2-1
     runtime: node
     plan: free
-    buildCommand: npm ci && npm run export:web
-    startCommand: npx expo serve --port $PORT
+    buildCommand: npx -y pnpm@10.0.0 install --frozen-lockfile && npx -y pnpm@10.0.0 run export:web
+    startCommand: npx -y pnpm@10.0.0 run serve:web -- --port $PORT
     healthCheckPath: /api/status
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
-        value: 22
+        value: 22.14.0
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_ALLOW_PAID_FALLBACK

@@ -14,6 +14,12 @@ import { useNexus } from "@/providers/NexusProvider";
 import { pickBackupJson, shareBackupJson } from "@/services/backup.service";
 import { configureDailyReminder } from "@/services/notification.service";
 import { getIntelligenceStatus, type IntelligenceStatus } from "@/services/status.service";
+import {
+  applyNexusUpdate,
+  checkForNexusUpdate,
+  getNexusUpdateInfo,
+  type NexusUpdateInfo,
+} from "@/services/update.service";
 import type { Profile, ThemeId, Weekday } from "@/types";
 import { calculateLevel } from "@/utils/levels";
 import { normalizeHexColor } from "@/utils/text";
@@ -61,6 +67,9 @@ export default function ProfileScreen() {
   const [customAccent, setCustomAccent] = useState(data.preferences.customAccent);
   const [status, setStatus] = useState<IntelligenceStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
+  const [updateInfo, setUpdateInfo] = useState<NexusUpdateInfo>(getNexusUpdateInfo);
+  const [updateAvailable, setUpdateAvailable] = useState(false);
+  const [updateBusy, setUpdateBusy] = useState(false);
   const [resetTodayOpen, setResetTodayOpen] = useState(false);
   const [resetAllOpen, setResetAllOpen] = useState(false);
   const [message, setMessage] = useState("");
@@ -113,6 +122,43 @@ export default function ProfileScreen() {
     const result = await configureDailyReminder(enabled, notificationTime);
     updatePreferences({ notificationEnabled: result.enabled, notificationTime });
     if (result.reason) Alert.alert("Lembrete do Nexus", result.reason);
+  };
+
+
+  const checkUpdates = async () => {
+    setUpdateBusy(true);
+    try {
+      const result = await checkForNexusUpdate();
+      setUpdateInfo(result.info);
+      setUpdateAvailable(result.available || result.rollbackAvailable);
+      if (!result.info.enabled) {
+        setMessage("Atualizações OTA só funcionam no APK de release, não no Expo Go ou preview de desenvolvimento.");
+      } else if (result.available) {
+        setMessage("Atualização encontrada. Toque em baixar e reiniciar.");
+      } else if (result.rollbackAvailable) {
+        setMessage("Uma recuperação para a versão estável está disponível.");
+      } else {
+        setMessage("Seu Nexus já está na atualização mais recente deste canal.");
+      }
+    } catch {
+      setMessage("Não foi possível verificar atualizações agora. Confira a internet e tente novamente.");
+    } finally {
+      setUpdateBusy(false);
+    }
+  };
+
+  const installUpdate = async () => {
+    setUpdateBusy(true);
+    try {
+      const result = await applyNexusUpdate();
+      if (result === "unchanged") {
+        setUpdateAvailable(false);
+        setMessage("Nenhuma atualização nova foi baixada.");
+      }
+    } catch {
+      setMessage("A atualização não pôde ser aplicada. O app atual continua intacto.");
+      setUpdateBusy(false);
+    }
   };
 
   const exportData = async () => {
@@ -293,6 +339,42 @@ export default function ProfileScreen() {
               </Card>
             </Section>
 
+            <Section title="Atualizações" subtitle="Correções comuns chegam sem reinstalar o APK.">
+              <Card style={styles.updateCard}>
+                <View style={styles.updateRow}>
+                  <NexusText variant="caption" secondary>Versão nativa</NexusText>
+                  <NexusText variant="mono">{updateInfo.nativeVersion}</NexusText>
+                </View>
+                <View style={styles.updateRow}>
+                  <NexusText variant="caption" secondary>Runtime OTA</NexusText>
+                  <NexusText variant="mono">{updateInfo.runtimeVersion}</NexusText>
+                </View>
+                <View style={styles.updateRow}>
+                  <NexusText variant="caption" secondary>Canal</NexusText>
+                  <NexusText variant="mono">{updateInfo.channel}</NexusText>
+                </View>
+                <View style={styles.updateRow}>
+                  <NexusText variant="caption" secondary>Atualização ativa</NexusText>
+                  <NexusText variant="mono">{updateInfo.isEmbedded ? "embutida" : updateInfo.updateId}</NexusText>
+                </View>
+                {updateInfo.emergencyLaunch ? (
+                  <NexusText variant="caption" color={colors.warning}>
+                    O Expo recuperou automaticamente a última versão estável.
+                  </NexusText>
+                ) : null}
+              </Card>
+              <NexusButton
+                label={updateAvailable ? "Baixar e reiniciar" : "Verificar atualização"}
+                variant={updateAvailable ? "primary" : "secondary"}
+                loading={updateBusy}
+                onPress={() => void (updateAvailable ? installUpdate() : checkUpdates())}
+                fullWidth
+              />
+              <NexusText variant="caption" secondary>
+                Atualizações que alteram módulos nativos, permissões ou bibliotecas ainda exigem um novo APK.
+              </NexusText>
+            </Section>
+
             <Section title="Lembrete diário" subtitle="A permissão só é pedida quando você ativa.">
               <Field label="Horário" value={notificationTime} onChangeText={setNotificationTime} maxLength={5} placeholder="18:00" keyboardType="numbers-and-punctuation" />
               <SwitchRow label="Notificação diária" description="Nexus online: sua missão de hoje está pronta." value={data.preferences.notificationEnabled} onChange={(value) => void setReminder(value)} />
@@ -323,7 +405,7 @@ export default function ProfileScreen() {
         ) : null}
 
         {message ? <Card style={[styles.message, { borderColor: `${colors.primary}55` }]}><NexusText variant="caption">{message}</NexusText></Card> : null}
-        <NexusText variant="caption" secondary style={styles.footer}>Nexus AI 2.1 • Personal Mission OS • Gustavo Araújo</NexusText>
+        <NexusText variant="caption" secondary style={styles.footer}>Nexus AI 2.1.1 • Personal Mission OS • Gustavo Araújo</NexusText>
       </Screen>
 
       <ConfirmDialog
@@ -413,6 +495,8 @@ const styles = StyleSheet.create({
   statusCard: { flexDirection: "row", alignItems: "center", gap: 12 },
   statusDot: { width: 11, height: 11, borderRadius: 6 },
   infoCard: { gap: 7 },
+  updateCard: { gap: 10 },
+  updateRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   privacyCard: { gap: 7 },
   message: { marginTop: 22 },
   footer: { textAlign: "center", marginTop: 28, marginBottom: 8 },

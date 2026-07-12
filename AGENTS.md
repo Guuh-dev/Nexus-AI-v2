@@ -5,5 +5,5 @@
 - Use React Native primitives; raw DOM must not receive React Native style arrays.
 - Validate AI, storage and import data before use.
 - Keep Android widget code isolated under `modules/nexus-widget`.
-- Run `npm run verify` and `npm run export:web` before shipping.
-- Native changes require `npx expo prebuild --platform android --clean` and a new EAS build.
+- Run `pnpm run verify` and `pnpm run export:web` before shipping.
+- Native changes require `pnpm exec expo prebuild --platform android --clean` and a new EAS build.

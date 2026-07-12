@@ -70,6 +70,7 @@ type NexusContextValue = {
   colors: NexusColors;
   ready: boolean;
   planGenerating: boolean;
+  planGenerationError: string | null;
   assistantBusy: boolean;
   loadingStage: string;
   toast: string | null;
@@ -77,6 +78,8 @@ type NexusContextValue = {
   completeOnboarding: (profile: Profile) => Promise<void>;
   completeDiscovery: (evolution: EvolutionProfile) => boolean;
   cancelPlanGeneration: () => void;
+  retryPlanGeneration: () => Promise<void>;
+  recoverPlanLocally: () => void;
   cancelAssistant: () => void;
   replanDay: (context?: { reason?: string; minutesRemaining?: number; currentEnergy?: Profile["energyLevel"]; preserveTaskIds?: string[] }) => Promise<void>;
   toggleTask: (taskId: string) => void;
@@ -207,11 +210,13 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const dataRef = useRef(data);
   const [ready, setReady] = useState(false);
   const [planGenerating, setPlanGenerating] = useState(false);
+  const [planGenerationError, setPlanGenerationError] = useState<string | null>(null);
   const [assistantBusy, setAssistantBusy] = useState(false);
   const [loadingStageIndex, setLoadingStageIndex] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const generationController = useRef<AbortController | null>(null);
   const generationPromise = useRef<Promise<void> | null>(null);
+  const generationCancelReason = useRef<"user" | "watchdog" | "recovery" | "unmount" | null>(null);
   const assistantController = useRef<AbortController | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -260,6 +265,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
     return () => {
       mounted = false;
       subscription.remove();
+      generationCancelReason.current = "unmount";
       generationController.current?.abort();
       assistantController.current?.abort();
       if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -273,11 +279,37 @@ export function NexusProvider({ children }: PropsWithChildren) {
     return () => clearInterval(interval);
   }, [planGenerating]);
 
+  const commitLocalPlan = useCallback((profile: Profile, message: string) => {
+    const date = localDateKey(new Date(), profile.timezone);
+    commit((current) => initializeProfessor({
+      ...current,
+      profile,
+      onboardingCompleted: true,
+      discoveryCompleted: Boolean(profile.evolution),
+      onboardingDraft: {},
+      activePlan: generateLocalPlan(
+        { profile, date, requestId: createId("safe"), clientId: current.installationId },
+        message,
+      ),
+      lastGeneratedDate: date,
+      lastAiAttemptDate: date,
+    }, profile), message);
+  }, [commit]);
+
   const runGeneration = useCallback((profile: Profile, mode: "onboarding" | "replan" | "rollover", context?: { reason?: string; minutesRemaining?: number; currentEnergy?: Profile["energyLevel"]; preserveTaskIds?: string[] }): Promise<void> => {
     if (generationPromise.current) return generationPromise.current;
     const controller = new AbortController();
     generationController.current = controller;
+    generationCancelReason.current = null;
+    setPlanGenerationError(null);
     setPlanGenerating(true);
+
+    const watchdog = setTimeout(() => {
+      if (generationController.current !== controller || controller.signal.aborted) return;
+      generationCancelReason.current = "watchdog";
+      controller.abort();
+    }, 50_000);
+
     const promise = (async () => {
       const date = localDateKey(new Date(), profile.timezone);
       const requestId = createId(mode);
@@ -306,8 +338,8 @@ export function NexusProvider({ children }: PropsWithChildren) {
           ? (currentData.activePlan?.tasks.filter((task) => context.preserveTaskIds?.includes(task.id) && !task.completed) ?? []).slice(0, 2)
           : mode === "replan" || mode === "rollover" ? carryOverTasks(currentData) : [],
         ...(Object.keys(requestContext).length ? { context: requestContext } : {}),
-      }, { signal: controller.signal });
-      if (controller.signal.aborted) return;
+      }, { signal: controller.signal, timeoutMs: 45_000 });
+      if (controller.signal.aborted) throw new Error("NEXUS_GENERATION_ABORTED");
       const latest = dataRef.current;
       if (mode === "rollover" && rolloverSnapshot !== JSON.stringify({ plan: latest.activePlan ?? null, profile: latest.profile ?? null })) {
         const preserved = { ...latest, lastAiAttemptDate: date };
@@ -323,21 +355,52 @@ export function NexusProvider({ children }: PropsWithChildren) {
       dataRef.current = next; setData(next); persist(next);
       if (response.warning) showToast(response.warning);
     })().catch(() => {
-      if (controller.signal.aborted) return;
-      const date = localDateKey(new Date(), profile.timezone);
-      commit((current) => initializeProfessor({
-        ...current, profile, onboardingCompleted: true, discoveryCompleted: Boolean(profile.evolution), onboardingDraft: {},
-        activePlan: generateLocalPlan({ profile, date, requestId: createId("safe"), clientId: current.installationId }, "O Nexus ativou o modo local de segurança."),
-        lastGeneratedDate: date, lastAiAttemptDate: date,
-      }, profile), "O Nexus ativou o modo local de segurança.");
+      const reason = generationCancelReason.current;
+      if (reason === "user") {
+        setPlanGenerationError("A geração foi cancelada. Suas respostas continuam salvas.");
+        return;
+      }
+      if (reason === "recovery" || reason === "unmount") return;
+      const message = reason === "watchdog"
+        ? "A IA ultrapassou o limite de 50 segundos. O Nexus ativou o plano local de segurança."
+        : "A inteligência não respondeu. O Nexus ativou o plano local de segurança.";
+      commitLocalPlan(profile, message);
     }).finally(() => {
+      clearTimeout(watchdog);
+      if (generationController.current === controller) generationController.current = null;
       generationPromise.current = null;
-      generationController.current = null;
+      generationCancelReason.current = null;
       setPlanGenerating(false);
     });
     generationPromise.current = promise;
     return promise;
-  }, [commit, persist, showToast]);
+  }, [commitLocalPlan, persist, showToast]);
+
+  const cancelPlanGeneration = useCallback(() => {
+    generationCancelReason.current = "user";
+    generationController.current?.abort();
+  }, []);
+
+  const retryPlanGeneration = useCallback(async () => {
+    const profile = dataRef.current.profile;
+    if (!profile) {
+      setPlanGenerationError("Seu perfil ainda não está pronto. Volte ao diagnóstico.");
+      return;
+    }
+    await runGeneration(profile, dataRef.current.onboardingCompleted ? "replan" : "onboarding");
+  }, [runGeneration]);
+
+  const recoverPlanLocally = useCallback(() => {
+    const profile = dataRef.current.profile;
+    if (!profile) {
+      setPlanGenerationError("Seu perfil ainda não está pronto. Volte ao diagnóstico.");
+      return;
+    }
+    generationCancelReason.current = "recovery";
+    generationController.current?.abort();
+    commitLocalPlan(profile, "Plano local criado manualmente para você continuar agora.");
+    setPlanGenerationError(null);
+  }, [commitLocalPlan]);
 
   useEffect(() => {
     if (!ready || planGenerating) return;
@@ -665,9 +728,9 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const importBackup = useCallback(async (json: string) => { const imported = nexusRepository.importJson(json); dataRef.current = imported; setData(imported); await nexusRepository.save(imported); await updateAndroidWidget(imported); showToast("Backup importado com sucesso."); }, [showToast]);
 
   const value = useMemo<NexusContextValue>(() => ({
-    data, colors: getColors(data.preferences), ready, planGenerating, assistantBusy, loadingStage: LOADING_STAGES[loadingStageIndex] ?? LOADING_STAGES[0], toast,
+    data, colors: getColors(data.preferences), ready, planGenerating, planGenerationError, assistantBusy, loadingStage: LOADING_STAGES[loadingStageIndex] ?? LOADING_STAGES[0], toast,
     updateOnboardingDraft, completeOnboarding, completeDiscovery,
-    cancelPlanGeneration: () => generationController.current?.abort(), cancelAssistant: () => assistantController.current?.abort(), replanDay,
+    cancelPlanGeneration, retryPlanGeneration, recoverPlanLocally, cancelAssistant: () => assistantController.current?.abort(), replanDay,
     toggleTask: handleTaskToggle, toggleMission: handleMissionToggle,
     addTask: (input) => commit((current) => addTask(current, input), "Tarefa adicionada."),
     updateTask: (taskId, patch) => commit((current) => updateTask(current, taskId, patch), "Tarefa atualizada."),
@@ -680,9 +743,9 @@ export function NexusProvider({ children }: PropsWithChildren) {
     resetToday, resetAll, clearTemporary, importBackup, exportBackup: () => nexusRepository.exportJson(data),
     dismissToast: () => setToast(null), dismissWarnings: () => commit((current) => ({ ...current, corruptionWarnings: [] })),
   }), [
-    addWeeklyPlanItem, applyAssistantAction, archiveThread, assistantBusy, clearTemporary, commit, completeDiscovery, completeOnboarding, createHabit, createOperation,
+    addWeeklyPlanItem, applyAssistantAction, archiveThread, assistantBusy, cancelPlanGeneration, clearTemporary, commit, completeDiscovery, completeOnboarding, createHabit, createOperation,
     createRoadmap, createThread, data, deleteMemory, deleteThread, finishFocusSession, generateWeeklyReview, handleMissionToggle, handleTaskToggle, importBackup,
-    loadingStageIndex, moveWeeklyPlanItem, planGenerating, quickCapture, ready, renameThread, replanDay, resetAll, resetToday, saveCapture, selectThread,
+    loadingStageIndex, moveWeeklyPlanItem, planGenerating, planGenerationError, quickCapture, ready, recoverPlanLocally, renameThread, replanDay, resetAll, resetToday, retryPlanGeneration, saveCapture, selectThread,
     sendChatMessage, setActiveRoadmap, toast, toggleHabitToday, toggleMemoryPinned, toggleOperationPhase, toggleRoadmapLesson, updateOnboardingDraft, updatePreferences, updateProfile,
   ]);
 

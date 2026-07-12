@@ -1,0 +1,76 @@
+name: Nexus OTA Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      group_id:
+        description: Latest EAS Update group ID to roll back
+        required: true
+        type: string
+      confirm:
+        description: Type ROLLBACK to continue
+        required: true
+        type: string
+      message:
+        description: Rollback message
+        required: true
+        default: Roll back Nexus to the previous stable update
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nexus-ota-rollback
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Confirm rollback
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          if [ "$CONFIRM" != "ROLLBACK" ]; then
+            echo "Confirmation must be exactly ROLLBACK." >&2
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate EAS token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN is not configured." >&2; exit 1)
+
+      - name: Publish rollback
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          UPDATE_GROUP_ID: ${{ inputs.group_id }}
+          ROLLBACK_MESSAGE: ${{ inputs.message }}
+        run: |
+          pnpm dlx eas-cli@20.5.1 update:rollback "$UPDATE_GROUP_ID" \
+            --platform android \
+            --message "$ROLLBACK_MESSAGE" \
+            --non-interactive \
+            --json | tee eas-rollback.json
+
+      - name: Save rollback metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: nexus-eas-rollback-metadata
+          path: eas-rollback.json
+          retention-days: 30

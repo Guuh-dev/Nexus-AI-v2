@@ -31,6 +31,22 @@ describe("generate plan API", () => {
     expect(oversized.status).toBe(413);
   });
 
+  it("rejects a mismatched plan client identifier before provider access", async () => {
+    delete process.env.OPENROUTER_API_KEY;
+    const response = await POST(new Request("http://localhost/api/generate-plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Nexus-Client-Id": "install-header-client" },
+      body: JSON.stringify({
+        profile: makeProfile(),
+        date: "2026-07-10",
+        requestId: "request-client-mismatch-456",
+        clientId: "install-body-client",
+      }),
+    }));
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({ error: { code: "bad_request" } });
+  });
+
   it("protects the Professor endpoint when the server key is missing", async () => {
     delete process.env.OPENROUTER_API_KEY;
     const response = await ASSISTANT_POST(new Request("http://localhost/api/assistant", {

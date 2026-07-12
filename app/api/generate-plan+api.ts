@@ -87,15 +87,20 @@ function rateLimit(request: Request): { allowed: true } | { allowed: false; retr
       if (value.resetAt <= now) clientBuckets.delete(bucketKey);
     }
   }
+  if (idempotencyCache.size > 2000) {
+    for (const [cacheKey, value] of idempotencyCache) {
+      if (value.expiresAt <= now) idempotencyCache.delete(cacheKey);
+    }
+  }
   return { allowed: true };
 }
 
-function cached(requestId: string): PlanResponse | undefined {
+function cached(cacheKey: string): PlanResponse | undefined {
   const now = Date.now();
-  const value = idempotencyCache.get(requestId);
+  const value = idempotencyCache.get(cacheKey);
   if (!value) return undefined;
   if (value.expiresAt <= now) {
-    idempotencyCache.delete(requestId);
+    idempotencyCache.delete(cacheKey);
     return undefined;
   }
   return value.response;
@@ -143,10 +148,15 @@ export async function POST(request: Request): Promise<Response> {
   if (!validation.success) return json(request, { error: { code: "bad_request", message: "Os dados do planejamento estão incompletos." } }, 400);
 
   const requestData = validation.data as PlanRequest;
-  const previous = cached(requestData.requestId);
+  const headerClientId = sanitizeText(request.headers.get("x-nexus-client-id"), 120);
+  if (headerClientId && headerClientId !== requestData.clientId) {
+    return json(request, { error: { code: "bad_request", message: "Identificador do cliente inconsistente." } }, 400);
+  }
+  const requestCacheKey = `${requestData.clientId}:${requestData.requestId}`;
+  const previous = cached(requestCacheKey);
   if (previous) return json(request, previous);
 
-  const existingRequest = inFlightPlans.get(requestData.requestId);
+  const existingRequest = inFlightPlans.get(requestCacheKey);
   if (existingRequest) {
     try {
       return json(request, await existingRequest);
@@ -177,10 +187,10 @@ export async function POST(request: Request): Promise<Response> {
       repaired: result.repaired,
     },
   } satisfies PlanResponse));
-  inFlightPlans.set(requestData.requestId, generation);
+  inFlightPlans.set(requestCacheKey, generation);
   try {
     const response = await generation;
-    idempotencyCache.set(requestData.requestId, { expiresAt: Date.now() + WINDOW_MS, response });
+    idempotencyCache.set(requestCacheKey, { expiresAt: Date.now() + WINDOW_MS, response });
     return json(request, response);
   } catch (error) {
     if (controller.signal.aborted) {
@@ -198,7 +208,7 @@ export async function POST(request: Request): Promise<Response> {
     return json(request, { error: { code: "provider_unavailable", message: "A inteligência está temporariamente indisponível." } }, 503);
   } finally {
     clearTimeout(timeout);
-    inFlightPlans.delete(requestData.requestId);
+    inFlightPlans.delete(requestCacheKey);
   }
 }
 

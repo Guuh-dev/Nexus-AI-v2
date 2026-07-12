@@ -66,6 +66,8 @@ Executable tasks + focus + progress + streak
 | Backup | JSON export/import with validation and selective recovery of corrupted sections. |
 | Notifications | Optional daily Android reminders that do not break the web preview. |
 | Widget Studio | Native widgets from 1×1 to 5×2 with per-instance styles, up to five tasks, direct completion, learning status, Nexus + Atlas and privacy controls. |
+| Safe recovery | A 50-second generation watchdog, explicit cancellation, retry and deterministic local-plan recovery prevent onboarding deadlocks. |
+| OTA updates | Preview and production channels, in-app update status, controlled reloads, rollback and native-change detection. |
 
 ## Designed to be opened every day
 
@@ -120,13 +122,15 @@ Key decisions:
 
 ## Getting started
 
-Requirements: Node.js 20 or 22.
+Requirements: Node.js 22.13+ and pnpm 10.
 
 ```bash
-npm install
+corepack enable
+corepack prepare pnpm@10.0.0 --activate
+pnpm install --frozen-lockfile
 cp .env.example .env
 # optional: add OPENROUTER_API_KEY to .env for server-side AI planning
-npm run web
+pnpm run web
 ```
 
 Without a key, the app still opens and uses local planning. On Replit, add the key under **Tools → Secrets**. Never expose this server secret through an Expo public environment variable.
@@ -134,12 +138,13 @@ Without a key, the app still opens and uses local planning. On Replit, add the k
 Useful commands:
 
 ```bash
-npm run typecheck       # TypeScript
-npm run lint            # Expo ESLint
-npm test                # Vitest suite
-npm run security:secrets
-npm run export:web      # web/Replit export
-npm run verify          # complete verification
+pnpm run typecheck       # TypeScript
+pnpm run lint            # Expo ESLint
+pnpm test                # Vitest suite
+pnpm run security:secrets
+pnpm run release:check
+pnpm run export:web      # web/Replit export
+pnpm run verify          # complete verification
 ```
 
 ## Android widget
@@ -160,6 +165,12 @@ It supports:
 
 Read the complete guide in [docs/ANDROID_WIDGET.md](docs/ANDROID_WIDGET.md).
 
+## OTA updates and publishing
+
+Nexus 2.1.1 includes `expo-updates` with separate `preview` and `production` channels. JavaScript, TypeScript, styles and compatible assets can be delivered over the air after the 2.1.1 base APK is installed. Native modules, app configuration, dependencies, icons, splash screens and runtime-version changes require a new APK.
+
+The Profile screen shows the native version, runtime, channel and active update, and offers a controlled update check/reload. GitHub workflows classify each change before publishing.
+
 ## Deployment and publishing
 
 The complete Replit, GitHub, EAS, personal APK and future Play Store flow is documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
@@ -168,10 +179,10 @@ Quick commands:
 
 ```bash
 # Personal APK / native widget
-npx eas-cli@latest build --platform android --profile preview
+pnpm dlx eas-cli@20.5.1 build --platform android --profile preview
 
 # Production AAB for Google Play, when the product is ready
-npx eas-cli@latest build --platform android --profile production
+pnpm dlx eas-cli@20.5.1 build --platform android --profile production
 ```
 
 Use the preview APK for personal testing. Google Play requires a production AAB and the required developer-account publishing steps.
@@ -180,7 +191,7 @@ Use the preview APK for personal testing. Google Play requires a production AAB 
 
 The project includes GitHub Actions CI that runs TypeScript, lint, tests, secret scanning and the web export on every push or pull request.
 
-The V2.1 test suite covers cases such as:
+The V2.1.1 test suite covers cases such as:
 
 - invalid AI responses, structured-output incompatibility and repair/fallback;
 - missing key, timeout, offline mode and unavailable servers;
