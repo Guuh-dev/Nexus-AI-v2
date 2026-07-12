@@ -1,8 +1,17 @@
-import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useCallback, useMemo, useRef, useState } from "react";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 import { router } from "expo-router";
+import {
+  BrainChatList,
+  type BrainChatListHandle,
+} from "@/components/BrainChatList";
 import { CompanionMascot } from "@/components/CompanionMascot";
-import { AssistantMessage } from "@/components/AssistantMessage";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PixelMascot } from "@/components/PixelMascot";
 import { RoadmapCard } from "@/components/RoadmapCard";
@@ -13,6 +22,7 @@ import { Field } from "@/components/ui/Field";
 import { NexusButton } from "@/components/ui/NexusButton";
 import { NexusText } from "@/components/ui/NexusText";
 import { Screen } from "@/components/ui/Screen";
+import type { ChatScrollPosition } from "@/components/brain/chat-scroll";
 import { useNexus } from "@/providers/NexusProvider";
 import type { ChatKind, ChatThread } from "@/types";
 
@@ -49,6 +59,8 @@ export default function BrainScreen() {
   const [renameTarget, setRenameTarget] = useState<ChatThread | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [showArchived, setShowArchived] = useState(false);
+  const chatListRef = useRef<BrainChatListHandle>(null);
+  const chatPositions = useRef(new Map<string, ChatScrollPosition>());
   const activeId =
     kind === "brain"
       ? data.brain.activeBrainThreadId
@@ -56,6 +68,7 @@ export default function BrainScreen() {
   const active = data.brain.threads.find(
     (thread) => thread.id === activeId && thread.kind === kind,
   );
+  const activeThreadId = active?.id;
   const threads = useMemo(
     () =>
       data.brain.threads
@@ -90,8 +103,30 @@ export default function BrainScreen() {
     const clean = message.trim();
     if (!active || !clean || assistantBusy) return;
     setMessage("");
+    chatListRef.current?.scrollToEnd(!data.preferences.reducedMotion);
     void sendChatMessage(active.id, clean);
   };
+
+  const sendQuickPrompt = useCallback(
+    (prompt: string) => {
+      if (!activeThreadId || assistantBusy) return;
+      chatListRef.current?.scrollToEnd(!data.preferences.reducedMotion);
+      void sendChatMessage(activeThreadId, prompt);
+    },
+    [
+      activeThreadId,
+      assistantBusy,
+      data.preferences.reducedMotion,
+      sendChatMessage,
+    ],
+  );
+
+  const applyChatAction = useCallback(
+    (threadId: string, actionId: string, accept: boolean) => {
+      void applyAssistantAction(threadId, actionId, accept);
+    },
+    [applyAssistantAction],
+  );
 
   const assistantStageLabel = {
     idle: kind === "brain" ? "BRAIN ONLINE" : "PROFESSOR ONLINE",
@@ -103,236 +138,116 @@ export default function BrainScreen() {
 
   if (mode === "chat" && active) {
     return (
-      <Screen>
-        <View style={styles.chatHeader}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setMode("home")}
-            style={[styles.backButton, { borderColor: colors.border }]}
+      <Screen scroll={false} padded={false} keyboardAware={false}>
+        <KeyboardAvoidingView
+          style={styles.chatShell}
+          enabled={Platform.OS === "ios"}
+          behavior="padding"
+        >
+          <View
+            style={[
+              styles.chatHeader,
+              {
+                backgroundColor: colors.background,
+                borderBottomColor: colors.border,
+              },
+            ]}
           >
-            <NexusText>‹</NexusText>
-          </Pressable>
-          {kind === "brain" ? (
-            <PixelMascot
-              state={assistantBusy ? "thinking" : "idle"}
-              size={44}
-            />
-          ) : (
-            <CompanionMascot
-              mascot="atlas"
-              state={assistantBusy ? "thinking" : "idle"}
-              size={44}
-            />
-          )}
-          <View style={styles.flex}>
-            <NexusText variant="title" numberOfLines={1}>
-              {active.title}
-            </NexusText>
-            <NexusText
-              variant="mono"
-              color={
-                assistantBusy
-                  ? colors.warning
-                  : lastAssistantMeta?.source === "local"
-                    ? colors.warning
-                    : colors.success
-              }
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Voltar para conversas"
+              onPress={() => setMode("home")}
+              style={[styles.backButton, { borderColor: colors.border }]}
             >
-              {assistantBusy
-                ? assistantStageLabel
-                : lastAssistantMeta?.source === "local"
-                  ? "LOCAL ATIVO"
-                  : assistantStageLabel}
-            </NexusText>
-          </View>
-        </View>
-        <View style={styles.messages}>
-          {active.messages.map((item, messageIndex) => (
-            <View
-              key={item.id}
-              style={[
-                styles.message,
-                item.role === "user"
-                  ? styles.userMessage
-                  : styles.assistantMessage,
-                {
-                  backgroundColor:
-                    item.role === "user"
-                      ? `${colors.primary}22`
-                      : colors.surface,
-                  borderColor:
-                    item.role === "user"
-                      ? `${colors.primary}66`
-                      : colors.border,
-                },
-              ]}
-            >
+              <NexusText>‹</NexusText>
+            </Pressable>
+            {kind === "brain" ? (
+              <PixelMascot
+                state={assistantBusy ? "thinking" : "idle"}
+                size={44}
+              />
+            ) : (
+              <CompanionMascot
+                mascot="atlas"
+                state={assistantBusy ? "thinking" : "idle"}
+                size={44}
+              />
+            )}
+            <View style={styles.flex}>
+              <NexusText variant="title" numberOfLines={1}>
+                {active.title}
+              </NexusText>
               <NexusText
                 variant="mono"
+                accessibilityLiveRegion="polite"
                 color={
-                  item.role === "user"
-                    ? colors.primarySoft
-                    : kind === "professor"
+                  assistantBusy
+                    ? colors.warning
+                    : lastAssistantMeta?.source === "local"
                       ? colors.warning
                       : colors.success
                 }
               >
-                {item.role === "user"
-                  ? "VOCÊ"
-                  : kind === "professor"
-                    ? "ATLAS"
-                    : "NEXUS"}
-              </NexusText>
-              {item.role === "assistant" ? (
-                <AssistantMessage
-                  content={item.content}
-                  onPrompt={messageIndex === active.messages.length - 1 && !assistantBusy
-                    ? (prompt) => void sendChatMessage(active.id, prompt)
-                    : undefined}
-                />
-              ) : <NexusText>{item.content}</NexusText>}
-              {item.actions?.map((action) => (
-                <Card
-                  key={action.id}
-                  style={[
-                    styles.actionCard,
-                    { borderColor: `${colors.primary}55` },
-                  ]}
-                >
-                  <NexusText variant="mono" color={colors.primarySoft}>
-                    AÇÃO PROPOSTA
-                  </NexusText>
-                  <NexusText variant="subtitle">{action.title}</NexusText>
-                  <NexusText variant="caption" secondary>
-                    {action.description}
-                  </NexusText>
-                  {action.status === "proposed" ? (
-                    <View style={styles.actionButtons}>
-                      <NexusButton
-                        label="Não aplicar"
-                        variant="ghost"
-                        onPress={() =>
-                          void applyAssistantAction(active.id, action.id, false)
-                        }
-                        style={styles.flex}
-                      />
-                      <NexusButton
-                        label="Confirmar"
-                        onPress={() =>
-                          void applyAssistantAction(active.id, action.id, true)
-                        }
-                        style={styles.flex}
-                      />
-                    </View>
-                  ) : (
-                    <NexusText
-                      variant="caption"
-                      color={
-                        action.status === "accepted"
-                          ? colors.success
-                          : colors.textSecondary
-                      }
-                    >
-                      {action.status === "accepted"
-                        ? "✓ Ação confirmada"
-                        : "Ação recusada"}
-                    </NexusText>
-                  )}
-                </Card>
-              ))}
-            </View>
-          ))}
-          {assistantBusy ? (
-            <Card style={styles.thinking}>
-              <View style={styles.thinkingRow}>
-                {kind === "professor" ? (
-                  <CompanionMascot mascot="atlas" state="thinking" size={34} />
-                ) : (
-                  <PixelMascot state="thinking" size={34} />
-                )}
-                <View style={styles.flex}>
-                  <NexusText variant="subtitle">
-                    {assistantStageLabel === "CONECTANDO"
-                      ? "Acordando o backend..."
-                      : assistantStageLabel === "FINALIZANDO"
-                        ? "Organizando a resposta..."
-                        : assistantStageLabel === "MODO LOCAL"
-                          ? "Preparando uma resposta offline..."
-                          : "Analisando seu contexto..."}
-                  </NexusText>
-                  <NexusText variant="caption" secondary>
-                    {assistantStageLabel === "CONECTANDO"
-                      ? "Testando o servidor principal e a rota de recuperação."
-                      : "Histórico compacto, padrões e tempo disponível."}
-                  </NexusText>
-                </View>
-              </View>
-              <NexusButton
-                label="Cancelar"
-                variant="ghost"
-                onPress={cancelAssistant}
-              />
-            </Card>
-          ) : null}
-          {!assistantBusy && lastAssistantMeta ? (
-            <View
-              style={[
-                styles.signal,
-                {
-                  borderColor:
-                    lastAssistantMeta.source === "remote"
-                      ? `${colors.success}55`
-                      : `${colors.warning}55`,
-                },
-              ]}
-            >
-              <NexusText
-                variant="caption"
-                color={
-                  lastAssistantMeta.source === "remote"
-                    ? colors.success
-                    : colors.warning
-                }
-              >
-                {lastAssistantMeta.source === "remote"
-                  ? "● IA REMOTA"
-                  : "● MODO LOCAL"}
-              </NexusText>
-              <NexusText variant="caption" secondary>
-                {lastAssistantMeta.model ? `${lastAssistantMeta.model} • ` : ""}
-                {Math.max(1, Math.round(lastAssistantMeta.latencyMs / 1000))}s
-                {lastAssistantMeta.attempts > 1
-                  ? ` • ${lastAssistantMeta.attempts} tentativas`
-                  : ""}
+                {assistantBusy
+                  ? assistantStageLabel
+                  : lastAssistantMeta?.source === "local"
+                    ? "LOCAL ATIVO"
+                    : assistantStageLabel}
               </NexusText>
             </View>
-          ) : null}
-        </View>
-        <View style={[styles.composer, { borderTopColor: colors.border }]}>
-          <Field
-            label={
-              kind === "professor"
-                ? "Pergunte ou conte como foi a prática"
-                : "Converse com seu copiloto"
-            }
-            value={message}
-            onChangeText={setMessage}
-            multiline
-            maxLength={4000}
-            placeholder={
-              kind === "professor"
-                ? "Quero aprender React do zero e criar algo real..."
-                : "Estou cansado hoje. Reorganiza sem abandonar a missão."
-            }
+          </View>
+
+          <BrainChatList
+            key={active.id}
+            ref={chatListRef}
+            thread={active}
+            kind={kind}
+            assistantBusy={assistantBusy}
+            assistantStageLabel={assistantStageLabel}
+            lastAssistantMeta={lastAssistantMeta}
+            reducedMotion={data.preferences.reducedMotion}
+            positions={chatPositions.current}
+            onQuickPrompt={sendQuickPrompt}
+            onApplyAction={applyChatAction}
+            onCancel={cancelAssistant}
           />
-          <NexusButton
-            label={assistantBusy ? "Aguarde" : "Enviar"}
-            icon="↑"
-            onPress={send}
-            disabled={assistantBusy || !message.trim()}
-            fullWidth
-          />
-        </View>
+
+          <View
+            style={[
+              styles.composer,
+              {
+                backgroundColor: colors.background,
+                borderTopColor: colors.border,
+              },
+            ]}
+          >
+            <Field
+              label={
+                kind === "professor"
+                  ? "Pergunte ou conte como foi a prática"
+                  : "Converse com seu copiloto"
+              }
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              maxLength={4000}
+              style={styles.composerInput}
+              placeholder={
+                kind === "professor"
+                  ? "Conte sua dúvida ou como foi a prática..."
+                  : "Como está seu dia de verdade?"
+              }
+            />
+            <NexusButton
+              label={assistantBusy ? "Aguarde" : "Enviar"}
+              icon="↑"
+              onPress={send}
+              disabled={assistantBusy || !message.trim()}
+              compact
+              fullWidth
+            />
+          </View>
+        </KeyboardAvoidingView>
       </Screen>
     );
   }
@@ -787,11 +702,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
+  chatShell: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 760,
+    alignSelf: "center",
+  },
   chatHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    marginBottom: 18,
+    minHeight: 66,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backButton: {
     width: 42,
@@ -801,32 +725,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  messages: { gap: 11 },
-  message: {
-    maxWidth: "92%",
-    padding: 14,
-    borderRadius: 19,
-    borderWidth: 1,
+  composer: {
+    paddingHorizontal: 18,
+    paddingTop: 9,
+    paddingBottom: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
     gap: 8,
   },
-  userMessage: { alignSelf: "flex-end", borderBottomRightRadius: 6 },
-  assistantMessage: { alignSelf: "flex-start", borderBottomLeftRadius: 6 },
-  actionCard: { marginTop: 4, gap: 8 },
-  thinking: { gap: 12 },
-  thinkingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
-  signal: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  composer: {
-    marginTop: 20,
-    paddingTop: 18,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    gap: 10,
-  },
+  composerInput: { minHeight: 54, maxHeight: 112 },
 });

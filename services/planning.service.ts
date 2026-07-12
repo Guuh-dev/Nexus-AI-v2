@@ -6,7 +6,7 @@ import { sanitizeText } from "@/utils/text";
 import { weekdayFromKey } from "@/utils/dates";
 import { fetchNexusApi } from "@/services/api-config";
 
-const CATEGORY_TASKS: Record<Category, Array<{ title: string; description: string }>> = {
+const CATEGORY_TASKS: Record<Category, { title: string; description: string }[]> = {
   desenvolvimento: [
     { title: "Construir uma entrega visível", description: "Transforme conhecimento em algo que possa ser demonstrado hoje." },
     { title: "Praticar uma habilidade central", description: "Faça um bloco sem distrações na habilidade que mais aproxima você da meta." },

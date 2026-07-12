@@ -40,6 +40,7 @@ try {
   writeOutput("native_reasons", JSON.stringify(result.nativeReasons));
   writeOutput("changed_files", JSON.stringify(result.files));
 
+  // eslint-disable-next-line no-console -- machine-readable workflow output
   console.log(JSON.stringify({ baseRef, headRef, ...result }, null, 2));
 } catch (error) {
   // A detector must fail closed. If Git history is incomplete, require a new APK

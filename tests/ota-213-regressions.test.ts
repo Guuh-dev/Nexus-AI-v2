@@ -66,14 +66,15 @@ describe("Nexus OTA 2.1.3 Clarity", () => {
     expect(new Set(signatures).size).toBe(widgetStyles.length);
   });
 
-  it("keeps the client timeout above the server and conversational provider limits", () => {
+  it("keeps bounded timeouts and never retries the free router twice", () => {
     const client = readFileSync("services/assistant.service.ts", "utf8");
     const api = readFileSync("app/api/assistant+api.ts", "utf8");
     const server = readFileSync("services/assistant.server.ts", "utf8");
     expect(client).toContain("ASSISTANT_TIMEOUT_MS = 35_000");
     expect(api).toContain("controller.abort(), 32_000");
     expect(server).toContain("CONVERSATION_PROVIDER_TIMEOUT_MS = 12_000");
-    expect(server).toContain("[...modelOrder(request), FREE_ROUTER]");
+    expect(server).toContain("const models = assistantModelOrder(request.mode)");
+    expect(server).not.toContain("[...modelOrder(request), FREE_ROUTER]");
   });
 
   it("classifies this release as native because the Android widget changed", () => {

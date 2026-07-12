@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-vi.mock("react-native", () => ({ Platform: { OS: "web" } }));
 import { assistantClientResponseSchema } from "@/schemas/assistant.schema";
 import { professorIntakeSchema } from "@/schemas/expansion.schema";
 import { STORAGE_VERSION } from "@/constants/defaults";
@@ -11,6 +10,7 @@ import { createWidgetPayload } from "@/services/widget.service";
 import { compactAssistantContext } from "@/services/assistant.service";
 import { makeAppData, makeProfile } from "@/tests/fixtures";
 import { generateLocalPlan } from "@/services/planning.service";
+vi.mock("react-native", () => ({ Platform: { OS: "web" } }));
 
 describe("Nexus 2 expansion", () => {
   it("migrates legacy data without losing profile or XP", () => {

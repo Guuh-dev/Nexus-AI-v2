@@ -10,10 +10,17 @@ const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 20;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_GLOBAL_PER_DAY = 250;
-const buckets = new Map<string, { count: number; resetAt: number }>();
+const clientBuckets = new Map<string, { count: number; resetAt: number }>();
+const ipBuckets = new Map<string, { count: number; resetAt: number }>();
 let globalBucket = { count: 0, resetAt: Date.now() + DAY_MS };
-const cache = new Map<string, { expiresAt: number; response: AssistantResponse }>();
-const inFlight = new Map<string, Promise<AssistantResponse>>();
+const cache = new Map<string, { expiresAt: number; fingerprint: string; response: AssistantResponse }>();
+type RunningAssistant = {
+  fingerprint: string;
+  promise: Promise<AssistantResponse>;
+  deltas: string[];
+  subscribers: Set<(delta: string) => void>;
+};
+const inFlight = new Map<string, RunningAssistant>();
 
 const requestSchema = z.object({
   mode: z.enum(["brain", "professor", "roadmap", "capture", "weekly_review"]),
@@ -55,23 +62,40 @@ function streamEvent(type: string, body: unknown): Uint8Array {
   return new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify(body)}\n\n`);
 }
 
-function key(request: Request, clientId: string): string {
+function requestIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return `${request.headers.get("cf-connecting-ip") ?? forwarded ?? "native"}:${clientId}`;
+  return request.headers.get("cf-connecting-ip") ?? forwarded ?? "native";
+}
+
+function consumeBucket(
+  collection: Map<string, { count: number; resetAt: number }>,
+  bucketKey: string,
+  maximum: number,
+  now: number,
+): boolean {
+  const current = collection.get(bucketKey);
+  const bucket = !current || current.resetAt <= now
+    ? { count: 0, resetAt: now + WINDOW_MS }
+    : current;
+  if (bucket.count >= maximum) return false;
+  bucket.count += 1;
+  collection.set(bucketKey, bucket);
+  return true;
 }
 
 function allow(request: Request, clientId: string): boolean {
   const now = Date.now();
   if (now >= globalBucket.resetAt) globalBucket = { count: 0, resetAt: now + DAY_MS };
   if (globalBucket.count >= MAX_GLOBAL_PER_DAY) return false;
-  const bucketKey = key(request, clientId);
-  const current = buckets.get(bucketKey);
-  const bucket = !current || current.resetAt <= now ? { count: 0, resetAt: now + WINDOW_MS } : current;
-  if (bucket.count >= MAX_PER_WINDOW) return false;
-  bucket.count += 1;
+  const ip = requestIp(request);
+  if (!consumeBucket(ipBuckets, ip, 60, now)) return false;
+  if (!consumeBucket(clientBuckets, `${ip}:${clientId}`, MAX_PER_WINDOW, now)) return false;
   globalBucket.count += 1;
-  buckets.set(bucketKey, bucket);
-  if (buckets.size > 5000) for (const [itemKey, item] of buckets) if (item.resetAt <= now) buckets.delete(itemKey);
+  for (const collection of [clientBuckets, ipBuckets]) {
+    if (collection.size > 5000) {
+      for (const [itemKey, item] of collection) if (item.resetAt <= now) collection.delete(itemKey);
+    }
+  }
   if (cache.size > 2000) for (const [requestId, item] of cache) if (item.expiresAt <= now) cache.delete(requestId);
   return true;
 }
@@ -86,6 +110,62 @@ function statusFromError(error: unknown): number {
     if (match?.[1]) return Number(match[1]);
   }
   return 503;
+}
+
+function requestFingerprint(data: AssistantRequest): string {
+  return JSON.stringify(data);
+}
+
+function startAssistant(
+  cacheKey: string,
+  fingerprint: string,
+  data: AssistantRequest,
+): RunningAssistant {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 32_000);
+  const deltas: string[] = [];
+  const subscribers = new Set<(delta: string) => void>();
+  let operation!: RunningAssistant;
+  const promise = runAssistant(data, controller.signal, (delta) => {
+    if (!delta || controller.signal.aborted) return;
+    deltas.push(delta);
+    for (const subscriber of subscribers) subscriber(delta);
+  }).then((response) => {
+    cache.set(cacheKey, {
+      expiresAt: Date.now() + WINDOW_MS,
+      fingerprint,
+      response,
+    });
+    return response;
+  }).catch((error: unknown) => {
+    if (controller.signal.aborted) {
+      const timeoutError = new Error("OPENROUTER_STREAM_504");
+      Object.assign(timeoutError, { status: 504 });
+      throw timeoutError;
+    }
+    throw error;
+  }).finally(() => {
+    clearTimeout(timeout);
+    if (inFlight.get(cacheKey) === operation) inFlight.delete(cacheKey);
+  });
+  operation = { fingerprint, promise, deltas, subscribers };
+  inFlight.set(cacheKey, operation);
+  return operation;
+}
+
+function streamError(error: unknown): { code: string; message: string } {
+  const status = statusFromError(error);
+  const code = status === 401 ? "unauthorized"
+    : status === 402 ? "payment_required"
+      : status === 429 ? "rate_limit"
+        : [408, 425, 504, 529].includes(status) ? "timeout"
+          : "provider_unavailable";
+  return {
+    code,
+    message: code === "timeout"
+      ? "A IA demorou mais que o esperado."
+      : "A inteligência está temporariamente indisponível.",
+  };
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -110,64 +190,62 @@ export async function POST(request: Request): Promise<Response> {
     return json(request, { error: { code: "bad_request", message: "Identificador do cliente inconsistente." } }, 400);
   }
   const requestCacheKey = `${data.clientId}:${data.requestId}`;
+  const fingerprint = requestFingerprint(data);
   const contextSafety = validateUntrustedJson(data.context, { maxDepth: 8, maxNodes: 2500, maxKeysPerObject: 140, maxArrayLength: 500 });
   if (!contextSafety.valid) return json(request, { error: { code: "bad_request", message: "O contexto enviado é complexo ou inseguro demais." } }, 400);
   const existing = cache.get(requestCacheKey);
-  if (existing && existing.expiresAt > Date.now()) return json(request, existing.response);
-  const running = inFlight.get(requestCacheKey);
-  if (running) {
-    try { return json(request, await running); } catch { return json(request, { error: { code: "provider_unavailable", message: "A inteligência está temporariamente indisponível." } }, 503); }
+  if (existing && existing.expiresAt > Date.now()) {
+    if (existing.fingerprint !== fingerprint) return json(request, { error: { code: "request_conflict", message: "Este identificador já foi usado por outra solicitação." } }, 409);
+    return json(request, existing.response);
   }
-  if (!process.env.OPENROUTER_API_KEY) return json(request, { error: { code: "missing_key", message: "A inteligência do Nexus ainda não foi configurada." } }, 503);
-  if (!allow(request, data.clientId)) return json(request, { error: { code: "rate_limit", message: "O Nexus está recebendo muitas solicitações. Tente novamente em instantes." } }, 429);
+  const running = inFlight.get(requestCacheKey);
+  if (running && running.fingerprint !== fingerprint) {
+    return json(request, { error: { code: "request_conflict", message: "Este identificador já está processando outra solicitação." } }, 409);
+  }
+  if (!running) {
+    if (!process.env.OPENROUTER_API_KEY) return json(request, { error: { code: "missing_key", message: "A inteligência do Nexus ainda não foi configurada." } }, 503);
+    if (!allow(request, data.clientId)) return json(request, { error: { code: "rate_limit", message: "O Nexus está recebendo muitas solicitações. Tente novamente em instantes." } }, 429);
+    if (inFlight.size >= 24) return json(request, { error: { code: "provider_busy", message: "O Nexus está processando muitas solicitações. Tente novamente em instantes." } }, 503);
+  }
+  const operation = running ?? startAssistant(requestCacheKey, fingerprint, data);
 
   const wantsStream = request.headers.get("accept")?.includes("text/event-stream") === true
     && (data.mode === "brain" || data.mode === "professor");
   if (wantsStream) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 32_000);
+    let closed = false;
+    let unsubscribe: () => void = () => undefined;
     const stream = new ReadableStream<Uint8Array>({
       start(streamController) {
+        const publish = (delta: string) => {
+          if (!closed) streamController.enqueue(streamEvent("delta", { delta }));
+        };
+        operation.subscribers.add(publish);
+        unsubscribe = () => operation.subscribers.delete(publish);
+        streamController.enqueue(streamEvent("ready", { requestId: data.requestId }));
+        for (const delta of operation.deltas) publish(delta);
         void (async () => {
           try {
-            streamController.enqueue(streamEvent("ready", { requestId: data.requestId }));
-            const response = await runAssistant(data, controller.signal, (delta) => {
-              if (!controller.signal.aborted) streamController.enqueue(streamEvent("delta", { delta }));
-            });
-            cache.set(requestCacheKey, { expiresAt: Date.now() + WINDOW_MS, response });
-            streamController.enqueue(streamEvent("result", response));
+            const response = await operation.promise;
+            if (!closed) streamController.enqueue(streamEvent("result", response));
           } catch (error) {
-            const status = controller.signal.aborted ? 504 : statusFromError(error);
-            const code = status === 401 ? "unauthorized"
-              : status === 402 ? "payment_required"
-                : status === 429 ? "rate_limit"
-                  : [408, 425, 504, 529].includes(status) ? "timeout"
-                    : "provider_unavailable";
-            streamController.enqueue(streamEvent("error", { error: { code, message: code === "timeout" ? "A IA demorou mais que o esperado." : "A inteligência está temporariamente indisponível." } }));
+            if (!closed) streamController.enqueue(streamEvent("error", { error: streamError(error) }));
           } finally {
-            clearTimeout(timeout);
-            streamController.close();
+            unsubscribe();
+            if (!closed) streamController.close();
           }
         })();
       },
       cancel() {
-        controller.abort();
-        clearTimeout(timeout);
+        closed = true;
+        unsubscribe();
       },
     });
     return new Response(stream, { status: 200, headers: sseHeaders(request) });
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 32_000);
-  const promise = runAssistant(data, controller.signal);
-  inFlight.set(requestCacheKey, promise);
   try {
-    const response = await promise;
-    cache.set(requestCacheKey, { expiresAt: Date.now() + WINDOW_MS, response });
-    return json(request, response);
+    return json(request, await operation.promise);
   } catch (error) {
-    if (controller.signal.aborted) return json(request, { error: { code: "timeout", message: "O Nexus demorou mais que o esperado. Tente novamente." } }, 504);
     if (error instanceof Error && error.message === "NEXUS_MISSING_OPENROUTER_KEY") return json(request, { error: { code: "missing_key", message: "A inteligência do Nexus ainda não foi configurada." } }, 503);
     const status = statusFromError(error);
     if (status === 401) return json(request, { error: { code: "unauthorized", message: "Não foi possível validar a inteligência do Nexus." } }, 401);
@@ -175,9 +253,6 @@ export async function POST(request: Request): Promise<Response> {
     if (status === 429) return json(request, { error: { code: "rate_limit", message: "O Nexus está recebendo muitas solicitações. Tente novamente em instantes." } }, 429);
     if ([408, 425, 504, 529].includes(status)) return json(request, { error: { code: "timeout", message: "O provedor remoto demorou ou está temporariamente sobrecarregado." } }, 504);
     return json(request, { error: { code: "provider_unavailable", message: "A inteligência está temporariamente indisponível." } }, 503);
-  } finally {
-    clearTimeout(timeout);
-    inFlight.delete(requestCacheKey);
   }
 }
 

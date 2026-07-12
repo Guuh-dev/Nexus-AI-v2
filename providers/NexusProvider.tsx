@@ -10,7 +10,7 @@ import {
 } from "react";
 import { AppState } from "react-native";
 import * as Haptics from "expo-haptics";
-import { DEFAULT_APP_DATA, DEFAULT_EVOLUTION_PROFILE, PRIORITY_XP } from "@/constants/defaults";
+import { DEFAULT_APP_DATA } from "@/constants/defaults";
 import { createStarterRoadmap, EVOLUTION_AREA_LABELS, nextRoadmapLesson } from "@/features/learning/roadmap";
 import { archivePlan, carryOverTasks, rolloverIfNeeded } from "@/features/planning/rollover";
 import { addTask, deleteTask, postponeTask, toggleMainMission, toggleTaskCompletion, updateTask } from "@/features/tasks/task.logic";
@@ -42,7 +42,6 @@ import type {
   Priority,
   ProfessorIntake,
   Profile,
-  Task,
   WeeklyPlanItem,
   WeeklyReview,
 } from "@/types";
@@ -668,26 +667,6 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const deleteMemory = useCallback((memoryId: string) => commit((current) => ({ ...current, brain: { ...current.brain, memories: current.brain.memories.filter((memory) => memory.id !== memoryId) } }), "Memória removida."), [commit]);
   const toggleMemoryPinned = useCallback((memoryId: string) => commit((current) => ({ ...current, brain: { ...current.brain, memories: current.brain.memories.map((memory) => memory.id === memoryId ? { ...memory, pinned: !memory.pinned, updatedAt: new Date().toISOString() } : memory) } })), [commit]);
 
-  const applyAssistantAction = useCallback(async (threadId: string, actionId: string, accept: boolean) => {
-    let selected: AssistantAction | undefined;
-    commit((current) => ({ ...current, brain: { ...current.brain, threads: current.brain.threads.map((thread) => thread.id === threadId ? { ...thread, messages: thread.messages.map((message) => ({ ...message, actions: message.actions?.map((action) => {
-      if (action.id !== actionId || action.status !== "proposed") return action;
-      selected = action;
-      return { ...action, status: accept ? "accepted" : "rejected" };
-    }) })) } : thread) } }));
-    if (!accept || !selected) return;
-    if (selected.type === "replan") return replanDay({ reason: selected.description });
-    if (selected.type === "create_task") {
-      const payload = selected.payload;
-      const category = typeof payload.category === "string" && ["desenvolvimento", "estudos", "dinheiro", "saude", "organizacao", "pessoal"].includes(payload.category) ? payload.category as Category : "pessoal";
-      const priority = payload.priority === "alta" || payload.priority === "baixa" ? payload.priority : "media";
-      commit((current) => addTask(current, { title: typeof payload.title === "string" ? payload.title : selected!.title, category, priority, estimatedMinutes: typeof payload.estimatedMinutes === "number" ? payload.estimatedMinutes : 25, recurring: false }), "Tarefa aprovada e adicionada.");
-    }
-    if (selected.type === "create_roadmap") await createRoadmap(selected.title);
-    if (selected.type === "update_goal" && typeof selected.payload.mainGoal === "string") updateProfile({ mainGoal: selected.payload.mainGoal });
-    if (selected.type === "start_operation") createOperation({ title: selected.title, objective: selected.description, deadline: typeof selected.payload.deadline === "string" ? selected.payload.deadline : localDateKey(new Date(Date.now() + 14 * 86_400_000), dataRef.current.profile?.timezone), phaseTitles: ["Fundação", "Execução", "Entrega final"] });
-  }, [commit, replanDay, updateProfile]);
-
   const createRoadmap = useCallback(async (topic: string, intake?: ProfessorIntake) => {
     const clean = sanitizeText(topic, 160);
     if (!clean || !dataRef.current.profile || assistantBusy) return;
@@ -794,6 +773,26 @@ export function NexusProvider({ children }: PropsWithChildren) {
     if (!operation.title || !operation.phases.length) return;
     commit((current) => ({ ...current, operations: [...current.operations, operation].slice(-100) }), "Operação iniciada.");
   }, [commit]);
+
+  const applyAssistantAction = useCallback(async (threadId: string, actionId: string, accept: boolean) => {
+    let selected: AssistantAction | undefined;
+    commit((current) => ({ ...current, brain: { ...current.brain, threads: current.brain.threads.map((thread) => thread.id === threadId ? { ...thread, messages: thread.messages.map((message) => ({ ...message, actions: message.actions?.map((action) => {
+      if (action.id !== actionId || action.status !== "proposed") return action;
+      selected = action;
+      return { ...action, status: accept ? "accepted" : "rejected" };
+    }) })) } : thread) } }));
+    if (!accept || !selected) return;
+    if (selected.type === "replan") return replanDay({ reason: selected.description });
+    if (selected.type === "create_task") {
+      const payload = selected.payload;
+      const category = typeof payload.category === "string" && ["desenvolvimento", "estudos", "dinheiro", "saude", "organizacao", "pessoal"].includes(payload.category) ? payload.category as Category : "pessoal";
+      const priority = payload.priority === "alta" || payload.priority === "baixa" ? payload.priority : "media";
+      commit((current) => addTask(current, { title: typeof payload.title === "string" ? payload.title : selected!.title, category, priority, estimatedMinutes: typeof payload.estimatedMinutes === "number" ? payload.estimatedMinutes : 25, recurring: false }), "Tarefa aprovada e adicionada.");
+    }
+    if (selected.type === "create_roadmap") await createRoadmap(selected.title);
+    if (selected.type === "update_goal" && typeof selected.payload.mainGoal === "string") updateProfile({ mainGoal: selected.payload.mainGoal });
+    if (selected.type === "start_operation") createOperation({ title: selected.title, objective: selected.description, deadline: typeof selected.payload.deadline === "string" ? selected.payload.deadline : localDateKey(new Date(Date.now() + 14 * 86_400_000), dataRef.current.profile?.timezone), phaseTitles: ["Fundação", "Execução", "Entrega final"] });
+  }, [commit, createOperation, createRoadmap, replanDay, updateProfile]);
 
   const toggleOperationPhase = useCallback((operationId: string, phaseId: string) => commit((current) => {
     let xpDelta = 0;

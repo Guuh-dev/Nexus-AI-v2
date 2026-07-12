@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.2.1 — Flow OTA
+
+- Brain e Professor Atlas agora mantêm o composer visível acima do teclado e virtualizam conversas extensas.
+- Adicionados auto-scroll contextual, restauração de posição por conversa e atalho acessível para voltar ao final.
+- O streaming acompanha a mensagem sem animações repetidas e respeita movimento reduzido.
+- Removida a tentativa duplicada do roteador gratuito; os limites de tempo e o fallback foram encurtados.
+- Requisições SSE repetidas com o mesmo identificador passam a compartilhar uma única geração.
+
+> Esta é uma atualização OTA para o runtime nativo 2.2.0. Por isso `app.json` e `package.json` permanecem em 2.2.0 até o próximo APK-base.
+
 ## 2.2.0 — Companion, Streaming AI & Widget Studio 2.2
 
 - Adicionado Nexus Companion com sete personalidades, três níveis de presença, falas contextuais e configuração independente por widget.

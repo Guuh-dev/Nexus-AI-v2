@@ -148,4 +148,5 @@ if (/useEffect\(\(\) => \(\) =>[\s\S]{0,200}cancelPlanGeneration/.test(loadingRo
   fail("Loading route must not abort plan generation from an effect cleanup.");
 }
 
+// eslint-disable-next-line no-console -- release command result
 console.log(`Release check passed: Nexus AI v${packageJson.version} is ready for CI, OTA and Android release.`);

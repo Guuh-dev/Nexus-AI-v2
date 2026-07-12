@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PREFERENCES } from "@/constants/defaults";
+import { DEFAULT_PREFERENCES , DEFAULT_APP_DATA } from "@/constants/defaults";
 import { applyWidgetPreset, WIDGET_PRESETS } from "@/features/widget/presets";
 import { appDataSchema } from "@/schemas/storage.schema";
-import { DEFAULT_APP_DATA } from "@/constants/defaults";
 
 describe("Widget Studio 2.2", () => {
   it("ships a balanced catalog with unique presets", () => {
