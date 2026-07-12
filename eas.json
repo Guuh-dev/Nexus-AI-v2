@@ -13,7 +13,8 @@
       "env": {
         "EXPO_PUBLIC_APP_ENV": "development",
         "EXPO_PUBLIC_API_URL": "https://nexus-ai-v1.onrender.com"
-      }
+      },
+      "channel": "preview"
     },
     "preview": {
       "distribution": "internal",
@@ -24,10 +25,24 @@
       "env": {
         "EXPO_PUBLIC_APP_ENV": "preview",
         "EXPO_PUBLIC_API_URL": "https://nexus-ai-v1.onrender.com"
-      }
+      },
+      "channel": "preview"
     },
     "production": {
       "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_APP_ENV": "production",
+        "EXPO_PUBLIC_API_URL": "https://nexus-ai-v1.onrender.com"
+      },
+      "channel": "production"
+    },
+    "release": {
+      "distribution": "internal",
+      "autoIncrement": true,
+      "channel": "production",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://nexus-ai-v1.onrender.com"

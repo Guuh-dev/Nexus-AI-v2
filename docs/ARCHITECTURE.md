@@ -52,7 +52,7 @@ Datas são chaves locais `YYYY-MM-DD` no fuso do perfil. O rollover arquiva uma 
 
 ## Segurança de contexto
 
-A V2.1 limita tamanho, profundidade, quantidade de nós e chaves por objeto antes de encaminhar contexto ao assistente. Chaves relacionadas a prototype pollution são rejeitadas antes do Zod. O roteador OpenRouter tenta JSON Schema e repete em JSON simples quando um modelo gratuito não oferece structured output.
+A V2.1.1 limita tamanho, profundidade, quantidade de nós e chaves por objeto antes de encaminhar contexto ao assistente. Chaves relacionadas a prototype pollution são rejeitadas antes do Zod. O roteador OpenRouter tenta JSON Schema e repete em JSON simples quando um modelo gratuito não oferece structured output.
 
 ## Web e código nativo
 

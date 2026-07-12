@@ -1,23 +1,28 @@
-name: Nexus Android Preview
+name: Nexus Android Build
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v2.1.*"
+    inputs:
+      profile:
+        description: EAS build profile
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - release
 
 permissions:
   contents: read
 
 concurrency:
-  group: nexus-android-preview-${{ github.ref }}
+  group: nexus-android-${{ inputs.profile }}
   cancel-in-progress: false
 
 jobs:
   build:
-    name: Start preview APK build
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
 
     steps:
       - uses: actions/checkout@v4
@@ -32,38 +37,30 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run verification
-        run: pnpm run verify
-
-      - name: Run release check
-        run: pnpm run release:check
+      - name: Verify native release
+        run: pnpm run verify && pnpm run release:check && pnpm exec expo install --check
 
       - name: Validate EAS token
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          if [ -z "$EXPO_TOKEN" ]; then
-            echo "EXPO_TOKEN is not configured in GitHub Actions secrets." >&2
-            exit 1
-          fi
+        run: test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN is not configured." >&2; exit 1)
 
-      - name: Start EAS preview APK
+      - name: Start EAS APK build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          BUILD_PROFILE: ${{ inputs.profile }}
         run: |
-          pnpm dlx eas-cli@latest build \
+          pnpm dlx eas-cli@20.5.1 build \
             --platform android \
-            --profile preview \
+            --profile "$BUILD_PROFILE" \
             --non-interactive \
             --no-wait \
             --json | tee eas-build.json
-
-          echo "### APK Preview sent to EAS" >> "$GITHUB_STEP_SUMMARY"
-          echo "The build is continuing on Expo servers." >> "$GITHUB_STEP_SUMMARY"
+          echo "APK build submitted to EAS with profile $BUILD_PROFILE." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save EAS build metadata
         uses: actions/upload-artifact@v4
         with:
-          name: nexus-eas-build-metadata
+          name: nexus-eas-build-metadata-${{ inputs.profile }}
           path: eas-build.json
           retention-days: 14

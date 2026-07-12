@@ -1,12 +1,15 @@
-run = "npm run web -- --host lan"
+run = "npx -y pnpm@10.0.0 run web -- --host 0.0.0.0"
 entrypoint = "package.json"
 hidden = [".expo", "dist", "node_modules"]
-modules = ["nodejs-20"]
+modules = ["nodejs-22"]
 
 [deployment]
-build = ["sh", "-c", "npm ci && npm run export:web"]
-run = ["sh", "-c", "npx expo serve --port 8080"]
+build = ["sh", "-c", "npx -y pnpm@10.0.0 install --frozen-lockfile && npx -y pnpm@10.0.0 run export:web"]
+run = ["sh", "-c", "npx -y pnpm@10.0.0 run serve:web -- --port 8080"]
 
 [[ports]]
 localPort = 8081
 externalPort = 80
+
+[agent]
+expertMode = true

@@ -30,13 +30,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Audit dependencies
-        run: pnpm audit --audit-level=high
+        run: pnpm audit --audit-level=moderate
 
       - name: Scan secrets
         run: pnpm run security:secrets
 
       - name: Run security regression tests
-        run: pnpm test -- tests/api.test.ts tests/api-config.test.ts tests/untrusted-data.test.ts tests/storage.test.ts
+        run: pnpm exec vitest run tests/api.test.ts tests/assistant-api-security.test.ts tests/api-config.test.ts tests/untrusted-data.test.ts tests/storage.test.ts tests/native-widget-security.test.ts tests/workflow-security.test.ts
 
   codeql:
     runs-on: ubuntu-latest

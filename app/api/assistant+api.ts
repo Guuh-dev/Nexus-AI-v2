@@ -3,6 +3,7 @@ import { profileSchema } from "@/schemas/profile.schema";
 import { runAssistant } from "@/services/assistant.server";
 import type { AssistantRequest, AssistantResponse } from "@/types";
 import { validateUntrustedJson } from "@/utils/untrusted-data";
+import { sanitizeText } from "@/utils/text";
 
 const MAX_BODY_BYTES = 48_000;
 const WINDOW_MS = 10 * 60 * 1000;
@@ -90,11 +91,16 @@ export async function POST(request: Request): Promise<Response> {
   const parsed = requestSchema.safeParse(body);
   if (!parsed.success) return json(request, { error: { code: "bad_request", message: "Os dados do Nexus Brain estão incompletos." } }, 400);
   const data = parsed.data as AssistantRequest;
+  const headerClientId = sanitizeText(request.headers.get("x-nexus-client-id"), 120);
+  if (headerClientId && headerClientId !== data.clientId) {
+    return json(request, { error: { code: "bad_request", message: "Identificador do cliente inconsistente." } }, 400);
+  }
+  const requestCacheKey = `${data.clientId}:${data.requestId}`;
   const contextSafety = validateUntrustedJson(data.context, { maxDepth: 8, maxNodes: 2500, maxKeysPerObject: 140, maxArrayLength: 500 });
   if (!contextSafety.valid) return json(request, { error: { code: "bad_request", message: "O contexto enviado é complexo ou inseguro demais." } }, 400);
-  const existing = cache.get(data.requestId);
+  const existing = cache.get(requestCacheKey);
   if (existing && existing.expiresAt > Date.now()) return json(request, existing.response);
-  const running = inFlight.get(data.requestId);
+  const running = inFlight.get(requestCacheKey);
   if (running) {
     try { return json(request, await running); } catch { return json(request, { error: { code: "provider_unavailable", message: "A inteligência está temporariamente indisponível." } }, 503); }
   }
@@ -104,10 +110,10 @@ export async function POST(request: Request): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 45_000);
   const promise = runAssistant(data, controller.signal);
-  inFlight.set(data.requestId, promise);
+  inFlight.set(requestCacheKey, promise);
   try {
     const response = await promise;
-    cache.set(data.requestId, { expiresAt: Date.now() + WINDOW_MS, response });
+    cache.set(requestCacheKey, { expiresAt: Date.now() + WINDOW_MS, response });
     return json(request, response);
   } catch (error) {
     if (controller.signal.aborted) return json(request, { error: { code: "timeout", message: "O Nexus demorou mais que o esperado. Tente novamente." } }, 504);
@@ -119,7 +125,7 @@ export async function POST(request: Request): Promise<Response> {
     return json(request, { error: { code: "provider_unavailable", message: "A inteligência está temporariamente indisponível." } }, 503);
   } finally {
     clearTimeout(timeout);
-    inFlight.delete(data.requestId);
+    inFlight.delete(requestCacheKey);
   }
 }
 

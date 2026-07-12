@@ -8,7 +8,14 @@ import { useNexus } from "@/providers/NexusProvider";
 export { RouteErrorBoundary as ErrorBoundary };
 
 export default function LoadingPlanRoute() {
-  const { planGenerating, data, cancelPlanGeneration } = useNexus();
+  const {
+    planGenerating,
+    planGenerationError,
+    data,
+    cancelPlanGeneration,
+    retryPlanGeneration,
+    recoverPlanLocally,
+  } = useNexus();
 
   useEffect(() => {
     if (!planGenerating && data.onboardingCompleted && data.activePlan) {
@@ -16,13 +23,13 @@ export default function LoadingPlanRoute() {
     }
   }, [data.activePlan, data.learning.pendingTopics.length, data.onboardingCompleted, planGenerating]);
 
-  useEffect(() => () => {
-    if (planGenerating) cancelPlanGeneration();
-  }, [cancelPlanGeneration, planGenerating]);
-
   return (
-    <Screen scroll={false} padded={false}>
+    <Screen scroll={false} padded={false} keyboardAware={false}>
       <LoadingPlan
+        error={planGenerationError}
+        generating={planGenerating}
+        onRetry={() => void retryPlanGeneration()}
+        onUseLocal={recoverPlanLocally}
         onCancel={() => {
           cancelPlanGeneration();
           router.replace(data.onboardingCompleted ? "/(tabs)/today" : "/onboarding");

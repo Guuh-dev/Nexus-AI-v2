@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.1 — Recovery, OTA & Build Reliability
+
+- Corrigido o travamento infinito em 2 de 4 após o onboarding, causado pelo cleanup que abortava a geração durante rerenders do loading.
+- Adicionados timeout remoto, watchdog absoluto de 50 segundos, retry e recuperação por plano local.
+- Cancelamentos agora distinguem ação do usuário, timeout, recuperação e desmontagem sem apagar respostas.
+- Corrigidos teclado Android, Safe Area, fundo inferior, rodapés e barras do sistema.
+- Adicionados `expo-updates`, runtime por versão, canais preview/production e controles de atualização no Perfil.
+- Adicionados detector de mudanças nativas, OTA preview/production, APK manual, release com APK e rollback.
+- Migrados Replit, Render, CI, Security e EAS para pnpm 10, eliminando o bug interno do `npm ci`.
+- Reforçada idempotência por cliente, validação de client ID, secret scan e segurança de inputs dos workflows.
+- Dependências auditadas e lockfile estabilizado sem vulnerabilidades conhecidas no audit final.
+
 ## 2.1.0 — Stability, UI & Widget Studio
 
 - Corrigido o falso erro de campo vazio na entrevista do Professor Atlas: conhecimento e tentativa anterior agora são validados separadamente e mensagens invisíveis não contam como resposta.

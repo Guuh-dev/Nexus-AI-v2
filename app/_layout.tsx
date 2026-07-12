@@ -1,6 +1,9 @@
 import "@/global.css";
+import { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack } from "expo-router";
+import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AppErrorBoundary, RouteErrorBoundary } from "@/components/ErrorBoundary";
@@ -12,6 +15,13 @@ export { RouteErrorBoundary as ErrorBoundary };
 
 function Navigation() {
   const { colors } = useNexus();
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    NavigationBar.setStyle("dark");
+    NavigationBar.setHidden(false);
+  }, []);
+
   return (
     <>
       <StatusBar style="light" />

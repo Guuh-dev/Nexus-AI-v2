@@ -74,9 +74,9 @@ export function Screen({
   const content = <View style={innerStyle}>{children}</View>;
   const body = scroll ? (
     <ScrollView
-      style={styles.flex}
-      contentContainerStyle={styles.scrollContent}
-      keyboardShouldPersistTaps="always"
+      style={[styles.flex, { backgroundColor: colors.background }]}
+      contentContainerStyle={[styles.scrollContent, { backgroundColor: colors.background }]}
+      keyboardShouldPersistTaps="handled"
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
       contentInsetAdjustmentBehavior="automatic"
@@ -91,12 +91,12 @@ export function Screen({
   return (
     <SafeAreaView
       style={[styles.safe, { backgroundColor: colors.background }]}
-      edges={["top", "left", "right"]}
+      edges={["top", "bottom", "left", "right"]}
     >
       <KeyboardAvoidingView
         style={styles.flex}
-        enabled={keyboardAware}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        enabled={keyboardAware && Platform.OS === "ios"}
+        behavior="padding"
         keyboardVerticalOffset={keyboardVerticalOffset}
       >
         {body}
@@ -129,6 +129,6 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 18,
     paddingTop: 10,
-    paddingBottom: Platform.OS === "ios" ? 8 : 12,
+    paddingBottom: 12,
   },
 });
