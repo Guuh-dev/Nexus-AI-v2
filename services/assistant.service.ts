@@ -52,9 +52,7 @@ export function compactAssistantContext(
   context: Record<string, unknown>,
   mode: AssistantRequest["mode"],
 ): Record<string, unknown> {
-  const memories = arrayValue(context.memories) as Array<
-    { pinned?: unknown; content?: unknown } & Record<string, unknown>
-  >;
+  const memories = arrayValue(context.memories) as ({ pinned?: unknown; content?: unknown } & Record<string, unknown>)[];
   const pinned = memories.filter((memory) => memory?.pinned === true).slice(-8);
   const recentMemories = memories.slice(-10);
   const compactMemories = [...pinned, ...recentMemories]

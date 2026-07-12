@@ -813,7 +813,7 @@ export default function ProfileScreen() {
                 ]}
               >
                 <NexusText variant="mono" color={colors.primarySoft}>
-                  {OTA_RELEASE.title.toUpperCase()} • OTA {OTA_RELEASE.label}
+                  {OTA_RELEASE.title.toUpperCase()} • OTA {OTA_RELEASE.update}
                 </NexusText>
                 {OTA_RELEASE.notes.map((note) => (
                   <NexusText key={note} variant="caption" secondary>

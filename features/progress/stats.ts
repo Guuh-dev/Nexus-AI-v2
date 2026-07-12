@@ -54,7 +54,7 @@ export function weeklyStats(data: AppData) {
   };
 }
 
-export function categoryDistribution(data: AppData): Array<{ category: Category; count: number; percentage: number }> {
+export function categoryDistribution(data: AppData): { category: Category; count: number; percentage: number }[] {
   const allTasks = [
     ...(data.activePlan?.tasks ?? []),
     ...data.history.flatMap((entry) => entry.plan.tasks),

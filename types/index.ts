@@ -170,7 +170,7 @@ export type DailyPlan = {
 export type AiDailyPlan = {
   date: string;
   mainMission: Omit<MainMission, "completed" | "completedAt" | "xp">;
-  tasks: Array<Omit<Task, "completed" | "completedAt" | "postponedFrom">>;
+  tasks: Omit<Task, "completed" | "completedAt" | "postponedFrom">[];
   focusMessage: string;
   avoidToday: string[];
   totalEstimatedMinutes: number;
@@ -530,11 +530,11 @@ export type AppData = {
 export type WidgetPayload = {
   date: string;
   mainMission: string;
-  tasks: Array<{
+  tasks: {
     id: string;
     title: string;
     completed: boolean;
-  }>;
+  }[];
   completedCount: number;
   totalCount: number;
   streak: number;
@@ -649,8 +649,8 @@ export type AssistantRequest = {
 export type AssistantResponse = {
   message: string;
   title?: string;
-  memories?: Array<Pick<MemoryItem, "kind" | "content" | "confidence">>;
-  actions?: Array<Omit<AssistantAction, "id" | "status">>;
+  memories?: Pick<MemoryItem, "kind" | "content" | "confidence">[];
+  actions?: Omit<AssistantAction, "id" | "status">[];
   roadmap?: LearningRoadmap;
   capture?: Omit<Task, "id" | "completed" | "completedAt"> & { scheduledDate?: string };
   weeklyReview?: WeeklyReview;

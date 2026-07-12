@@ -46,24 +46,45 @@ function client(timeoutMs: number): OpenRouter {
   });
 }
 
-function uniqueModels(values: Array<string | undefined | null>): string[] {
+function uniqueModels(values: (string | undefined | null)[]): string[] {
   return values
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
     .filter((value, index, all) => all.indexOf(value) === index);
 }
 
-function modelOrder(request: AssistantRequest): string[] {
-  const preferred =
-    request.mode === "roadmap"
-      ? process.env.OPENROUTER_ROADMAP_MODEL
-      : process.env.OPENROUTER_FAST_MODEL;
+function configuredModels(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((model) => model.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function isFreeModel(model: string): boolean {
+  return model === FREE_ROUTER || model.endsWith(":free");
+}
+
+/**
+ * Keeps the default route free and server-controlled. Explicit `:free` models
+ * can be supplied as a comma-separated list to prefer a known fast model, while
+ * `openrouter/free` remains the final provider-managed fallback.
+ */
+export function assistantModelOrder(
+  mode: AssistantRequest["mode"],
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): string[] {
+  const list = mode === "roadmap"
+    ? environment.OPENROUTER_ROADMAP_MODELS ?? environment.OPENROUTER_ROADMAP_MODEL
+    : environment.OPENROUTER_FAST_MODELS ?? environment.OPENROUTER_FAST_MODEL;
+  const allowPaid = environment.OPENROUTER_ALLOW_PAID_FALLBACK === "true";
+  const preferred = configuredModels(list).filter(
+    (model) => isFreeModel(model) || allowPaid,
+  );
   return uniqueModels([
-    preferred,
+    ...preferred,
     FREE_ROUTER,
-    process.env.OPENROUTER_ALLOW_PAID_FALLBACK === "true"
-      ? PRIMARY_MODEL
-      : undefined,
+    allowPaid ? PRIMARY_MODEL : undefined,
   ]);
 }
 
@@ -89,7 +110,6 @@ async function streamCompletion(
   user: string,
   signal: AbortSignal,
   format: CompletionFormat,
-  onDelta?: (delta: string) => void,
 ): Promise<Omit<StreamResult, "attempts">> {
   const structured = format === "structured";
   const schemaHint =
@@ -114,6 +134,11 @@ async function streamCompletion(
               ? 0.25
               : 0.3,
         maxCompletionTokens: completionLimit(request.mode),
+        provider: {
+          sort: "throughput",
+          allowFallbacks: true,
+          requireParameters: structured,
+        },
         ...(structured
           ? {
               responseFormat: {
@@ -139,7 +164,6 @@ async function streamCompletion(
     const value = chunk.choices[0]?.delta?.content;
     if (value) {
       content += value;
-      if (format === "text") onDelta?.(value);
     }
     if (chunk.model) resolvedModel = chunk.model;
     if (chunk.usage) {
@@ -164,7 +188,6 @@ async function availableCompletion(
   system: string,
   user: string,
   signal: AbortSignal,
-  onDelta?: (delta: string) => void,
 ): Promise<StreamResult> {
   const conversational =
     request.mode === "brain" || request.mode === "professor";
@@ -173,9 +196,7 @@ async function availableCompletion(
   let error: unknown;
   let attempts = 0;
 
-  const models = conversational
-    ? [...modelOrder(request), FREE_ROUTER]
-    : modelOrder(request);
+  const models = assistantModelOrder(request.mode);
   for (const model of models) {
     if (signal.aborted) throw error ?? new Error("OPENROUTER_ABORTED");
     if (conversational) {
@@ -190,7 +211,6 @@ async function availableCompletion(
             user,
             signal,
             "text",
-            onDelta,
           )),
           attempts,
         };
@@ -544,8 +564,15 @@ export async function runAssistant(
       ? modeInstructions(request)
       : `${modeInstructions(request)} Retorne JSON válido seguindo o formato solicitado.`;
   const user = `Modo: ${request.mode}\nMensagem: ${sanitizeText(request.message, 3000)}\nContexto: ${safeContext(request)}`;
-  const result = await availableCompletion(request, system, user, signal, onDelta);
-  return parseOrRecover(request, result, Date.now() - startedAt);
+  const result = await availableCompletion(request, system, user, signal);
+  const response = parseOrRecover(request, result, Date.now() - startedAt);
+  // Only publish content after one provider completed successfully. This avoids
+  // mixing a partial failed attempt with the fallback model and keeps the client
+  // to a single transient render before the validated final result is persisted.
+  if (request.mode === "brain" || request.mode === "professor") {
+    onDelta?.(response.message);
+  }
+  return response;
 }
 
 export async function probeOpenRouter(
@@ -553,9 +580,7 @@ export async function probeOpenRouter(
 ): Promise<{ model: string; latencyMs: number }> {
   const startedAt = Date.now();
   const openrouter = client(PROBE_TIMEOUT_MS);
-  const model =
-    uniqueModels([process.env.OPENROUTER_FAST_MODEL, FREE_ROUTER])[0] ??
-    FREE_ROUTER;
+  const model = assistantModelOrder("brain")[0] ?? FREE_ROUTER;
   const stream = await openrouter.chat.send(
     {
       appTitle: "Nexus AI",
@@ -565,6 +590,10 @@ export async function probeOpenRouter(
         stream: true,
         temperature: 0,
         maxCompletionTokens: 8,
+        provider: {
+          sort: "throughput",
+          allowFallbacks: true,
+        },
       },
     },
     { signal, timeoutMs: PROBE_TIMEOUT_MS, retries: { strategy: "none" } },

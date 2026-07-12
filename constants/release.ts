@@ -1,14 +1,14 @@
 export const OTA_RELEASE = {
   label: "2.2.0",
+  update: "2.2.1",
   runtime: "2.2.0",
-  codename: "Companion",
-  title: "Nexus Companion",
+  codename: "Flow",
+  title: "Nexus Flow",
   notes: [
-    "Nexus Companion com personalidade, presença, Orbit, Ember e falas configuráveis",
-    "Brain e Professor Atlas com streaming, respostas compactas e ações rápidas",
-    "Widget Studio 2.2 com presets de missão, foco, Atlas, XP, hábitos, finanças e Companion",
-    "Cada widget Android pode ter humor, estilo, conteúdo, acessório e páginas independentes",
-    "Tema Light Clean, temas mais distintos, barra do sistema dinâmica e UI refinada",
-    "Money Mission para acompanhar meta, receita, clientes, prospecções e follow-ups",
+    "Brain e Atlas com lista virtualizada, composer fixo e teclado Android corrigido",
+    "Rolagem inteligente preserva sua posição e acompanha o streaming somente no fim",
+    "Roteamento de IA sem tentativa gratuita duplicada e com fallback mais rápido",
+    "Requisições SSE idempotentes evitam consumo e respostas duplicadas",
+    "Widget Studio 2.2 e Nexus Companion permanecem disponíveis no runtime 2.2.0",
   ],
 } as const;

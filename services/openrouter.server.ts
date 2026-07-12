@@ -87,7 +87,7 @@ function planningPrompt(request: PlanRequest): string {
 async function streamCompletion(
   openrouter: OpenRouter,
   model: string,
-  messages: Array<{ role: "system" | "user"; content: string }>,
+  messages: { role: "system" | "user"; content: string }[],
   signal: AbortSignal,
   structured = true,
 ): Promise<StreamResult> {
@@ -144,7 +144,7 @@ async function streamCompletion(
 
 async function firstAvailableCompletion(
   openrouter: OpenRouter,
-  messages: Array<{ role: "system" | "user"; content: string }>,
+  messages: { role: "system" | "user"; content: string }[],
   signal: AbortSignal,
 ): Promise<StreamResult> {
   let freeError: unknown;

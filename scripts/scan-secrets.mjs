@@ -52,4 +52,5 @@ if (findings.length) {
   console.error("Possible secret found:", [...new Set(findings)].join(", "));
   process.exit(1);
 }
+// eslint-disable-next-line no-console -- security command result
 console.log("Secret scan passed: no OpenRouter, GitHub, private-key or public-secret patterns found.");
