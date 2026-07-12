@@ -2,6 +2,13 @@ const { withAndroidManifest } = require("expo/config-plugins");
 
 const PROVIDER = "expo.modules.nexuswidget.NexusWidgetProvider";
 const CONFIGURE_ACTIVITY = "expo.modules.nexuswidget.NexusWidgetConfigureActivity";
+const WIDGET_PROVIDERS = [
+  { name: "expo.modules.nexuswidget.NexusMiniWidgetProvider", label: "@string/nexus_widget_mini_name", info: "@xml/nexus_widget_mini_info" },
+  { name: "expo.modules.nexuswidget.NexusStripWidgetProvider", label: "@string/nexus_widget_strip_name", info: "@xml/nexus_widget_strip_info" },
+  { name: "expo.modules.nexuswidget.NexusCompanionWidgetProvider", label: "@string/nexus_widget_companion_name", info: "@xml/nexus_widget_companion_info" },
+  { name: "expo.modules.nexuswidget.NexusMissionWidgetProvider", label: "@string/nexus_widget_mission_name", info: "@xml/nexus_widget_mission_info" },
+  { name: PROVIDER, label: "@string/nexus_widget_name", info: "@xml/nexus_widget_info" },
+];
 
 module.exports = function withNexusWidget(config) {
   return withAndroidManifest(config, (configWithManifest) => {
@@ -31,13 +38,14 @@ module.exports = function withNexusWidget(config) {
         mainActivity["meta-data"].push({ $: { "android:name": "android.app.shortcuts", "android:resource": "@xml/nexus_shortcuts" } });
       }
     }
-    const exists = application.receiver.some((receiver) => receiver.$?.["android:name"] === PROVIDER);
-    if (!exists) {
+    for (const provider of WIDGET_PROVIDERS) {
+      const exists = application.receiver.some((receiver) => receiver.$?.["android:name"] === provider.name);
+      if (exists) continue;
       application.receiver.push({
         $: {
-          "android:name": PROVIDER,
+          "android:name": provider.name,
           "android:exported": "true",
-          "android:label": "@string/nexus_widget_name",
+          "android:label": provider.label,
         },
         "intent-filter": [
           {
@@ -50,7 +58,7 @@ module.exports = function withNexusWidget(config) {
           {
             $: {
               "android:name": "android.appwidget.provider",
-              "android:resource": "@xml/nexus_widget_info",
+              "android:resource": provider.info,
             },
           },
         ],

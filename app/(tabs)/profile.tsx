@@ -967,7 +967,7 @@ export default function ProfileScreen() {
           </Card>
         ) : null}
         <NexusText variant="caption" secondary style={styles.footer}>
-          Nexus AI 2.2.0 • Companion • Personal Mission OS
+          Nexus AI 2.3.0 • Widget Family • Personal Mission OS
         </NexusText>
       </Screen>
 

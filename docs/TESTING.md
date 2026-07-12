@@ -40,7 +40,7 @@ bash scripts/post-build-check.sh
 ## Teste manual Android 2.2
 
 1. Exporte backup na versão atual.
-2. Instale o APK 2.2.0 por cima.
+2. Instale o APK 2.3.0 por cima.
 3. Confirme migração de perfil, XP, chats e roadmaps.
 4. Teste Brain e Atlas com streaming remoto.
 5. Desligue a rede e confirme fallback local.

@@ -555,6 +555,7 @@ export type WidgetPayload = {
   };
   appearance?: {
     contentMode: WidgetContentMode;
+    privacyMode: boolean;
     background: WidgetPreferences["background"];
     style: WidgetStyle;
     preferredSize: WidgetSize;

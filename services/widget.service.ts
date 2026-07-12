@@ -22,6 +22,7 @@ function createPayload(data: AppData): WidgetPayload | null {
   const completedHabits = activeHabits.filter((habit) => habit.completedDates.includes(today)).length;
   const boss = data.progress.challenges.find((challenge) => challenge.type === "boss" && !challenge.completed);
   const nextTask = data.activePlan.tasks.find((task) => !task.completed);
+  const privateWidget = preferences.privacyMode;
   return {
     date: data.activePlan.date,
     mainMission: preferences.privacyMode ? "Missão protegida" : data.activePlan.mainMission.title,
@@ -32,12 +33,12 @@ function createPayload(data: AppData): WidgetPayload | null {
     totalXp: data.progress.totalXp,
     level: calculateLevel(data.progress.totalXp).level,
     focusMinutes,
-    ...(nextTask ? { nextAction: nextTask.title } : {}),
-    quote: nexusQuote(data),
-    companionLines: companionLines(data),
-    finance: data.finance,
-    habits: { completed: completedHabits, total: activeHabits.length, ...(activeHabits.find((habit) => !habit.completedDates.includes(today)) ? { next: activeHabits.find((habit) => !habit.completedDates.includes(today))!.title } : {}) },
-    ...(boss ? { boss: { title: boss.title, progress: boss.progress, target: boss.target } } : {}),
+    ...(nextTask ? { nextAction: privateWidget ? "Próxima ação protegida" : nextTask.title } : {}),
+    quote: privateWidget ? "Direção protegida." : nexusQuote(data),
+    companionLines: privateWidget ? { quiet: "Nexus ativo." } : companionLines(data),
+    ...(!privateWidget ? { finance: data.finance } : {}),
+    ...(!privateWidget ? { habits: { completed: completedHabits, total: activeHabits.length, ...(activeHabits.find((habit) => !habit.completedDates.includes(today)) ? { next: activeHabits.find((habit) => !habit.completedDates.includes(today))!.title } : {}) } } : {}),
+    ...(!privateWidget && boss ? { boss: { title: boss.title, progress: boss.progress, target: boss.target } } : {}),
     ...(preferences.showLearning && activeRoadmap && nextLesson ? {
       learning: {
         topic: preferences.privacyMode ? "Aprendizado protegido" : activeRoadmap.topic,
@@ -48,6 +49,7 @@ function createPayload(data: AppData): WidgetPayload | null {
     } : {}),
     appearance: {
       contentMode: preferences.contentMode,
+      privacyMode: preferences.privacyMode,
       background: preferences.background,
       style: preferences.style,
       preferredSize: preferences.preferredSize,

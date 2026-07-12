@@ -27,12 +27,12 @@ export { RouteErrorBoundary as ErrorBoundary };
 type StudioTab = "presets" | "content" | "visual" | "companion" | "actions";
 
 const SIZES: { value: WidgetSize; label: string; hint: string }[] = [
-  { value: "1x1", label: "1×1", hint: "Mascote ou streak" },
-  { value: "2x1", label: "2×1", hint: "Resumo horizontal" },
-  { value: "2x2", label: "2×2", hint: "Missão compacta" },
-  { value: "3x2", label: "3×2", hint: "Missão + ações" },
-  { value: "4x1", label: "4×1", hint: "Barra de comando" },
-  { value: "4x2", label: "4×2", hint: "Command Center" },
+  { value: "1x1", label: "1×1", hint: "Nexus Mini" },
+  { value: "2x1", label: "2×1", hint: "Nexus Strip" },
+  { value: "2x2", label: "2×2", hint: "Nexus Companion" },
+  { value: "3x2", label: "3×2", hint: "Mission redimensionado" },
+  { value: "4x1", label: "4×1", hint: "Strip expandido" },
+  { value: "4x2", label: "4×2", hint: "Nexus Mission" },
   { value: "4x3", label: "4×3", hint: "Dashboard" },
   { value: "4x4", label: "4×4", hint: "Central completa" },
   { value: "5x2", label: "5×2", hint: "Launchers grandes" },
@@ -169,7 +169,7 @@ export default function WidgetStudioScreen() {
             </View>
           </Section>
 
-          <Section title="Tamanho preferido" subtitle="O launcher pode redimensionar depois; o preview já adapta o conteúdo.">
+          <Section title="Tamanho preferido" subtitle="Escolha no Android a família Mini, Strip, Companion, Mission ou Command correspondente; o launcher pode redimensionar dentro dos limites seguros.">
             <View style={styles.sizeGrid}>
               {SIZES.map((item) => (
                 <Pressable

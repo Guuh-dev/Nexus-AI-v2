@@ -15,15 +15,15 @@
 
 ## APK obrigatório
 
-A 2.2.0 altera Kotlin, XML, drawable e runtime. Ela precisa de novo APK e não pode ser entregue ao binário 2.1.1 por OTA.
+A 2.3.0 altera providers Kotlin, XML, drawables, Manifest e runtime. Ela precisa de novo APK e não pode ser entregue ao binário 2.2.0 por OTA.
 
-Depois que o APK 2.2.0 estiver instalado, mudanças compatíveis apenas em JavaScript/TypeScript podem chegar via OTA 2.2.x.
+Depois que o APK 2.3.0 estiver instalado, mudanças compatíveis apenas em JavaScript/TypeScript podem chegar via OTA 2.3.x.
 
 ## Build
 
 1. Configure `EXPO_TOKEN` no GitHub.
-2. Faça merge da branch da 2.2.0 após CI, Security e Native Change Detector verdes.
-3. Crie a tag `v2.2.0` para disparar **Nexus Release**.
+2. Faça merge da branch da 2.3.0 após CI, Security e Native Change Detector verdes.
+3. Crie a tag `v2.3.0` para disparar **Nexus Release**.
 
 Build manual:
 

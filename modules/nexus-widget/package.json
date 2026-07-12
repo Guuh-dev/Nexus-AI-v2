@@ -1,6 +1,6 @@
 {
   "name": "nexus-widget",
-  "version": "2.2.0",
+  "version": "2.3.0",
   "private": true,
   "description": "Módulo Android local do widget Nexus AI",
   "main": "src/NexusWidgetModule.ts",
