@@ -19,3 +19,20 @@ describe("API configuration", () => {
     expect(shouldRetryWithoutJsonSchema({ status: 401 })).toBe(false);
   });
 });
+
+describe("API candidate recovery", () => {
+  afterEach(() => {
+    delete process.env.EXPO_PUBLIC_API_URL;
+    delete process.env.EXPO_PUBLIC_API_FALLBACK_URL;
+  });
+
+  it("keeps an explicit HTTPS fallback after the production endpoint", async () => {
+    process.env.EXPO_PUBLIC_API_URL = "https://primary.example";
+    process.env.EXPO_PUBLIC_API_FALLBACK_URL = "https://fallback.example";
+    const { apiCandidates } = await import("@/services/api-config");
+    expect(apiCandidates("/api/status").slice(0, 2)).toEqual([
+      "https://primary.example/api/status",
+      "https://fallback.example/api/status",
+    ]);
+  });
+});

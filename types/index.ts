@@ -572,6 +572,19 @@ export type PlanResponse = {
   };
 };
 
+export type AssistantStage = "idle" | "connecting" | "generating" | "finalizing" | "local";
+export type AssistantSource = "remote" | "local";
+export type AssistantMeta = {
+  source: AssistantSource;
+  model?: string;
+  reasoningTokens?: number;
+  latencyMs: number;
+  attempts: number;
+  endpoint?: string;
+  errorCode?: string;
+  requestId?: string;
+};
+
 export type AssistantRequest = {
   mode: "brain" | "professor" | "roadmap" | "capture" | "weekly_review";
   requestId: string;
@@ -590,5 +603,5 @@ export type AssistantResponse = {
   capture?: Omit<Task, "id" | "completed" | "completedAt"> & { scheduledDate?: string };
   weeklyReview?: WeeklyReview;
   warning?: string;
-  meta?: { model: string; reasoningTokens?: number };
+  meta?: AssistantMeta;
 };

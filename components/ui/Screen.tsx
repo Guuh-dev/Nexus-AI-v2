@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNexus } from "@/providers/NexusProvider";
+import { ThemeBackdrop } from "@/components/ThemeBackdrop";
 
 type Props = PropsWithChildren<{
   scroll?: boolean;
@@ -93,6 +94,7 @@ export function Screen({
       style={[styles.safe, { backgroundColor: colors.background }]}
       edges={["top", "bottom", "left", "right"]}
     >
+      <ThemeBackdrop />
       <KeyboardAvoidingView
         style={styles.flex}
         enabled={keyboardAware && Platform.OS === "ios"}

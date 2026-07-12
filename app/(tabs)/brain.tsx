@@ -22,7 +22,7 @@ type ViewMode = "home" | "chat" | "memory" | "roadmaps";
 
 export default function BrainScreen() {
   const {
-    data, colors, assistantBusy, createThread, selectThread, renameThread, archiveThread, deleteThread, sendChatMessage,
+    data, colors, assistantBusy, assistantStage, lastAssistantMeta, createThread, selectThread, renameThread, archiveThread, deleteThread, sendChatMessage,
     deleteMemory, toggleMemoryPinned, applyAssistantAction, toggleRoadmapLesson, setActiveRoadmap, cancelAssistant,
   } = useNexus();
   const [kind, setKind] = useState<ChatKind>("brain");
@@ -43,13 +43,21 @@ export default function BrainScreen() {
   const newThread = () => { const id = createThread(kind); selectThread(kind, id); setMode("chat"); };
   const send = () => { const clean = message.trim(); if (!active || !clean || assistantBusy) return; setMessage(""); void sendChatMessage(active.id, clean); };
 
+  const assistantStageLabel = {
+    idle: kind === "brain" ? "BRAIN ONLINE" : "PROFESSOR ONLINE",
+    connecting: "CONECTANDO",
+    generating: "GERANDO",
+    finalizing: "FINALIZANDO",
+    local: "MODO LOCAL",
+  }[assistantStage];
+
   if (mode === "chat" && active) {
     return (
       <Screen>
         <View style={styles.chatHeader}>
           <Pressable accessibilityRole="button" onPress={() => setMode("home")} style={[styles.backButton, { borderColor: colors.border }]}><NexusText>‹</NexusText></Pressable>
           {kind === "brain" ? <PixelMascot state={assistantBusy ? "thinking" : "idle"} size={44} /> : <CompanionMascot mascot="atlas" state={assistantBusy ? "thinking" : "idle"} size={44} />}
-          <View style={styles.flex}><NexusText variant="title" numberOfLines={1}>{active.title}</NexusText><NexusText variant="mono" color={assistantBusy ? colors.warning : colors.success}>{assistantBusy ? "PENSANDO" : kind === "brain" ? "BRAIN ONLINE" : "PROFESSOR ONLINE"}</NexusText></View>
+          <View style={styles.flex}><NexusText variant="title" numberOfLines={1}>{active.title}</NexusText><NexusText variant="mono" color={assistantBusy ? colors.warning : lastAssistantMeta?.source === "local" ? colors.warning : colors.success}>{assistantBusy ? assistantStageLabel : lastAssistantMeta?.source === "local" ? "LOCAL ATIVO" : assistantStageLabel}</NexusText></View>
         </View>
         <View style={styles.messages}>
           {active.messages.map((item) => (
@@ -64,7 +72,8 @@ export default function BrainScreen() {
               ))}
             </View>
           ))}
-          {assistantBusy ? <Card style={styles.thinking}><View style={styles.thinkingRow}>{kind === "professor" ? <CompanionMascot mascot="atlas" state="thinking" size={34} /> : <PixelMascot state="thinking" size={34} />}<View style={styles.flex}><NexusText variant="subtitle">Analisando seu contexto...</NexusText><NexusText variant="caption" secondary>Histórico, padrões e tempo disponível.</NexusText></View></View><NexusButton label="Cancelar" variant="ghost" onPress={cancelAssistant} /></Card> : null}
+          {assistantBusy ? <Card style={styles.thinking}><View style={styles.thinkingRow}>{kind === "professor" ? <CompanionMascot mascot="atlas" state="thinking" size={34} /> : <PixelMascot state="thinking" size={34} />}<View style={styles.flex}><NexusText variant="subtitle">{assistantStageLabel === "CONECTANDO" ? "Acordando o backend..." : assistantStageLabel === "FINALIZANDO" ? "Organizando a resposta..." : assistantStageLabel === "MODO LOCAL" ? "Preparando uma resposta offline..." : "Analisando seu contexto..."}</NexusText><NexusText variant="caption" secondary>{assistantStageLabel === "CONECTANDO" ? "Testando o servidor principal e a rota de recuperação." : "Histórico compacto, padrões e tempo disponível."}</NexusText></View></View><NexusButton label="Cancelar" variant="ghost" onPress={cancelAssistant} /></Card> : null}
+          {!assistantBusy && lastAssistantMeta ? <View style={[styles.signal, { borderColor: lastAssistantMeta.source === "remote" ? `${colors.success}55` : `${colors.warning}55` }]}><NexusText variant="caption" color={lastAssistantMeta.source === "remote" ? colors.success : colors.warning}>{lastAssistantMeta.source === "remote" ? "● IA REMOTA" : "● MODO LOCAL"}</NexusText><NexusText variant="caption" secondary>{lastAssistantMeta.model ? `${lastAssistantMeta.model} • ` : ""}{Math.max(1, Math.round(lastAssistantMeta.latencyMs / 1000))}s{lastAssistantMeta.attempts > 1 ? ` • ${lastAssistantMeta.attempts} tentativas` : ""}</NexusText></View> : null}
         </View>
         <View style={[styles.composer, { borderTopColor: colors.border }]}>
           <Field label={kind === "professor" ? "Pergunte ou conte como foi a prática" : "Converse com seu copiloto"} value={message} onChangeText={setMessage} multiline maxLength={4000} placeholder={kind === "professor" ? "Quero aprender React do zero e criar algo real..." : "Estou cansado hoje. Reorganiza sem abandonar a missão."} />
@@ -121,5 +130,5 @@ const styles = StyleSheet.create({
   roadmapCreator: { gap: 13 }, roadmap: { gap: 12 }, phase: { gap: 7, marginTop: 5 }, lesson: { minHeight: 52, borderWidth: 1, borderRadius: 14, padding: 10, flexDirection: "row", alignItems: "center", gap: 10 },
   chatHeader: { flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18 }, backButton: { width: 42, height: 42, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center" }, messages: { gap: 11 },
   message: { maxWidth: "92%", padding: 14, borderRadius: 19, borderWidth: 1, gap: 8 }, userMessage: { alignSelf: "flex-end", borderBottomRightRadius: 6 }, assistantMessage: { alignSelf: "flex-start", borderBottomLeftRadius: 6 },
-  actionCard: { marginTop: 4, gap: 8 }, thinking: { gap: 12 }, thinkingRow: { flexDirection: "row", alignItems: "center", gap: 10 }, composer: { marginTop: 20, paddingTop: 18, borderTopWidth: StyleSheet.hairlineWidth, gap: 10 },
+  actionCard: { marginTop: 4, gap: 8 }, thinking: { gap: 12 }, thinkingRow: { flexDirection: "row", alignItems: "center", gap: 10 }, signal: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 8, flexDirection: "row", justifyContent: "space-between", gap: 10 }, composer: { marginTop: 20, paddingTop: 18, borderTopWidth: StyleSheet.hairlineWidth, gap: 10 },
 });

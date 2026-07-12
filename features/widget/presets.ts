@@ -11,8 +11,8 @@ export type WidgetPresetDefinition = {
 export const WIDGET_PRESETS: WidgetPresetDefinition[] = [
   {
     id: "mission",
-    label: "Missão primeiro",
-    description: "Missão grande, progresso e uma ação rápida.",
+    label: "Mission Card",
+    description: "Missão grande, progresso e uma ação rápida no estilo Command Center.",
     recommendedSize: "4x1",
     patch: {
       style: "nexus",
@@ -31,8 +31,8 @@ export const WIDGET_PRESETS: WidgetPresetDefinition[] = [
   },
   {
     id: "balanced",
-    label: "Command Center",
-    description: "Missão, três tarefas, progresso e captura.",
+    label: "Smart Plan",
+    description: "Prioridade do dia, três tarefas, progresso e captura.",
     recommendedSize: "4x2",
     patch: {
       style: "nexus",
@@ -51,8 +51,8 @@ export const WIDGET_PRESETS: WidgetPresetDefinition[] = [
   },
   {
     id: "tasks",
-    label: "Lista executora",
-    description: "Até cinco tarefas com toque direto para concluir.",
+    label: "Daily Command",
+    description: "Até cinco tarefas reais com toque direto para concluir.",
     recommendedSize: "4x4",
     patch: {
       style: "minimal",
@@ -71,8 +71,8 @@ export const WIDGET_PRESETS: WidgetPresetDefinition[] = [
   },
   {
     id: "focus",
-    label: "Focus Deck",
-    description: "Foco, streak, XP e progresso com pouco ruído.",
+    label: "Focus Card",
+    description: "Meta atual, foco, streak e XP com preto absoluto.",
     recommendedSize: "2x2",
     patch: {
       style: "amoled",
@@ -95,8 +95,8 @@ export const WIDGET_PRESETS: WidgetPresetDefinition[] = [
   },
   {
     id: "learning",
-    label: "Atlas Learning",
-    description: "Próxima lição, professor e progresso do roadmap.",
+    label: "Atlas Lesson",
+    description: "Próxima aula, Professor Atlas e progresso do roadmap.",
     recommendedSize: "4x2",
     patch: {
       style: "glass",
@@ -117,8 +117,8 @@ export const WIDGET_PRESETS: WidgetPresetDefinition[] = [
   },
   {
     id: "minimal",
-    label: "Silêncio AMOLED",
-    description: "Somente o essencial, sem enfeite nem exposição.",
+    label: "Nexus Quote",
+    description: "Uma mensagem curta, limpa e integrada ao wallpaper.",
     recommendedSize: "2x1",
     patch: {
       style: "amoled",

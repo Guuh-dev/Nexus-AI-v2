@@ -10,7 +10,7 @@ type Props = {
 };
 
 export function ChoiceChip({ label, selected, onPress, icon }: Props) {
-  const { colors } = useNexus();
+  const { colors, visuals } = useNexus();
   return (
     <Pressable
       accessibilityRole="checkbox"
@@ -22,6 +22,7 @@ export function ChoiceChip({ label, selected, onPress, icon }: Props) {
         {
           backgroundColor: selected ? `${colors.primary}24` : colors.surface,
           borderColor: selected ? colors.primary : colors.border,
+          borderRadius: visuals.chipRadius,
           opacity: pressed ? 0.75 : 1,
         },
       ]}

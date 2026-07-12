@@ -28,7 +28,7 @@ export function NexusButton({
   accessibilityLabel,
   style,
 }: Props) {
-  const { colors } = useNexus();
+  const { colors, visuals } = useNexus();
   const [focused, setFocused] = useState(false);
   const background =
     variant === "primary" ? colors.primary : variant === "danger" ? `${colors.danger}22` : variant === "secondary" ? colors.surfaceAlt : "transparent";
@@ -48,7 +48,7 @@ export function NexusButton({
         styles.base,
         compact ? styles.compact : styles.normal,
         fullWidth && styles.fullWidth,
-        { backgroundColor: background, borderColor, opacity: disabled ? 0.45 : pressed ? 0.78 : 1 },
+        { backgroundColor: background, borderColor, borderRadius: compact ? Math.max(8, visuals.buttonRadius - 3) : visuals.buttonRadius, opacity: disabled ? 0.45 : pressed ? 0.78 : 1 },
         focused && { borderColor: colors.primarySoft, borderWidth: 2 },
         style,
       ]}

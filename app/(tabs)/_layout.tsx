@@ -10,7 +10,7 @@ export { RouteErrorBoundary as ErrorBoundary };
 const icons = { today: "◆", brain: "✦", focus: "◎", progress: "▥", profile: "●" } as const;
 
 export default function TabsLayout() {
-  const { data, colors, ready } = useNexus();
+  const { data, colors, visuals, ready } = useNexus();
   useEffect(() => undefined, []);
   if (!ready) return null;
   if (!data.onboardingCompleted || !data.profile) return <Redirect href="/onboarding" />;
@@ -30,11 +30,15 @@ export default function TabsLayout() {
           paddingBottom: 9,
           backgroundColor: colors.tabBar,
           borderTopColor: colors.border,
-          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopWidth: visuals.borderWidth ? StyleSheet.hairlineWidth : 0,
+          elevation: visuals.elevation,
+          shadowColor: colors.primary,
+          shadowOpacity: visuals.shadowOpacity,
+          shadowRadius: visuals.shadowRadius,
         },
         tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
         tabBarIcon: ({ focused, color }) => (
-          <View style={[styles.icon, focused && { backgroundColor: `${colors.primary}20` }]}>
+          <View style={[styles.icon, focused && { backgroundColor: `${colors.primary}${visuals.tabActiveFill}`, borderRadius: Math.max(6, visuals.buttonRadius - 4) }]}>
             <NexusText color={String(color)} variant="caption">{icons[route.name as keyof typeof icons] ?? "•"}</NexusText>
           </View>
         ),

@@ -21,11 +21,13 @@ import { generateLocalPlan, generatePlan } from "@/services/planning.service";
 import { nexusRepository } from "@/services/storage.service";
 import { consumeAndroidWidgetActions, updateAndroidWidget } from "@/services/widget.service";
 import { applyWidgetTaskActions } from "@/features/widget/actions";
-import { getColors, type NexusColors } from "@/theme/theme";
+import { getColors, getVisuals, type NexusColors, type NexusVisuals } from "@/theme/theme";
 import type {
   AppData,
   AssistantAction,
+  AssistantMeta,
   AssistantResponse,
+  AssistantStage,
   Category,
   ChatKind,
   ChatThread,
@@ -68,10 +70,13 @@ type CaptureResult = NonNullable<AssistantResponse["capture"]>;
 type NexusContextValue = {
   data: AppData;
   colors: NexusColors;
+  visuals: NexusVisuals;
   ready: boolean;
   planGenerating: boolean;
   planGenerationError: string | null;
   assistantBusy: boolean;
+  assistantStage: AssistantStage;
+  lastAssistantMeta: AssistantMeta | null;
   loadingStage: string;
   toast: string | null;
   updateOnboardingDraft: (patch: OnboardingDraft) => void;
@@ -212,6 +217,8 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const [planGenerating, setPlanGenerating] = useState(false);
   const [planGenerationError, setPlanGenerationError] = useState<string | null>(null);
   const [assistantBusy, setAssistantBusy] = useState(false);
+  const [assistantStage, setAssistantStage] = useState<AssistantStage>("idle");
+  const [lastAssistantMeta, setLastAssistantMeta] = useState<AssistantMeta | null>(null);
   const [loadingStageIndex, setLoadingStageIndex] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const generationController = useRef<AbortController | null>(null);
@@ -534,7 +541,11 @@ export function NexusProvider({ children }: PropsWithChildren) {
     setAssistantBusy(true);
     try {
       const latestThread = dataRef.current.brain.threads.find((item) => item.id === threadId);
-      const response = await askNexus({ data: dataRef.current, mode: thread.kind, message: clean, context: { conversationSummary: latestThread?.summary ?? "" } }, { signal: controller.signal, messages: latestThread?.messages });
+      const response = await askNexus(
+        { data: dataRef.current, mode: thread.kind, message: clean, context: { conversationSummary: latestThread?.summary ?? "" } },
+        { signal: controller.signal, messages: latestThread?.messages, onStage: setAssistantStage },
+      );
+      setLastAssistantMeta(response.meta ?? null);
       const now = new Date().toISOString();
       commit((current) => {
         const actionRecords: AssistantAction[] | undefined = response.actions?.map((action) => ({ ...action, id: createId("action"), status: "proposed" }));
@@ -553,6 +564,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
     } finally {
       assistantController.current = null;
       setAssistantBusy(false);
+      setAssistantStage("idle");
     }
   }, [assistantBusy, commit, showToast]);
 
@@ -592,7 +604,8 @@ export function NexusProvider({ children }: PropsWithChildren) {
           ? `Crie meu roadmap de ${clean} usando integralmente o diagnóstico específico enviado.`
           : clean,
         ...(intake ? { context: { professorIntake: intake } } : {}),
-      }, { signal: controller.signal });
+      }, { signal: controller.signal, onStage: setAssistantStage });
+      setLastAssistantMeta(response.meta ?? null);
       const generated = response.roadmap ?? createStarterRoadmap(clean, dataRef.current.profile, intake);
       const roadmap: LearningRoadmap = intake ? {
         ...generated,
@@ -619,7 +632,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
           activeRoadmapId: roadmap.id,
         },
       }), "Roadmap criado pelo Professor Atlas.");
-    } finally { assistantController.current = null; setAssistantBusy(false); }
+    } finally { assistantController.current = null; setAssistantBusy(false); setAssistantStage("idle"); }
   }, [assistantBusy, commit]);
 
   const toggleRoadmapLesson = useCallback((roadmapId: string, lessonId: string) => commit((current) => {
@@ -642,8 +655,14 @@ export function NexusProvider({ children }: PropsWithChildren) {
     if (assistantBusy) return null;
     setAssistantBusy(true);
     const controller = new AbortController(); assistantController.current = controller;
-    try { return (await askNexus({ data: dataRef.current, mode: "capture", message: text }, { signal: controller.signal })).capture ?? null; }
-    finally { assistantController.current = null; setAssistantBusy(false); }
+    try {
+      const response = await askNexus(
+        { data: dataRef.current, mode: "capture", message: text },
+        { signal: controller.signal, onStage: setAssistantStage },
+      );
+      setLastAssistantMeta(response.meta ?? null);
+      return response.capture ?? null;
+    } finally { assistantController.current = null; setAssistantBusy(false); setAssistantStage("idle"); }
   }, [assistantBusy]);
 
   const saveCapture = useCallback((capture: CaptureResult) => {
@@ -661,11 +680,15 @@ export function NexusProvider({ children }: PropsWithChildren) {
     const controller = new AbortController(); assistantController.current = controller;
     try {
       const local = createLocalWeeklyReview(dataRef.current);
-      const response = await askNexus({ data: dataRef.current, mode: "weekly_review", message: "Analise minha última semana e prepare a próxima.", context: { weekStart: local.weekStart, weekEnd: local.weekEnd, completionPercentage: local.completionPercentage, xpEarned: local.xpEarned, focusMinutes: local.focusMinutes } }, { signal: controller.signal });
+      const response = await askNexus(
+        { data: dataRef.current, mode: "weekly_review", message: "Analise minha última semana e prepare a próxima.", context: { weekStart: local.weekStart, weekEnd: local.weekEnd, completionPercentage: local.completionPercentage, xpEarned: local.xpEarned, focusMinutes: local.focusMinutes } },
+        { signal: controller.signal, onStage: setAssistantStage },
+      );
+      setLastAssistantMeta(response.meta ?? null);
       const review = response.weeklyReview ?? local;
       commit((current) => ({ ...current, weeklyReviews: [...current.weeklyReviews.filter((item) => item.weekStart !== review.weekStart), review].slice(-520) }), "Revisão semanal pronta.");
       return review;
-    } finally { assistantController.current = null; setAssistantBusy(false); }
+    } finally { assistantController.current = null; setAssistantBusy(false); setAssistantStage("idle"); }
   }, [assistantBusy, commit]);
 
   const createOperation = useCallback((input: Pick<Operation, "title" | "objective" | "deadline"> & { phaseTitles: string[] }) => {
@@ -728,7 +751,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const importBackup = useCallback(async (json: string) => { const imported = nexusRepository.importJson(json); dataRef.current = imported; setData(imported); await nexusRepository.save(imported); await updateAndroidWidget(imported); showToast("Backup importado com sucesso."); }, [showToast]);
 
   const value = useMemo<NexusContextValue>(() => ({
-    data, colors: getColors(data.preferences), ready, planGenerating, planGenerationError, assistantBusy, loadingStage: LOADING_STAGES[loadingStageIndex] ?? LOADING_STAGES[0], toast,
+    data, colors: getColors(data.preferences), visuals: getVisuals(data.preferences), ready, planGenerating, planGenerationError, assistantBusy, assistantStage, lastAssistantMeta, loadingStage: LOADING_STAGES[loadingStageIndex] ?? LOADING_STAGES[0], toast,
     updateOnboardingDraft, completeOnboarding, completeDiscovery,
     cancelPlanGeneration, retryPlanGeneration, recoverPlanLocally, cancelAssistant: () => assistantController.current?.abort(), replanDay,
     toggleTask: handleTaskToggle, toggleMission: handleMissionToggle,
@@ -743,7 +766,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
     resetToday, resetAll, clearTemporary, importBackup, exportBackup: () => nexusRepository.exportJson(data),
     dismissToast: () => setToast(null), dismissWarnings: () => commit((current) => ({ ...current, corruptionWarnings: [] })),
   }), [
-    addWeeklyPlanItem, applyAssistantAction, archiveThread, assistantBusy, cancelPlanGeneration, clearTemporary, commit, completeDiscovery, completeOnboarding, createHabit, createOperation,
+    addWeeklyPlanItem, applyAssistantAction, archiveThread, assistantBusy, assistantStage, lastAssistantMeta, cancelPlanGeneration, clearTemporary, commit, completeDiscovery, completeOnboarding, createHabit, createOperation,
     createRoadmap, createThread, data, deleteMemory, deleteThread, finishFocusSession, generateWeeklyReview, handleMissionToggle, handleTaskToggle, importBackup,
     loadingStageIndex, moveWeeklyPlanItem, planGenerating, planGenerationError, quickCapture, ready, recoverPlanLocally, renameThread, replanDay, resetAll, resetToday, retryPlanGeneration, saveCapture, selectThread,
     sendChatMessage, setActiveRoadmap, toast, toggleHabitToday, toggleMemoryPinned, toggleOperationPhase, toggleRoadmapLesson, updateOnboardingDraft, updatePreferences, updateProfile,

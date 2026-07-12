@@ -94,13 +94,13 @@ export default function WidgetStudioScreen() {
       <View style={styles.header}>
         <NexusButton label="Voltar" variant="ghost" onPress={() => router.back()} />
         <View style={styles.flex}>
-          <NexusText variant="mono" color={colors.primarySoft}>WIDGET STUDIO 2.1</NexusText>
+          <NexusText variant="mono" color={colors.primarySoft}>WIDGET STUDIO 2.1.2</NexusText>
           <NexusText variant="display">Sua tela inicial, do seu jeito.</NexusText>
         </View>
         <CompanionMascot mascot="byte" size={58} />
       </View>
       <NexusText secondary>
-        Escolha um preset e refine apenas o que importa. Cada instância ainda pode ter configuração própria no Android.
+        Presets inspirados no seu Command Center. Eles usam o motor real já instalado no Android e cada instância continua independente.
       </NexusText>
 
       <Card style={[styles.previewShell, { borderColor: `${colors.primary}44` }]}> 
@@ -340,7 +340,7 @@ export default function WidgetStudioScreen() {
       ) : null}
 
       <NexusText variant="caption" secondary style={styles.note}>
-        Mudanças no módulo nativo exigem instalar o novo APK. O preview web é uma aproximação fiel, mas o launcher decide o espaço final.
+        Esta OTA melhora presets, dados e previews do motor já instalado. Novos layouts Android fora desse motor continuam exigindo outro APK.
       </NexusText>
     </Screen>
   );
