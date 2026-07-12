@@ -9,9 +9,12 @@ const requiredFiles = [
   "app/_layout.tsx",
   "app/loading-plan.tsx",
   "app/professor-intake.tsx",
+  "app/finance.tsx",
   "app/api/generate-plan+api.ts",
   "app/api/assistant+api.ts",
   "components/LoadingPlan.tsx",
+  "components/AssistantMessage.tsx",
+  "components/CompanionMascot.tsx",
   "components/ui/Screen.tsx",
   "providers/NexusProvider.tsx",
   "services/openrouter.server.ts",
@@ -21,6 +24,10 @@ const requiredFiles = [
   "modules/nexus-widget/expo-module.config.json",
   "modules/nexus-widget/android/src/main/java/expo/modules/nexuswidget/NexusWidgetConfigureActivity.kt",
   "features/widget/presets.ts",
+  "features/assistant/message-format.ts",
+  "features/companion/companion.ts",
+  "modules/nexus-widget/android/src/main/res/drawable/ic_nexus_orbit.xml",
+  "modules/nexus-widget/android/src/main/res/drawable/ic_nexus_ember.xml",
   "services/api-config.ts",
   "utils/untrusted-data.ts",
   "scripts/detect-native-changes.mjs",
@@ -56,6 +63,14 @@ if (!String(packageJson.engines?.node).includes(">=22.13")) fail("Node engine mu
 if (packageJson.dependencies?.["expo-updates"] !== "~57.0.6") fail("expo-updates must match Expo SDK 57.");
 if (packageJson.dependencies?.["expo-navigation-bar"] !== "~57.0.1") fail("expo-navigation-bar must match Expo SDK 57.");
 if (packageJson.pnpm?.overrides?.uuid !== "11.1.1") fail("pnpm must override uuid to the patched 11.1.1 release.");
+const releaseSource = readFileSync("constants/release.ts", "utf8");
+const releaseLabel = releaseSource.match(/label:\s*"([^"]+)"/)?.[1];
+const releaseRuntime = releaseSource.match(/runtime:\s*"([^"]+)"/)?.[1];
+if (releaseLabel !== packageJson.version || releaseRuntime !== packageJson.version) {
+  fail(`Release label/runtime must match package version ${packageJson.version}.`);
+}
+const widgetPackage = JSON.parse(readFileSync("modules/nexus-widget/package.json", "utf8"));
+if (widgetPackage.version !== packageJson.version) fail("Native widget package version must match the app version.");
 
 const appConfig = JSON.parse(readFileSync("app.json", "utf8"));
 const expo = appConfig.expo ?? {};
@@ -70,8 +85,11 @@ if (expo.updates?.enabled !== true || expo.updates?.checkAutomatically !== "ON_L
 if (expo.updates?.disableAntiBrickingMeasures === true) fail("Expo anti-bricking measures may not be disabled.");
 if (expo.backgroundColor !== "#050505") fail("Root background must stay dark to prevent white flashes.");
 const rootLayout = readFileSync("app/_layout.tsx", "utf8");
-if (!rootLayout.includes('<StatusBar style="light" />') || !rootLayout.includes('NavigationBar.setStyle("dark")') || !rootLayout.includes('NavigationBar.setHidden(false)')) {
-  fail("Runtime system bars must stay dark with light status content.");
+if (!rootLayout.includes('<NavigationBar style={data.preferences.theme === "light" ? "light" : "dark"} />')) {
+  fail("Runtime system navigation controls must follow the active Nexus theme.");
+}
+if (!rootLayout.includes('data.preferences.theme === "light"')) {
+  fail("Status and navigation bar content must adapt to the Light theme.");
 }
 
 const navigationPlugin = expo.plugins?.find((plugin) => Array.isArray(plugin) && plugin[0] === "expo-navigation-bar");
@@ -114,6 +132,15 @@ if (!workflowText.includes("eas-cli@20.5.1 update") || !workflowText.includes("e
   fail("OTA and Android build automation are incomplete or EAS CLI is not pinned.");
 }
 
+const nativeWidgetProvider = readFileSync("modules/nexus-widget/android/src/main/java/expo/modules/nexuswidget/NexusWidgetProvider.kt", "utf8");
+for (const capability of ["ACTION_NEXT_PAGE", "validNonce", "ic_nexus_orbit", "ic_nexus_ember", '"finance" ->', '"companion" ->']) {
+  if (!nativeWidgetProvider.includes(capability)) fail(`Native Widget Studio 2.2 capability missing: ${capability}`);
+}
+const storageSchema = readFileSync("schemas/storage.schema.ts", "utf8");
+const defaults = readFileSync("constants/defaults.ts", "utf8");
+if (!defaults.includes("export const STORAGE_VERSION = 5") || !storageSchema.includes("finance: financeSchema")) {
+  fail("Storage v5 and Money Mission schema are required.");
+}
 const provider = readFileSync("providers/NexusProvider.tsx", "utf8");
 const loadingRoute = readFileSync("app/loading-plan.tsx", "utf8");
 if (!provider.includes("50_000") || !provider.includes("recoverPlanLocally")) fail("Plan generation watchdog and recovery are missing.");

@@ -4,6 +4,7 @@ import { nextRoadmapLesson, roadmapProgress } from "@/features/learning/roadmap"
 import { getColors } from "@/theme/theme";
 import { calculateLevel } from "@/utils/levels";
 import { localDateKey } from "@/utils/dates";
+import { companionLines, nexusQuote } from "@/features/companion/companion";
 
 export type WidgetPendingAction = { type: "toggle_task"; taskId: string; completed: boolean; createdAt: string };
 
@@ -16,6 +17,11 @@ function createPayload(data: AppData): WidgetPayload | null {
     .reduce((sum, session) => sum + session.elapsedSeconds, 0) / 60);
   const activeRoadmap = data.learning.roadmaps.find((roadmap) => roadmap.id === data.learning.activeRoadmapId && roadmap.status === "active");
   const nextLesson = activeRoadmap ? nextRoadmapLesson(activeRoadmap) : undefined;
+  const today = data.activePlan.date;
+  const activeHabits = data.habits.filter((habit) => !habit.pausedUntil || habit.pausedUntil < today);
+  const completedHabits = activeHabits.filter((habit) => habit.completedDates.includes(today)).length;
+  const boss = data.progress.challenges.find((challenge) => challenge.type === "boss" && !challenge.completed);
+  const nextTask = data.activePlan.tasks.find((task) => !task.completed);
   return {
     date: data.activePlan.date,
     mainMission: preferences.privacyMode ? "Missão protegida" : data.activePlan.mainMission.title,
@@ -26,6 +32,12 @@ function createPayload(data: AppData): WidgetPayload | null {
     totalXp: data.progress.totalXp,
     level: calculateLevel(data.progress.totalXp).level,
     focusMinutes,
+    ...(nextTask ? { nextAction: nextTask.title } : {}),
+    quote: nexusQuote(data),
+    companionLines: companionLines(data),
+    finance: data.finance,
+    habits: { completed: completedHabits, total: activeHabits.length, ...(activeHabits.find((habit) => !habit.completedDates.includes(today)) ? { next: activeHabits.find((habit) => !habit.completedDates.includes(today))!.title } : {}) },
+    ...(boss ? { boss: { title: boss.title, progress: boss.progress, target: boss.target } } : {}),
     ...(preferences.showLearning && activeRoadmap && nextLesson ? {
       learning: {
         topic: preferences.privacyMode ? "Aprendizado protegido" : activeRoadmap.topic,
@@ -35,11 +47,14 @@ function createPayload(data: AppData): WidgetPayload | null {
       },
     } : {}),
     appearance: {
+      contentMode: preferences.contentMode,
       background: preferences.background,
       style: preferences.style,
       preferredSize: preferences.preferredSize,
       showMascot: preferences.showMascot,
       mascot: preferences.mascot,
+      companionMood: preferences.companionMood,
+      companionSpeech: preferences.companionSpeech,
       showProfessor: preferences.showProfessor,
       showLearning: preferences.showLearning,
       professorVariant: data.preferences.mascot.professorVariant,
@@ -53,6 +68,12 @@ function createPayload(data: AppData): WidgetPayload | null {
       showFocus: preferences.showFocus,
       showProgress: preferences.showProgress,
       showCapture: preferences.showCapture,
+      showFinance: preferences.showFinance,
+      showQuote: preferences.showQuote,
+      showNextAction: preferences.showNextAction,
+      showHabits: preferences.showHabits,
+      showBoss: preferences.showBoss,
+      allowPageCycle: preferences.allowPageCycle,
       compactTasks: preferences.compactTasks,
       progressStyle: preferences.progressStyle,
       fontScale: preferences.fontScale,

@@ -32,6 +32,7 @@ import type {
   ChatKind,
   ChatThread,
   EvolutionProfile,
+  FinanceState,
   FocusSession,
   Habit,
   LearningRoadmap,
@@ -117,6 +118,7 @@ type NexusContextValue = {
   toggleHabitToday: (habitId: string) => void;
   addWeeklyPlanItem: (input: Omit<WeeklyPlanItem, "id" | "completed">) => void;
   moveWeeklyPlanItem: (itemId: string, date: string) => void;
+  updateFinance: (patch: Partial<FinanceState>) => void;
   resetToday: () => void;
   resetAll: () => Promise<void>;
   clearTemporary: () => Promise<void>;
@@ -535,7 +537,53 @@ export function NexusProvider({ children }: PropsWithChildren) {
     const thread = dataRef.current.brain.threads.find((item) => item.id === threadId);
     if (!clean || !thread || assistantBusy) return;
     const userMessage = { id: createId("message"), role: "user" as const, content: clean, createdAt: new Date().toISOString() };
-    commit((current) => ({ ...current, brain: { ...current.brain, threads: current.brain.threads.map((item) => item.id === threadId ? { ...item, title: item.messages.length <= 1 ? threadTitle(clean) : item.title, messages: [...item.messages, userMessage].slice(-1000), updatedAt: userMessage.createdAt } : item) } }));
+    const streamingMessageId = createId("stream");
+    let streamedContent = "";
+    let streamInserted = false;
+    let lastPaintAt = 0;
+
+    commit((current) => ({
+      ...current,
+      brain: {
+        ...current.brain,
+        threads: current.brain.threads.map((item) => item.id === threadId ? {
+          ...item,
+          title: item.messages.length <= 1 ? threadTitle(clean) : item.title,
+          messages: [...item.messages, userMessage].slice(-1000),
+          updatedAt: userMessage.createdAt,
+        } : item),
+      },
+    }));
+
+    const paintStream = (force = false) => {
+      const now = Date.now();
+      if (!force && now - lastPaintAt < 55) return;
+      lastPaintAt = now;
+      const contentValue = sanitizeText(streamedContent, 6000);
+      if (!contentValue) return;
+      const current = dataRef.current;
+      const next: AppData = {
+        ...current,
+        brain: {
+          ...current.brain,
+          threads: current.brain.threads.map((item) => {
+            if (item.id !== threadId) return item;
+            const liveMessage = { id: streamingMessageId, role: "assistant" as const, content: contentValue, createdAt: new Date().toISOString() };
+            return {
+              ...item,
+              messages: streamInserted
+                ? item.messages.map((message) => message.id === streamingMessageId ? liveMessage : message)
+                : [...item.messages, liveMessage].slice(-1000),
+              updatedAt: liveMessage.createdAt,
+            };
+          }),
+        },
+      };
+      streamInserted = true;
+      dataRef.current = next;
+      setData(next);
+    };
+
     const controller = new AbortController();
     assistantController.current = controller;
     setAssistantBusy(true);
@@ -543,23 +591,72 @@ export function NexusProvider({ children }: PropsWithChildren) {
       const latestThread = dataRef.current.brain.threads.find((item) => item.id === threadId);
       const response = await askNexus(
         { data: dataRef.current, mode: thread.kind, message: clean, context: { conversationSummary: latestThread?.summary ?? "" } },
-        { signal: controller.signal, messages: latestThread?.messages, onStage: setAssistantStage },
+        {
+          signal: controller.signal,
+          messages: latestThread?.messages,
+          onStage: setAssistantStage,
+          onDelta: (delta) => {
+            streamedContent += delta;
+            paintStream();
+          },
+        },
       );
+      paintStream(true);
       setLastAssistantMeta(response.meta ?? null);
       const now = new Date().toISOString();
       commit((current) => {
         const actionRecords: AssistantAction[] | undefined = response.actions?.map((action) => ({ ...action, id: createId("action"), status: "proposed" }));
-        const assistantMessage = { id: createId("message"), role: "assistant" as const, content: sanitizeText(response.message, 6000), createdAt: now, ...(actionRecords?.length ? { actions: actionRecords } : {}) };
+        const assistantMessage = {
+          id: streamingMessageId,
+          role: "assistant" as const,
+          content: sanitizeText(response.message, 6000),
+          createdAt: now,
+          ...(actionRecords?.length ? { actions: actionRecords } : {}),
+        };
         const existingMemoryKeys = new Set(current.brain.memories.map((memory) => `${memory.kind}:${memory.content.toLocaleLowerCase("pt-BR")}`));
-        const memories = (response.memories ?? []).filter((memory) => !existingMemoryKeys.has(`${memory.kind}:${memory.content.toLocaleLowerCase("pt-BR")}`)).map((memory) => ({ ...memory, id: createId("memory"), sourceThreadId: threadId, pinned: false, createdAt: now, updatedAt: now }));
-        const roadmaps = response.roadmap && !current.learning.roadmaps.some((roadmap) => roadmap.topic.toLocaleLowerCase("pt-BR") === response.roadmap!.topic.toLocaleLowerCase("pt-BR")) ? [...current.learning.roadmaps, response.roadmap] : current.learning.roadmaps;
+        const memories = (response.memories ?? [])
+          .filter((memory) => !existingMemoryKeys.has(`${memory.kind}:${memory.content.toLocaleLowerCase("pt-BR")}`))
+          .map((memory) => ({ ...memory, id: createId("memory"), sourceThreadId: threadId, pinned: false, createdAt: now, updatedAt: now }));
+        const roadmaps = response.roadmap && !current.learning.roadmaps.some((roadmap) => roadmap.topic.toLocaleLowerCase("pt-BR") === response.roadmap!.topic.toLocaleLowerCase("pt-BR"))
+          ? [...current.learning.roadmaps, response.roadmap]
+          : current.learning.roadmaps;
         return {
           ...current,
-          brain: { ...current.brain, memories: [...current.brain.memories, ...memories].slice(-1000), threads: current.brain.threads.map((item) => item.id === threadId ? { ...item, title: response.title ? threadTitle(response.title) : item.title, summary: compactThreadSummary(item, response.message), messages: [...item.messages, assistantMessage].slice(-1000), updatedAt: now } : item) },
-          learning: { ...current.learning, professorEnabled: current.learning.professorEnabled || thread.kind === "professor", roadmaps, activeRoadmapId: current.learning.activeRoadmapId ?? response.roadmap?.id },
+          brain: {
+            ...current.brain,
+            memories: [...current.brain.memories, ...memories].slice(-1000),
+            threads: current.brain.threads.map((item) => {
+              if (item.id !== threadId) return item;
+              const withoutTransient = item.messages.filter((message) => message.id !== streamingMessageId);
+              return {
+                ...item,
+                title: response.title ? threadTitle(response.title) : item.title,
+                summary: compactThreadSummary(item, response.message),
+                messages: [...withoutTransient, assistantMessage].slice(-1000),
+                updatedAt: now,
+              };
+            }),
+          },
+          learning: {
+            ...current.learning,
+            professorEnabled: current.learning.professorEnabled || thread.kind === "professor",
+            roadmaps,
+            activeRoadmapId: current.learning.activeRoadmapId ?? response.roadmap?.id,
+          },
         };
       }, response.warning);
     } catch {
+      if (streamInserted) {
+        commit((current) => ({
+          ...current,
+          brain: {
+            ...current.brain,
+            threads: current.brain.threads.map((item) => item.id === threadId
+              ? { ...item, messages: item.messages.filter((message) => message.id !== streamingMessageId) }
+              : item),
+          },
+        }));
+      }
       if (!controller.signal.aborted) showToast("Não consegui concluir esta resposta. Sua mensagem continua salva para tentar novamente.");
     } finally {
       assistantController.current = null;
@@ -735,6 +832,22 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const addWeeklyPlanItem = useCallback((input: Omit<WeeklyPlanItem, "id" | "completed">) => commit((current) => ({ ...current, weeklyPlan: [...current.weeklyPlan, { ...input, id: createId("week-task"), title: sanitizeText(input.title, 160), completed: false }].slice(-1000) }), "Item adicionado à semana."), [commit]);
   const moveWeeklyPlanItem = useCallback((itemId: string, date: string) => commit((current) => ({ ...current, weeklyPlan: current.weeklyPlan.map((item) => item.id === itemId ? { ...item, date } : item) }), "Tarefa movida."), [commit]);
 
+
+  const updateFinance = useCallback((patch: Partial<FinanceState>) => commit((current) => ({
+    ...current,
+    finance: {
+      ...current.finance,
+      ...patch,
+      monthlyGoal: Math.max(0, Number(patch.monthlyGoal ?? current.finance.monthlyGoal) || 0),
+      monthlyRevenue: Math.max(0, Number(patch.monthlyRevenue ?? current.finance.monthlyRevenue) || 0),
+      prospectsToday: Math.max(0, Math.floor(Number(patch.prospectsToday ?? current.finance.prospectsToday) || 0)),
+      followUpsPending: Math.max(0, Math.floor(Number(patch.followUpsPending ?? current.finance.followUpsPending) || 0)),
+      activeClients: Math.max(0, Math.floor(Number(patch.activeClients ?? current.finance.activeClients) || 0)),
+      closedDeals: Math.max(0, Math.floor(Number(patch.closedDeals ?? current.finance.closedDeals) || 0)),
+      updatedAt: new Date().toISOString(),
+    },
+  }), "Placar financeiro atualizado."), [commit]);
+
   const resetToday = useCallback(() => {
     const profile = dataRef.current.profile;
     if (!profile) return;
@@ -762,13 +875,13 @@ export function NexusProvider({ children }: PropsWithChildren) {
     updateProfile, updatePreferences, finishFocusSession,
     createThread, selectThread, renameThread, archiveThread, deleteThread, sendChatMessage, deleteMemory, toggleMemoryPinned, applyAssistantAction,
     createRoadmap, toggleRoadmapLesson, setActiveRoadmap, quickCapture, saveCapture, generateWeeklyReview,
-    createOperation, toggleOperationPhase, createHabit, toggleHabitToday, addWeeklyPlanItem, moveWeeklyPlanItem,
+    createOperation, toggleOperationPhase, createHabit, toggleHabitToday, addWeeklyPlanItem, moveWeeklyPlanItem, updateFinance,
     resetToday, resetAll, clearTemporary, importBackup, exportBackup: () => nexusRepository.exportJson(data),
     dismissToast: () => setToast(null), dismissWarnings: () => commit((current) => ({ ...current, corruptionWarnings: [] })),
   }), [
     addWeeklyPlanItem, applyAssistantAction, archiveThread, assistantBusy, assistantStage, lastAssistantMeta, cancelPlanGeneration, clearTemporary, commit, completeDiscovery, completeOnboarding, createHabit, createOperation,
     createRoadmap, createThread, data, deleteMemory, deleteThread, finishFocusSession, generateWeeklyReview, handleMissionToggle, handleTaskToggle, importBackup,
-    loadingStageIndex, moveWeeklyPlanItem, planGenerating, planGenerationError, quickCapture, ready, recoverPlanLocally, renameThread, replanDay, resetAll, resetToday, retryPlanGeneration, saveCapture, selectThread,
+    loadingStageIndex, moveWeeklyPlanItem, updateFinance, planGenerating, planGenerationError, quickCapture, ready, recoverPlanLocally, renameThread, replanDay, resetAll, resetToday, retryPlanGeneration, saveCapture, selectThread,
     sendChatMessage, setActiveRoadmap, toast, toggleHabitToday, toggleMemoryPinned, toggleOperationPhase, toggleRoadmapLesson, updateOnboardingDraft, updatePreferences, updateProfile,
   ]);
 

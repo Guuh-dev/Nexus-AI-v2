@@ -1,6 +1,6 @@
 import type { AppData, EvolutionProfile, Preferences, Profile } from "@/types";
 
-export const STORAGE_VERSION = 4;
+export const STORAGE_VERSION = 5;
 export const STORAGE_KEY = "@nexus-ai/state";
 export const MIGRATION_BACKUP_KEY = "@nexus-ai/pre-v2.1-backup";
 export const TEMP_STORAGE_KEYS = ["@nexus-ai/onboarding-request", "@nexus-ai/loading", "@nexus-ai/focus-runtime"];
@@ -47,19 +47,26 @@ export const DEFAULT_PREFERENCES: Preferences = {
     companion: "atlas",
     showCompanion: true,
     speechEnabled: true,
-    unlocked: ["nexus", "atlas"],
+    companionMood: "happy",
+    companionPresence: "active",
+    atlasPersonality: "mentor",
+    assistantVerbosity: "compact",
+    unlocked: ["nexus", "atlas", "nova", "byte", "pulse", "orbit", "ember"],
     skin: "classic",
     unlockedSkins: ["classic", "shadow", "galaxy", "emerald", "gold", "ice", "rose", "professor"],
-    accessories: ["glasses", "crown", "headphones", "cap", "scarf"],
+    accessories: ["glasses", "crown", "headphones", "cap", "scarf", "backpack", "laptop", "book", "coffee", "sword", "controller", "wizard_hat", "medal", "cape"],
     professorVariant: "classic",
   },
   widget: {
     preset: "balanced",
+    contentMode: "smart",
     background: "solid",
     style: "nexus",
     preferredSize: "4x2",
     showMascot: true,
     mascot: "nexus",
+    companionMood: "happy",
+    companionSpeech: "contextual",
     showProfessor: false,
     showLearning: false,
     showMission: true,
@@ -70,6 +77,12 @@ export const DEFAULT_PREFERENCES: Preferences = {
     showFocus: false,
     showProgress: true,
     showCapture: true,
+    showFinance: false,
+    showQuote: false,
+    showNextAction: true,
+    showHabits: false,
+    showBoss: false,
+    allowPageCycle: true,
     compactTasks: false,
     taskCount: 3,
     progressStyle: "bar",
@@ -109,6 +122,7 @@ export const DEFAULT_APP_DATA: AppData = {
   operations: [],
   habits: [],
   weeklyPlan: [],
+  finance: { monthlyGoal: 3000, monthlyRevenue: 0, prospectsToday: 0, followUpsPending: 0, activeClients: 0, closedDeals: 0, updatedAt: new Date(0).toISOString() },
   corruptionWarnings: [],
 };
 

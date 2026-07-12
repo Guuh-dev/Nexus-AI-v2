@@ -16,8 +16,8 @@ describe("mobile UI regressions", () => {
   it("keeps the Android system navigation area dark", () => {
     const layout = readFileSync("app/_layout.tsx", "utf8");
     const appConfig = JSON.parse(readFileSync("app.json", "utf8")) as { expo?: { plugins?: unknown[] } };
-    expect(layout).toContain('NavigationBar.setStyle("dark")');
-    expect(layout).toContain('NavigationBar.setHidden(false)');
+    expect(layout).toContain('<NavigationBar style={data.preferences.theme === "light" ? "light" : "dark"} />');
+    expect(layout).toContain('backgroundColor: colors.background');
     expect(JSON.stringify(appConfig.expo?.plugins)).toContain("expo-navigation-bar");
   });
 

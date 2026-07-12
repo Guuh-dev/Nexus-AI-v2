@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { router } from "expo-router";
 import { CompanionMascot } from "@/components/CompanionMascot";
+import { AssistantMessage } from "@/components/AssistantMessage";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PixelMascot } from "@/components/PixelMascot";
 import { RoadmapCard } from "@/components/RoadmapCard";
@@ -146,7 +147,7 @@ export default function BrainScreen() {
           </View>
         </View>
         <View style={styles.messages}>
-          {active.messages.map((item) => (
+          {active.messages.map((item, messageIndex) => (
             <View
               key={item.id}
               style={[
@@ -182,7 +183,14 @@ export default function BrainScreen() {
                     ? "ATLAS"
                     : "NEXUS"}
               </NexusText>
-              <NexusText>{item.content}</NexusText>
+              {item.role === "assistant" ? (
+                <AssistantMessage
+                  content={item.content}
+                  onPrompt={messageIndex === active.messages.length - 1 && !assistantBusy
+                    ? (prompt) => void sendChatMessage(active.id, prompt)
+                    : undefined}
+                />
+              ) : <NexusText>{item.content}</NexusText>}
               {item.actions?.map((action) => (
                 <Card
                   key={action.id}

@@ -1,6 +1,6 @@
 {
   "name": "nexus-ai",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "private": true,
   "description": "Nexus AI — Personal Mission OS",
   "main": "expo-router/entry",

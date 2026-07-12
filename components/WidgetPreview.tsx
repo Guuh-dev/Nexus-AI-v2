@@ -11,6 +11,7 @@ import {
 } from "@/features/learning/roadmap";
 import { calculateLevel } from "@/utils/levels";
 import { getWidgetStyleTokens } from "@/features/widgets/widget-style";
+import { getCompanionLine, nexusQuote } from "@/features/companion/companion";
 
 const SIZE_DIMENSIONS = {
   "1x1": { width: 112, minHeight: 112 },
@@ -38,6 +39,8 @@ export function WidgetPreview() {
     requestedAccent,
   );
   const accent = styleTokens.accent;
+  const mainText = styleTokens.textColor ?? colors.text;
+  const secondaryText = styleTokens.secondaryTextColor ?? colors.textSecondary;
   const completed = plan?.tasks.filter((task) => task.completed).length ?? 0;
   const total = plan?.tasks.length ?? 0;
   const tiny = prefs.preferredSize === "1x1";
@@ -69,8 +72,15 @@ export function WidgetPreview() {
     ) / 60,
   );
   const topTask = plan?.tasks.find((task) => !task.completed);
-  const smartPlanVisible = prefs.preset === "balanced" && !compact;
-  const quoteVisible = prefs.preset === "minimal" && compact;
+  const smartPlanVisible = prefs.contentMode === "smart" && !compact;
+  const quoteVisible = prefs.showQuote || prefs.contentMode === "quote";
+  const companionVisible = prefs.contentMode === "companion";
+  const financeVisible = prefs.showFinance || prefs.contentMode === "finance";
+  const habitsVisible = prefs.showHabits || prefs.contentMode === "habits";
+  const bossVisible = prefs.showBoss || prefs.contentMode === "boss";
+  const activeHabits = data.habits.filter((habit) => !habit.pausedUntil || habit.pausedUntil < (plan?.date ?? "9999-12-31"));
+  const completedHabits = activeHabits.filter((habit) => habit.completedDates.includes(plan?.date ?? "")).length;
+  const boss = data.progress.challenges.find((challenge) => challenge.type === "boss" && !challenge.completed);
 
   return (
     <View style={styles.wrapper}>
@@ -141,7 +151,7 @@ export function WidgetPreview() {
                 <NexusText variant="mono" color={accent}>
                   {prefs.customLabel?.trim() || "NEXUS ONLINE"}
                 </NexusText>
-                <NexusText variant="caption" secondary>
+                <NexusText variant="caption" color={secondaryText}>
                   {prefs.showLearning ? "EVOLUÇÃO ATIVA" : "MISSÃO DE HOJE"}
                 </NexusText>
               </View>
@@ -176,7 +186,7 @@ export function WidgetPreview() {
               <NexusText variant="caption" color={colors.success}>
                 ◆
               </NexusText>
-              <NexusText variant="caption" secondary numberOfLines={1}>
+              <NexusText variant="caption" color={secondaryText} numberOfLines={1}>
                 Prioridade: {topTask?.category ?? "missão principal"}
               </NexusText>
             </View>
@@ -184,23 +194,71 @@ export function WidgetPreview() {
               <NexusText variant="caption" color={accent}>
                 ◷
               </NexusText>
-              <NexusText variant="caption" secondary>
+              <NexusText variant="caption" color={secondaryText}>
                 Bloco ideal: {topTask?.estimatedMinutes ?? 25} min
               </NexusText>
             </View>
           </View>
         ) : null}
 
-        {quoteVisible ? (
-          <NexusText variant="caption" color={accent} style={styles.centerText}>
-            “Disciplina hoje, liberdade amanhã.”
+        {companionVisible ? (
+          <View style={[styles.companionCard, { backgroundColor: `${accent}12`, borderColor: `${accent}44` }]}>
+            {prefs.mascot === "nexus" ? (
+              <PixelMascot skin={data.preferences.mascot.skin} accessory={data.preferences.mascot.equippedAccessory} size={large ? 72 : 58} state={completed === total && total > 0 ? "celebrating" : "idle"} />
+            ) : (
+              <CompanionMascot mascot={prefs.mascot} size={large ? 72 : 58} state={completed === total && total > 0 ? "celebrating" : "idle"} />
+            )}
+            <NexusText variant={compact ? "caption" : "subtitle"} color={accent} style={styles.centerText} numberOfLines={compact ? 2 : 4}>
+              {prefs.companionSpeech === "silent" ? "Nexus ativo." : getCompanionLine(data, prefs.companionMood, "preview")}
+            </NexusText>
+          </View>
+        ) : null}
+
+        {financeVisible ? (
+          <View style={styles.dataCard}>
+            <NexusText variant="mono" color={accent}>R$ MONEY MISSION</NexusText>
+            <View style={styles.moneyRow}><NexusText variant="display" color={mainText}>R$ {data.finance.monthlyRevenue.toLocaleString("pt-BR")}</NexusText><NexusText variant="caption" color={colors.success}>{data.finance.monthlyGoal > 0 ? Math.min(100, Math.round(data.finance.monthlyRevenue / data.finance.monthlyGoal * 100)) : 0}%</NexusText></View>
+            <ProgressBar progress={data.finance.monthlyGoal > 0 ? Math.min(1, data.finance.monthlyRevenue / data.finance.monthlyGoal) : 0} height={6} color={colors.success} />
+            {!compact ? <NexusText variant="caption" color={secondaryText}>{data.finance.prospectsToday} prospects • {data.finance.followUpsPending} follow-ups • {data.finance.activeClients} clientes</NexusText> : null}
+          </View>
+        ) : null}
+
+        {habitsVisible ? (
+          <View style={styles.dataCard}>
+            <NexusText variant="mono" color={accent}>▦ HÁBITOS DE HOJE</NexusText>
+            <NexusText variant="display" color={mainText}>{completedHabits}/{activeHabits.length}</NexusText>
+            <ProgressBar progress={activeHabits.length ? completedHabits / activeHabits.length : 0} height={6} color={accent} />
+            {!compact ? <NexusText variant="caption" color={secondaryText} numberOfLines={1}>{activeHabits.find((habit) => !habit.completedDates.includes(plan?.date ?? ""))?.title ?? "Tudo concluído"}</NexusText> : null}
+          </View>
+        ) : null}
+
+        {bossVisible ? (
+          <View style={styles.dataCard}>
+            <NexusText variant="mono" color={colors.warning}>♛ BOSS BATTLE</NexusText>
+            <NexusText variant="subtitle" color={mainText} numberOfLines={2}>{boss?.title ?? "Boss do dia"}</NexusText>
+            <ProgressBar progress={boss ? Math.min(1, boss.progress / Math.max(1, boss.target)) : 0} height={8} color={colors.danger} />
+            <NexusText variant="caption" color={secondaryText}>{boss ? `${boss.progress}/${boss.target}` : "Complete a missão + 3 tarefas"}</NexusText>
+          </View>
+        ) : null}
+
+        {quoteVisible && !companionVisible ? (
+          <NexusText variant={compact ? "caption" : "subtitle"} color={accent} style={styles.centerText}>
+            “{nexusQuote(data)}”
           </NexusText>
+        ) : null}
+
+        {prefs.showNextAction && topTask && !financeVisible ? (
+          <View style={[styles.nextAction, { borderColor: `${accent}44` }]}>
+            <NexusText variant="mono" color={accent}>→ FAÇA AGORA</NexusText>
+            <NexusText variant="caption" color={mainText} numberOfLines={2}>{topTask.title} • {topTask.estimatedMinutes} min</NexusText>
+          </View>
         ) : null}
 
         {!tiny && prefs.showMission ? (
           <NexusText
             variant={fontVariant}
             numberOfLines={compact ? 1 : 2}
+            color={mainText}
             style={centered && styles.centerText}
           >
             {prefs.privacyMode
@@ -231,7 +289,7 @@ export function WidgetPreview() {
                 />
                 <NexusText
                   variant="caption"
-                  secondary={!task.completed}
+                  color={task.completed ? mainText : secondaryText}
                   numberOfLines={1}
                   style={[styles.flex, centered && styles.centerText]}
                 >
@@ -256,7 +314,7 @@ export function WidgetPreview() {
               </NexusText>
               <NexusText
                 variant="caption"
-                secondary
+                color={secondaryText}
                 style={centered && styles.centerText}
               >
                 {nextLesson.estimatedMinutes} min •{" "}
@@ -268,12 +326,12 @@ export function WidgetPreview() {
 
         {!tiny && (prefs.showXp || prefs.showLevel || prefs.showFocus) ? (
           <View style={[styles.metrics, centered && styles.metricsCentered]}>
-            {prefs.showLevel ? <Metric value={`NV ${level}`} /> : null}
+            {prefs.showLevel ? <Metric value={`NV ${level}`} color={secondaryText} /> : null}
             {prefs.showXp ? (
-              <Metric value={`${data.progress.totalXp} XP`} />
+              <Metric value={`${data.progress.totalXp} XP`} color={secondaryText} />
             ) : null}
             {prefs.showFocus ? (
-              <Metric value={`${focusMinutes}m FOCO`} />
+              <Metric value={`${focusMinutes}m FOCO`} color={secondaryText} />
             ) : null}
           </View>
         ) : null}
@@ -288,8 +346,7 @@ export function WidgetPreview() {
           ) : (
             <NexusText
               variant={prefs.progressStyle === "number" ? "title" : "caption"}
-              secondary={prefs.progressStyle !== "number"}
-              color={prefs.progressStyle === "number" ? accent : undefined}
+              color={prefs.progressStyle === "number" ? accent : secondaryText}
               style={centered && styles.centerText}
             >
               {prefs.progressStyle === "circle" ? "◉ " : ""}
@@ -374,10 +431,10 @@ function WidgetDecoration({
   );
 }
 
-function Metric({ value }: { value: string }) {
+function Metric({ value, color }: { value: string; color: string }) {
   return (
     <View style={styles.metricPill}>
-      <NexusText variant="mono" secondary>
+      <NexusText variant="mono" color={color}>
         {value}
       </NexusText>
     </View>
@@ -443,6 +500,10 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   smartLine: { flexDirection: "row", alignItems: "center", gap: 7 },
+  companionCard: { alignItems: "center", justifyContent: "center", borderWidth: 1, borderRadius: 18, padding: 12, gap: 8 },
+  dataCard: { gap: 8 },
+  moneyRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  nextAction: { borderWidth: 1, borderRadius: 12, padding: 9, gap: 3 },
   glassHighlight: {
     position: "absolute",
     top: 8,

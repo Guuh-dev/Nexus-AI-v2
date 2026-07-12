@@ -47,6 +47,7 @@ export type ThemeId =
   | "ember"
   | "rose"
   | "monochrome"
+  | "light"
   | "custom";
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type LearningStyle = "visual" | "pratica" | "leitura" | "explicacao" | "mista";
@@ -55,7 +56,11 @@ export type ChallengeMode = "desativado" | "sutil" | "equilibrado" | "gamer" | "
 export type ProfessorScope = "especifico" | "variedade" | "depois";
 export type ProfessorKnowledgeLevel = "zero" | "basico" | "intermediario" | "avancado";
 export type ProfessorVariant = "classic" | "emerald" | "gold" | "ice" | "rose";
-export type MascotId = "nexus" | "atlas" | "nova" | "byte" | "pulse";
+export type CompanionMood = "happy" | "playful" | "motivational" | "serious" | "strict" | "calm" | "quiet";
+export type CompanionPresence = "quiet" | "balanced" | "active";
+export type AtlasPersonality = "teacher" | "mentor" | "coach" | "strict" | "friendly";
+export type AssistantVerbosity = "compact" | "balanced" | "detailed";
+export type MascotId = "nexus" | "atlas" | "nova" | "byte" | "pulse" | "orbit" | "ember";
 export type MascotSkin = "classic" | "shadow" | "galaxy" | "emerald" | "gold" | "ice" | "rose" | "professor";
 
 export type EvolutionProfile = {
@@ -211,20 +216,27 @@ export type DayHistory = {
 };
 
 export type WidgetSize = "1x1" | "2x1" | "2x2" | "3x2" | "4x1" | "4x2" | "4x3" | "4x4" | "5x2";
-export type WidgetStyle = "nexus" | "amoled" | "transparent" | "glass" | "pixel" | "minimal" | "gamer" | "neon" | "mascot" | "privacy";
-export type WidgetPreset = "mission" | "balanced" | "tasks" | "focus" | "learning" | "minimal" | "custom";
+export type WidgetStyle = "nexus" | "amoled" | "transparent" | "glass" | "pixel" | "minimal" | "gamer" | "neon" | "mascot" | "privacy" | "light";
+export type WidgetPreset =
+  | "mission" | "balanced" | "tasks" | "focus" | "learning" | "minimal"
+  | "companion" | "finance" | "quote" | "xp" | "streak" | "boss"
+  | "next_action" | "habits" | "roadmap" | "freelance" | "custom";
+export type WidgetContentMode = "mission" | "tasks" | "smart" | "focus" | "learning" | "companion" | "finance" | "quote" | "progress" | "habits" | "boss";
 export type WidgetCornerStyle = "square" | "soft" | "round";
 export type WidgetBorderStyle = "none" | "subtle" | "accent" | "pixel";
 export type WidgetTextAlign = "left" | "center";
-export type WidgetTapAction = "today" | "brain" | "focus" | "capture" | "progress";
+export type WidgetTapAction = "today" | "brain" | "focus" | "capture" | "progress" | "finance" | "habits" | "week";
 
 export type WidgetPreferences = {
   preset: WidgetPreset;
+  contentMode: WidgetContentMode;
   background: "solid" | "amoled" | "translucent";
   style: WidgetStyle;
   preferredSize: WidgetSize;
   showMascot: boolean;
   mascot: MascotId;
+  companionMood: CompanionMood;
+  companionSpeech: "contextual" | "motivational" | "fun" | "silent";
   showProfessor: boolean;
   showLearning: boolean;
   showMission: boolean;
@@ -235,6 +247,12 @@ export type WidgetPreferences = {
   showFocus: boolean;
   showProgress: boolean;
   showCapture: boolean;
+  showFinance: boolean;
+  showQuote: boolean;
+  showNextAction: boolean;
+  showHabits: boolean;
+  showBoss: boolean;
+  allowPageCycle: boolean;
   compactTasks: boolean;
   taskCount: 1 | 2 | 3 | 4 | 5;
   progressStyle: "bar" | "circle" | "text" | "number";
@@ -265,6 +283,10 @@ export type MascotPreferences = {
   companion: Exclude<MascotId, "nexus">;
   showCompanion: boolean;
   speechEnabled: boolean;
+  companionMood: CompanionMood;
+  companionPresence: CompanionPresence;
+  atlasPersonality: AtlasPersonality;
+  assistantVerbosity: AssistantVerbosity;
   unlocked: MascotId[];
   skin: MascotSkin;
   unlockedSkins: MascotSkin[];
@@ -471,6 +493,16 @@ export type WeeklyPlanItem = {
   completed: boolean;
 };
 
+export type FinanceState = {
+  monthlyGoal: number;
+  monthlyRevenue: number;
+  prospectsToday: number;
+  followUpsPending: number;
+  activeClients: number;
+  closedDeals: number;
+  updatedAt: string;
+};
+
 export type AppData = {
   storageVersion: number;
   installationId: string;
@@ -489,6 +521,7 @@ export type AppData = {
   operations: Operation[];
   habits: Habit[];
   weeklyPlan: WeeklyPlanItem[];
+  finance: FinanceState;
   lastGeneratedDate?: string;
   lastAiAttemptDate?: string;
   corruptionWarnings: string[];
@@ -508,6 +541,12 @@ export type WidgetPayload = {
   totalXp: number;
   level: number;
   focusMinutes: number;
+  nextAction?: string;
+  quote?: string;
+  companionLines?: Partial<Record<CompanionMood, string>>;
+  finance?: FinanceState;
+  habits?: { completed: number; total: number; next?: string };
+  boss?: { title: string; progress: number; target: number };
   learning?: {
     topic: string;
     nextLesson: string;
@@ -515,11 +554,14 @@ export type WidgetPayload = {
     progress: number;
   };
   appearance?: {
+    contentMode: WidgetContentMode;
     background: WidgetPreferences["background"];
     style: WidgetStyle;
     preferredSize: WidgetSize;
     showMascot: boolean;
     mascot: MascotId;
+    companionMood: CompanionMood;
+    companionSpeech: WidgetPreferences["companionSpeech"];
     showProfessor: boolean;
     showLearning: boolean;
     professorVariant: ProfessorVariant;
@@ -533,6 +575,12 @@ export type WidgetPayload = {
     showFocus: boolean;
     showProgress: boolean;
     showCapture: boolean;
+    showFinance: boolean;
+    showQuote: boolean;
+    showNextAction: boolean;
+    showHabits: boolean;
+    showBoss: boolean;
+    allowPageCycle: boolean;
     compactTasks: boolean;
     progressStyle: WidgetPreferences["progressStyle"];
     fontScale: WidgetPreferences["fontScale"];

@@ -31,7 +31,7 @@ describe("storage recovery", () => {
     expect(recovered.corruptionWarnings.length).toBeGreaterThanOrEqual(3);
   });
 
-  it("migrates v3 widget preferences to v4 without losing existing choices", () => {
+  it("migrates v3 widget preferences to v5 without losing existing choices", () => {
     const base = recoverAppData({
       storageVersion: 3,
       installationId: "install-existing-456",
@@ -63,11 +63,14 @@ describe("storage recovery", () => {
       weeklyPlan: [],
       corruptionWarnings: [],
     });
-    expect(base.storageVersion).toBe(4);
+    expect(base.storageVersion).toBe(5);
     expect(base.preferences.theme).toBe("amoled");
     expect(base.preferences.widget.taskCount).toBe(2);
     expect(base.preferences.widget.preset).toBe("balanced");
     expect(base.preferences.widget.tapAction).toBe("today");
+    expect(base.preferences.widget.contentMode).toBe("smart");
+    expect(base.preferences.mascot.companionMood).toBe("happy");
+    expect(base.finance.monthlyGoal).toBe(3000);
     expect(base.progress.totalXp).toBe(42);
   });
 });

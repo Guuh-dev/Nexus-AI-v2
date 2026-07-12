@@ -13,7 +13,9 @@ const moduleSource = readFileSync(
 describe("native widget security", () => {
   it("requires a private nonce for exported task broadcasts", () => {
     expect(provider).toContain("ACTION_NONCE_KEY");
-    expect(provider).toContain("expectedNonce != intent.getStringExtra(EXTRA_NONCE)");
+    expect(provider).toContain("expectedNonce == intent.getStringExtra(EXTRA_NONCE)");
+    expect(provider).toContain("if (!validNonce(context, intent)) return");
+    expect(provider).toContain("ACTION_NEXT_PAGE");
     expect(provider).toContain("PendingIntent.FLAG_IMMUTABLE");
   });
 

@@ -15,20 +15,18 @@ const themeIds: Exclude<ThemeId, "custom">[] = [
   "ember",
   "rose",
   "monochrome",
+  "light",
 ];
 
 describe("Nexus OTA 2.1.3 regressions", () => {
-  it("keeps the installed runtime while exposing the OTA release label", () => {
-    const app = JSON.parse(readFileSync("app.json", "utf8")) as {
-      expo?: { version?: string };
-    };
-    const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
-      version?: string;
-    };
-    expect(app.expo?.version).toBe("2.1.1");
-    expect(pkg.version).toBe("2.1.1");
-    expect(OTA_RELEASE.label).toBe("2.1.3");
-    expect(OTA_RELEASE.runtime).toBe("2.1.1");
+  it("declares the Companion native runtime consistently", () => {
+    const app = JSON.parse(readFileSync("app.json", "utf8")) as { expo?: { version?: string; runtimeVersion?: { policy?: string } } };
+    const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { version?: string };
+    expect(app.expo?.version).toBe("2.2.0");
+    expect(pkg.version).toBe("2.2.0");
+    expect(app.expo?.runtimeVersion?.policy).toBe("appVersion");
+    expect(OTA_RELEASE.label).toBe("2.2.0");
+    expect(OTA_RELEASE.runtime).toBe("2.2.0");
   });
 
   it("does not replace the themed tab bar with the white default in Focus OS", () => {
@@ -58,9 +56,11 @@ describe("Nexus OTA 2.1.3 regressions", () => {
     expect(new Set(signatures).size).toBe(themeIds.length);
   });
 
-  it("keeps native widget files untouched by the OTA feature set", () => {
+  it("documents the native widget and Companion release scope", () => {
     const releaseNotes = readFileSync("constants/release.ts", "utf8");
-    expect(releaseNotes).toContain("Widget Studio");
-    expect(releaseNotes).not.toContain("modules/nexus-widget");
+    const provider = readFileSync("modules/nexus-widget/android/src/main/java/expo/modules/nexuswidget/NexusWidgetProvider.kt", "utf8");
+    expect(releaseNotes).toContain("Widget Studio 2.2");
+    expect(provider).toContain("ACTION_NEXT_PAGE");
+    expect(provider).toContain("MONEY MISSION");
   });
 });

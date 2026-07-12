@@ -11,12 +11,15 @@ import {
 import { onboardingDraftSchema, profileSchema } from "@/schemas/profile.schema";
 
 const widgetPreferencesSchema = z.object({
-  preset: z.enum(["mission", "balanced", "tasks", "focus", "learning", "minimal", "custom"]),
+  preset: z.enum(["mission", "balanced", "tasks", "focus", "learning", "minimal", "companion", "finance", "quote", "xp", "streak", "boss", "next_action", "habits", "roadmap", "freelance", "custom"]),
+  contentMode: z.enum(["mission", "tasks", "smart", "focus", "learning", "companion", "finance", "quote", "progress", "habits", "boss"]),
   background: z.enum(["solid", "amoled", "translucent"]),
-  style: z.enum(["nexus", "amoled", "transparent", "glass", "pixel", "minimal", "gamer", "neon", "mascot", "privacy"]),
+  style: z.enum(["nexus", "amoled", "transparent", "glass", "pixel", "minimal", "gamer", "neon", "mascot", "privacy", "light"]),
   preferredSize: z.enum(["1x1", "2x1", "2x2", "3x2", "4x1", "4x2", "4x3", "4x4", "5x2"]),
   showMascot: z.boolean(),
-  mascot: z.enum(["nexus", "atlas", "nova", "byte", "pulse"]),
+  mascot: z.enum(["nexus", "atlas", "nova", "byte", "pulse", "orbit", "ember"]),
+  companionMood: z.enum(["happy", "playful", "motivational", "serious", "strict", "calm", "quiet"]),
+  companionSpeech: z.enum(["contextual", "motivational", "fun", "silent"]),
   showProfessor: z.boolean(),
   showLearning: z.boolean(),
   showMission: z.boolean(),
@@ -27,6 +30,12 @@ const widgetPreferencesSchema = z.object({
   showFocus: z.boolean(),
   showProgress: z.boolean(),
   showCapture: z.boolean(),
+  showFinance: z.boolean(),
+  showQuote: z.boolean(),
+  showNextAction: z.boolean(),
+  showHabits: z.boolean(),
+  showBoss: z.boolean(),
+  allowPageCycle: z.boolean(),
   compactTasks: z.boolean(),
   taskCount: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]),
   progressStyle: z.enum(["bar", "circle", "text", "number"]),
@@ -37,7 +46,7 @@ const widgetPreferencesSchema = z.object({
   borderStyle: z.enum(["none", "subtle", "accent", "pixel"]),
   glow: z.union([z.literal(0), z.literal(1), z.literal(2), z.literal(3)]),
   textAlign: z.enum(["left", "center"]),
-  tapAction: z.enum(["today", "brain", "focus", "capture", "progress"]),
+  tapAction: z.enum(["today", "brain", "focus", "capture", "progress", "finance", "habits", "week"]),
   customLabel: z.string().trim().max(24).optional(),
   accentColor: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
 }).strict();
@@ -54,10 +63,14 @@ const dashboardPreferencesSchema = z.object({
 
 const mascotPreferencesSchema = z.object({
   primary: z.literal("nexus"),
-  companion: z.enum(["atlas", "nova", "byte", "pulse"]),
+  companion: z.enum(["atlas", "nova", "byte", "pulse", "orbit", "ember"]),
   showCompanion: z.boolean(),
   speechEnabled: z.boolean(),
-  unlocked: z.array(z.enum(["nexus", "atlas", "nova", "byte", "pulse"])).min(1).max(5),
+  companionMood: z.enum(["happy", "playful", "motivational", "serious", "strict", "calm", "quiet"]),
+  companionPresence: z.enum(["quiet", "balanced", "active"]),
+  atlasPersonality: z.enum(["teacher", "mentor", "coach", "strict", "friendly"]),
+  assistantVerbosity: z.enum(["compact", "balanced", "detailed"]),
+  unlocked: z.array(z.enum(["nexus", "atlas", "nova", "byte", "pulse", "orbit", "ember"])).min(1).max(7),
   skin: z.enum(["classic", "shadow", "galaxy", "emerald", "gold", "ice", "rose", "professor"]),
   unlockedSkins: z.array(z.enum(["classic", "shadow", "galaxy", "emerald", "gold", "ice", "rose", "professor"])).min(1).max(8),
   accessories: z.array(z.string().trim().min(1).max(80)).max(50),
@@ -66,7 +79,7 @@ const mascotPreferencesSchema = z.object({
 }).strict();
 
 export const preferencesSchema = z.object({
-  theme: z.enum(["nexus", "amoled", "oneui", "hud", "aurora", "ocean", "ember", "rose", "monochrome", "custom"]),
+  theme: z.enum(["nexus", "amoled", "oneui", "hud", "aurora", "ocean", "ember", "rose", "monochrome", "light", "custom"]),
   customAccent: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   haptics: z.boolean(),
   sound: z.boolean(),
@@ -142,6 +155,17 @@ export const progressSchema = z.object({
   challenges: z.array(challengeSchema).max(100),
 }).strict();
 
+
+const financeSchema = z.object({
+  monthlyGoal: z.number().min(0).max(100_000_000),
+  monthlyRevenue: z.number().min(0).max(100_000_000),
+  prospectsToday: z.number().int().min(0).max(100_000),
+  followUpsPending: z.number().int().min(0).max(100_000),
+  activeClients: z.number().int().min(0).max(100_000),
+  closedDeals: z.number().int().min(0).max(100_000),
+  updatedAt: z.string().datetime(),
+}).strict();
+
 export const appDataSchema = z.object({
   storageVersion: z.number().int().min(1).max(100),
   installationId: z.string().min(8).max(120),
@@ -160,6 +184,7 @@ export const appDataSchema = z.object({
   operations: z.array(operationSchema).max(100),
   habits: z.array(habitSchema).max(200),
   weeklyPlan: z.array(weeklyPlanItemSchema).max(1000),
+  finance: financeSchema,
   lastGeneratedDate: z.string().date().optional(),
   lastAiAttemptDate: z.string().date().optional(),
   corruptionWarnings: z.array(z.string().max(300)).max(20),

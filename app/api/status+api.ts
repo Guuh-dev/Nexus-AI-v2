@@ -10,7 +10,7 @@ function baseStatus() {
     configured: Boolean(process.env.OPENROUTER_API_KEY),
     primaryModel: process.env.OPENROUTER_FAST_MODEL?.trim() || FREE_ROUTER,
     fallback: paidFallback ? `${PRIMARY_MODEL} → plano local` : "plano local",
-    apiVersion: "2.1.3",
+    apiVersion: "2.2.0",
     assistantAvailable: Boolean(process.env.OPENROUTER_API_KEY),
     service: "nexus-ai-v2-1",
     capabilities: ["assistant", "professor", "roadmap", "planning", "local-fallback", "live-probe"],
