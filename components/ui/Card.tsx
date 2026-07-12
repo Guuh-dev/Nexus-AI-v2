@@ -2,25 +2,52 @@ import type { PropsWithChildren } from "react";
 import { View, type ViewProps } from "react-native";
 import { useNexus } from "@/providers/NexusProvider";
 
-type Props = PropsWithChildren<ViewProps & { elevated?: boolean }>;
-
-export function Card({ children, elevated = false, style, ...props }: Props) {
+export function Card({
+  children,
+  elevated = false,
+  style,
+  ...props
+}: PropsWithChildren<ViewProps & { elevated?: boolean }>) {
   const { colors, visuals } = useNexus();
+  const glass = visuals.cardStyle === "glass";
+  const terminal = visuals.cardStyle === "terminal";
+  const minimal = visuals.cardStyle === "minimal";
+  const sharp = visuals.cardStyle === "sharp";
+
   return (
     <View
       {...props}
       style={[
         {
-          backgroundColor: elevated ? colors.surfaceRaised : colors.surface,
-          borderColor: colors.border,
-          borderWidth: visuals.borderWidth,
-          borderRadius: visuals.cardRadius,
+          backgroundColor: minimal
+            ? colors.background
+            : glass
+              ? `${elevated ? colors.surfaceRaised : colors.surface}D9`
+              : elevated
+                ? colors.surfaceRaised
+                : colors.surface,
+          borderColor: terminal
+            ? colors.primary
+            : glass
+              ? `${colors.primary}55`
+              : colors.border,
+          borderWidth: minimal
+            ? 0
+            : terminal
+              ? Math.max(1, visuals.borderWidth)
+              : visuals.borderWidth,
+          borderRadius:
+            sharp || terminal
+              ? Math.min(visuals.cardRadius, 10)
+              : visuals.cardRadius,
           padding: 16,
-          shadowColor: colors.primary,
-          shadowOpacity: visuals.shadowOpacity,
-          shadowRadius: visuals.shadowRadius,
-          shadowOffset: { width: 0, height: 8 },
-          elevation: visuals.elevation,
+          shadowColor: terminal ? colors.primarySoft : colors.primary,
+          shadowOpacity: minimal ? 0 : visuals.shadowOpacity,
+          shadowRadius: terminal
+            ? Math.min(10, visuals.shadowRadius)
+            : visuals.shadowRadius,
+          shadowOffset: { width: 0, height: glass ? 12 : 8 },
+          elevation: minimal ? 0 : visuals.elevation,
         },
         style,
       ]}

@@ -1,12 +1,15 @@
 import "@/global.css";
 import { useEffect } from "react";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Stack } from "expo-router";
 import { NavigationBar } from "expo-navigation-bar";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { AppErrorBoundary, RouteErrorBoundary } from "@/components/ErrorBoundary";
+import {
+  AppErrorBoundary,
+  RouteErrorBoundary,
+} from "@/components/ErrorBoundary";
 import { Toast } from "@/components/Toast";
 import { NotificationBootstrap } from "@/components/NotificationBootstrap";
 import { NexusProvider, useNexus } from "@/providers/NexusProvider";
@@ -23,7 +26,7 @@ function Navigation() {
   }, []);
 
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -47,13 +50,13 @@ function Navigation() {
       </Stack>
       <NotificationBootstrap />
       <Toast />
-    </>
+    </View>
   );
 }
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1, backgroundColor: "#050505" }}>
       <SafeAreaProvider>
         <NexusProvider>
           <AppErrorBoundary>
