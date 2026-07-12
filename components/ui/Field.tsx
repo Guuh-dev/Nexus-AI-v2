@@ -10,7 +10,7 @@ type Props = TextInputProps & {
 };
 
 export function Field({ label, hint, error, style, ...props }: Props) {
-  const { colors } = useNexus();
+  const { colors, visuals } = useNexus();
   const [focused, setFocused] = useState(false);
   return (
     <View style={styles.wrapper}>
@@ -36,6 +36,7 @@ export function Field({ label, hint, error, style, ...props }: Props) {
             color: colors.text,
             backgroundColor: colors.surface,
             borderColor: error ? colors.danger : focused ? colors.primary : colors.border,
+            borderRadius: Math.max(8, visuals.buttonRadius - 1),
           },
           props.multiline && styles.multiline,
           style,

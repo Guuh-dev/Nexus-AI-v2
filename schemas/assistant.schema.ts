@@ -68,7 +68,16 @@ export const assistantClientResponseSchema = z.object({
   capture: captureDraftSchema.extend({ xp: z.number().int().min(0).max(200) }).optional(),
   weeklyReview: weeklyReviewSchema.optional(),
   warning: z.string().trim().max(500).optional(),
-  meta: z.object({ model: z.string().trim().min(1).max(200), reasoningTokens: z.number().int().min(0).optional() }).strict().optional(),
+  meta: z.object({
+    source: z.enum(["remote", "local"]),
+    model: z.string().trim().min(1).max(200).optional(),
+    reasoningTokens: z.number().int().min(0).optional(),
+    latencyMs: z.number().int().min(0).max(120_000),
+    attempts: z.number().int().min(0).max(8),
+    endpoint: z.string().trim().max(500).optional(),
+    errorCode: z.string().trim().max(100).optional(),
+    requestId: z.string().trim().max(160).optional(),
+  }).strict().optional(),
 }).strict();
 
 export const ASSISTANT_JSON_SCHEMA = {

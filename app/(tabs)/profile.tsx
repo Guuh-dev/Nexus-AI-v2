@@ -23,6 +23,7 @@ import {
 import type { Profile, ThemeId, Weekday } from "@/types";
 import { calculateLevel } from "@/utils/levels";
 import { normalizeHexColor } from "@/utils/text";
+import { OTA_RELEASE } from "@/constants/release";
 
 export { RouteErrorBoundary as ErrorBoundary };
 
@@ -55,7 +56,7 @@ const areaMeta: Record<ProfileArea, { label: string; description: string }> = {
 };
 
 export default function ProfileScreen() {
-  const { data, colors, updateProfile, updatePreferences, exportBackup, importBackup, resetToday, resetAll } = useNexus();
+  const { data, colors, lastAssistantMeta, updateProfile, updatePreferences, exportBackup, importBackup, resetToday, resetAll } = useNexus();
   const profile = data.profile;
   const [area, setArea] = useState<ProfileArea>("central");
   const [name, setName] = useState(profile?.name ?? "");
@@ -330,7 +331,20 @@ export default function ProfileScreen() {
                   </NexusText>
                 </View>
               </Card>
-              <NexusButton label="Testar novamente" variant="secondary" onPress={() => refreshStatus()} fullWidth />
+              <NexusButton label="Testar conexão agora" variant="secondary" loading={statusLoading} onPress={() => refreshStatus()} fullWidth />
+              {status ? <Card style={styles.diagnosticCard}>
+                <DiagnosticRow label="Backend" value={status.endpoint ?? "não identificado"} />
+                <DiagnosticRow label="Latência" value={status.latencyMs ? `${status.latencyMs} ms` : "sem resposta"} />
+                <DiagnosticRow label="Serviço" value={status.service ?? "legado/indefinido"} />
+                <DiagnosticRow label="Última checagem" value={status.checkedAt ? new Date(status.checkedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "agora"} />
+              </Card> : null}
+              {lastAssistantMeta ? <Card style={styles.diagnosticCard}>
+                <NexusText variant="mono" color={lastAssistantMeta.source === "remote" ? colors.success : colors.warning}>ÚLTIMA RESPOSTA</NexusText>
+                <DiagnosticRow label="Origem" value={lastAssistantMeta.source === "remote" ? "OpenRouter" : "Plano local"} />
+                <DiagnosticRow label="Modelo" value={lastAssistantMeta.model ?? "não usado"} />
+                <DiagnosticRow label="Tempo" value={`${Math.max(1, Math.round(lastAssistantMeta.latencyMs / 1000))} s`} />
+                <DiagnosticRow label="Tentativas" value={String(lastAssistantMeta.attempts)} />
+              </Card> : null}
               <Card style={[styles.infoCard, { backgroundColor: `${colors.primary}0C` }]}>
                 <NexusText variant="subtitle">Quando a IA não responder</NexusText>
                 <NexusText variant="caption" secondary>
@@ -340,6 +354,10 @@ export default function ProfileScreen() {
             </Section>
 
             <Section title="Atualizações" subtitle="Correções comuns chegam sem reinstalar o APK.">
+              <Card style={[styles.changelogCard, { borderColor: `${colors.primary}55` }]}>
+                <NexusText variant="mono" color={colors.primarySoft}>{OTA_RELEASE.title.toUpperCase()} • OTA {OTA_RELEASE.label}</NexusText>
+                {OTA_RELEASE.notes.map((note) => <NexusText key={note} variant="caption" secondary>• {note}</NexusText>)}
+              </Card>
               <Card style={styles.updateCard}>
                 <View style={styles.updateRow}>
                   <NexusText variant="caption" secondary>Versão nativa</NexusText>
@@ -405,7 +423,7 @@ export default function ProfileScreen() {
         ) : null}
 
         {message ? <Card style={[styles.message, { borderColor: `${colors.primary}55` }]}><NexusText variant="caption">{message}</NexusText></Card> : null}
-        <NexusText variant="caption" secondary style={styles.footer}>Nexus AI 2.1.1 • Personal Mission OS • Gustavo Araújo</NexusText>
+        <NexusText variant="caption" secondary style={styles.footer}>Nexus AI 2.1.1 • OTA 2.1.2 Signal • Personal Mission OS</NexusText>
       </Screen>
 
       <ConfirmDialog
@@ -452,6 +470,10 @@ function ControlCard({ title, description, icon, onPress }: { title: string; des
   );
 }
 
+function DiagnosticRow({ label, value }: { label: string; value: string }) {
+  return <View style={styles.updateRow}><NexusText variant="caption" secondary>{label}</NexusText><NexusText variant="caption" numberOfLines={1} style={styles.diagnosticValue}>{value}</NexusText></View>;
+}
+
 function SummaryMetric({ label, value }: { label: string; value: string }) {
   return <Card style={styles.summaryMetric}><NexusText variant="title">{value}</NexusText><NexusText variant="caption" secondary>{label}</NexusText></Card>;
 }
@@ -493,6 +515,9 @@ const styles = StyleSheet.create({
   switchRow: { minHeight: 62, flexDirection: "row", alignItems: "center", gap: 12, borderBottomWidth: StyleSheet.hairlineWidth, paddingVertical: 8 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   statusCard: { flexDirection: "row", alignItems: "center", gap: 12 },
+  diagnosticCard: { gap: 8 },
+  changelogCard: { gap: 7 },
+  diagnosticValue: { maxWidth: "64%", textAlign: "right" },
   statusDot: { width: 11, height: 11, borderRadius: 6 },
   infoCard: { gap: 7 },
   updateCard: { gap: 10 },

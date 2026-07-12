@@ -66,6 +66,9 @@ export function WidgetPreview() {
   const focusMinutes = Math.floor(
     data.progress.focusSessions.reduce((sum, session) => sum + session.elapsedSeconds, 0) / 60,
   );
+  const topTask = plan?.tasks.find((task) => !task.completed);
+  const smartPlanVisible = prefs.preset === "balanced" && !compact;
+  const quoteVisible = prefs.preset === "minimal" && compact;
 
   return (
     <View style={styles.wrapper}>
@@ -129,6 +132,16 @@ export function WidgetPreview() {
             {prefs.showStreak ? `♨ ${data.progress.currentStreak}` : `${total ? Math.round((completed / total) * 100) : 0}%`}
           </NexusText>
         ) : null}
+
+        {smartPlanVisible ? (
+          <View style={[styles.smartPlan, { borderColor: `${accent}45`, backgroundColor: `${accent}0D` }]}>
+            <NexusText variant="mono" color={accent}>✦ PLANO INTELIGENTE</NexusText>
+            <View style={styles.smartLine}><NexusText variant="caption" color={colors.success}>◆</NexusText><NexusText variant="caption" secondary numberOfLines={1}>Prioridade: {topTask?.category ?? "missão principal"}</NexusText></View>
+            <View style={styles.smartLine}><NexusText variant="caption" color={accent}>◷</NexusText><NexusText variant="caption" secondary>Bloco ideal: {topTask?.estimatedMinutes ?? 25} min</NexusText></View>
+          </View>
+        ) : null}
+
+        {quoteVisible ? <NexusText variant="caption" color={accent} style={styles.centerText}>“Disciplina hoje, liberdade amanhã.”</NexusText> : null}
 
         {!tiny && prefs.showMission ? (
           <NexusText
@@ -251,4 +264,6 @@ const styles = StyleSheet.create({
   metricsCentered: { justifyContent: "center" },
   metricPill: { borderRadius: 999, backgroundColor: "rgba(255,255,255,0.05)", paddingHorizontal: 8, paddingVertical: 4 },
   capture: { minHeight: 36, borderRadius: 11, borderWidth: 1, alignItems: "center", justifyContent: "center", width: "100%" },
+  smartPlan: { width: "100%", borderWidth: 1, borderRadius: 14, padding: 10, gap: 5 },
+  smartLine: { flexDirection: "row", alignItems: "center", gap: 7 },
 });

@@ -76,7 +76,7 @@ export default function FocusScreen() {
   const taskOptions = useMemo(() => tasks.filter((task) => !task.completed), [tasks]);
 
   return <>
-    <Tabs.Screen options={{ tabBarStyle: active ? { display: "none" } : {} }} />
+    <Tabs.Screen options={{ tabBarStyle: active ? { display: "none" } : undefined }} />
     <Screen scroll={!active}>
       {status === "idle" ? <View style={styles.setup}>
         <View style={styles.header}><View style={styles.flex}><NexusText variant="mono" color={colors.primarySoft}>FOCUS OS</NexusText><NexusText variant="display">Uma intenção. Um bloco.</NexusText></View><CompanionMascot mascot="nova" size={58} /></View>

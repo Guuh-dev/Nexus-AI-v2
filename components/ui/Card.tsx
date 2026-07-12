@@ -5,7 +5,7 @@ import { useNexus } from "@/providers/NexusProvider";
 type Props = PropsWithChildren<ViewProps & { elevated?: boolean }>;
 
 export function Card({ children, elevated = false, style, ...props }: Props) {
-  const { colors } = useNexus();
+  const { colors, visuals } = useNexus();
   return (
     <View
       {...props}
@@ -13,9 +13,14 @@ export function Card({ children, elevated = false, style, ...props }: Props) {
         {
           backgroundColor: elevated ? colors.surfaceRaised : colors.surface,
           borderColor: colors.border,
-          borderWidth: 1,
-          borderRadius: 22,
+          borderWidth: visuals.borderWidth,
+          borderRadius: visuals.cardRadius,
           padding: 16,
+          shadowColor: colors.primary,
+          shadowOpacity: visuals.shadowOpacity,
+          shadowRadius: visuals.shadowRadius,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: visuals.elevation,
         },
         style,
       ]}

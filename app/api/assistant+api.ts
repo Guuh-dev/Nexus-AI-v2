@@ -108,7 +108,7 @@ export async function POST(request: Request): Promise<Response> {
   if (!allow(request, data.clientId)) return json(request, { error: { code: "rate_limit", message: "O Nexus está recebendo muitas solicitações. Tente novamente em instantes." } }, 429);
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 45_000);
+  const timeout = setTimeout(() => controller.abort(), 28_000);
   const promise = runAssistant(data, controller.signal);
   inFlight.set(requestCacheKey, promise);
   try {

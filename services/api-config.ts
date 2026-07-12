@@ -1,8 +1,11 @@
 const ALLOWED_LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "10.0.2.2"]);
+const RECOVERABLE_BACKEND_STATUSES = new Set([404, 405, 502, 503, 504]);
+
+export type NexusApiErrorCode = "unreachable" | "incompatible" | "invalid_url";
 
 export class NexusApiError extends Error {
   constructor(
-    public readonly code: "unreachable" | "incompatible" | "invalid_url",
+    public readonly code: NexusApiErrorCode,
     message: string,
     public readonly status?: number,
   ) {
@@ -27,8 +30,11 @@ export function normalizeApiBase(value: string | undefined): string | null {
 
 export function apiCandidates(path: `/api/${string}`): string[] {
   const configured = normalizeApiBase(process.env.EXPO_PUBLIC_API_URL);
-  const fallback = normalizeApiBase(process.env.EXPO_PUBLIC_API_FALLBACK_URL);
-  const urls = [configured ? `${configured}${path}` : null, fallback ? `${fallback}${path}` : null];
+  const environmentFallback = normalizeApiBase(process.env.EXPO_PUBLIC_API_FALLBACK_URL);
+  const urls = [
+    configured ? `${configured}${path}` : null,
+    environmentFallback ? `${environmentFallback}${path}` : null,
+  ];
 
   // On web, same-origin API routes are the most reliable recovery path when a
   // configured Render URL still points to an older deployment.
@@ -48,17 +54,23 @@ export async function fetchNexusApi(
   }
 
   let lastError: unknown;
-  for (const url of candidates) {
+  let lastResponse: Response | undefined;
+  for (let index = 0; index < candidates.length; index += 1) {
+    const url = candidates[index]!;
     try {
       const response = await fetch(url, init);
-      // 404/405 are strong signs that an APK is still connected to the backend
-      // da V1, which did not expose the assistant route.
+      const hasAlternative = index < candidates.length - 1;
+      if (hasAlternative && RECOVERABLE_BACKEND_STATUSES.has(response.status)) {
+        lastResponse = response;
+        continue;
+      }
       if (response.status === 404 || response.status === 405) {
         lastError = new NexusApiError(
           "incompatible",
-          "O backend conectado é antigo e não possui esta rota da V2.1.",
+          "O backend conectado é antigo e não possui esta rota do Nexus.",
           response.status,
         );
+        lastResponse = response;
         continue;
       }
       return response;
@@ -68,6 +80,7 @@ export async function fetchNexusApi(
     }
   }
 
+  if (lastResponse) return lastResponse;
   if (lastError instanceof NexusApiError) throw lastError;
   throw new NexusApiError("unreachable", "Não foi possível alcançar o backend do Nexus.");
 }
