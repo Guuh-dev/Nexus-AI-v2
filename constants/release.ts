@@ -1,7 +1,7 @@
 export const OTA_RELEASE = {
-  label: "2.3.0",
-  update: "2.3.0",
-  runtime: "2.3.0",
+  label: "2.3.1",
+  update: "2.3.1",
+  runtime: "2.3.1",
   codename: "Widget Family",
   title: "Nexus Widget Family",
   notes: [

@@ -36,6 +36,7 @@ import type {
 
 export type BrainChatListHandle = {
   scrollToEnd: (animated?: boolean) => void;
+  reflowAfterKeyboard: () => void;
 };
 
 type Props = {
@@ -92,10 +93,17 @@ export const BrainChatList = forwardRef<BrainChatListHandle, Props>(
       [positions, reducedMotion, thread.id],
     );
 
+    const reflowAfterKeyboard = useCallback(() => {
+      if (!stickToEnd.current) return;
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToEnd({ animated: false });
+      });
+    }, []);
+
     useImperativeHandle(
       forwardedRef,
-      () => ({ scrollToEnd }),
-      [scrollToEnd],
+      () => ({ scrollToEnd, reflowAfterKeyboard }),
+      [reflowAfterKeyboard, scrollToEnd],
     );
 
     useLayoutEffect(() => {

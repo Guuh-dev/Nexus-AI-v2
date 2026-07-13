@@ -1,20 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
-  android:id="@+id/nexus_widget_root" android:layout_width="match_parent" android:layout_height="match_parent"
-  android:minWidth="110dp" android:minHeight="110dp" android:padding="12dp" android:background="@drawable/nexus_widget_background_transparent">
-  <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center">
-    <LinearLayout android:id="@+id/nexus_widget_mascot_stage" android:layout_width="match_parent" android:layout_height="70dp" android:orientation="horizontal" android:gravity="center">
-      <ImageView android:id="@+id/nexus_widget_mascot" android:layout_width="62dp" android:layout_height="62dp" android:layout_gravity="center" android:src="@drawable/ic_nexus_mascot" android:contentDescription="@string/nexus_widget_mascot_description" />
-      <TextView android:id="@+id/nexus_widget_accessory" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="top|center_horizontal" android:textColor="#F7F7F8" android:textSize="13sp" android:textStyle="bold" />
+  android:id="@+id/nexus_widget_root"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:minWidth="110dp"
+  android:minHeight="110dp"
+  android:padding="14dp"
+  android:background="@drawable/nexus_widget_background_transparent">
+
+  <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+      <LinearLayout
+        android:id="@+id/nexus_widget_mascot_stage"
+        android:layout_width="76dp"
+        android:layout_height="76dp"
+        android:orientation="horizontal"
+        android:gravity="center">
+        <ImageView
+          android:id="@+id/nexus_widget_mascot"
+          android:layout_width="72dp"
+          android:layout_height="72dp"
+          android:adjustViewBounds="true"
+          android:scaleType="fitCenter"
+          android:src="@drawable/ic_nexus_mascot"
+          android:contentDescription="@string/nexus_widget_mascot_description" />
+      </LinearLayout>
+      <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:layout_marginStart="8dp">
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+          <ImageView android:id="@+id/nexus_widget_professor" android:layout_width="24dp" android:layout_height="24dp" android:layout_marginEnd="5dp" android:src="@drawable/ic_nexus_atlas" android:visibility="gone" android:contentDescription="@string/nexus_widget_professor_description" />
+          <TextView android:id="@+id/nexus_widget_brand" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="NEXUS COMPANION" android:textColor="#A78BFA" android:textSize="9sp" android:textStyle="bold" android:letterSpacing="0.08" android:maxLines="1" android:ellipsize="end" />
+          <TextView android:id="@+id/nexus_widget_streak" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="♨ 0" android:textColor="#FBBF24" android:textSize="10sp" android:textStyle="bold" />
+        </LinearLayout>
+        <TextView android:id="@+id/nexus_widget_feature_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="COMPANION" android:textColor="#A78BFA" android:textSize="9sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
+        <TextView android:id="@+id/nexus_widget_feature_body" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Nexus ativo." android:textColor="#F7F7F8" android:textSize="12sp" android:maxLines="3" android:lineSpacingExtra="1dp" android:ellipsize="end" />
+        <TextView android:id="@+id/nexus_widget_accessory" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:textColor="#F7F7F8" android:textSize="11sp" android:textStyle="bold" />
+      </LinearLayout>
     </LinearLayout>
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center">
-      <ImageView android:id="@+id/nexus_widget_professor" android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_nexus_atlas" android:visibility="gone" android:contentDescription="@string/nexus_widget_professor_description" />
-      <TextView android:id="@+id/nexus_widget_brand" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="NEXUS COMPANION" android:textColor="#A78BFA" android:textSize="9sp" android:textStyle="bold" />
-      <TextView android:id="@+id/nexus_widget_streak" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:text="♨ 0" android:textColor="#FBBF24" android:textSize="10sp" android:textStyle="bold" />
-    </LinearLayout>
-    <TextView android:id="@+id/nexus_widget_feature_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="4dp" android:gravity="center" android:textColor="#A78BFA" android:textSize="9sp" android:textStyle="bold" android:maxLines="1" />
-    <TextView android:id="@+id/nexus_widget_feature_body" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:textColor="#F7F7F8" android:textSize="11sp" android:maxLines="3" android:ellipsize="end" />
   </LinearLayout>
+
+  <!-- Stable IDs shared by every family. Hidden views let one safe renderer update all providers. -->
   <LinearLayout android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" android:orientation="vertical">
     <TextView android:id="@+id/nexus_widget_page" android:layout_width="wrap_content" android:layout_height="wrap_content"/><TextView android:id="@+id/nexus_widget_mission" android:layout_width="wrap_content" android:layout_height="wrap_content"/><TextView android:id="@+id/nexus_widget_learning" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
     <LinearLayout android:id="@+id/nexus_widget_task_1" style="@style/NexusWidgetTaskRow"><TextView android:id="@+id/nexus_widget_check_1" style="@style/NexusWidgetCheck"/><TextView android:id="@+id/nexus_widget_task_title_1" style="@style/NexusWidgetTaskTitle"/></LinearLayout>

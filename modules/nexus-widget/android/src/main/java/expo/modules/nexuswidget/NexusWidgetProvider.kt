@@ -198,6 +198,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       }
       val privateMode = contentMode == "private" || style == "privacy" || appearance?.optBoolean("privacyMode", false) == true
       val background = appearance?.optString("background", "solid") ?: "solid"
+      val opacity = appearance?.optInt("opacity", 100) ?: 100
       val backgroundResource = when {
         style == "transparent" || background == "transparent" -> R.drawable.nexus_widget_background_transparent
         style == "light" -> R.drawable.nexus_widget_background_light
@@ -207,6 +208,10 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         style == "minimal" -> R.drawable.nexus_widget_background_minimal
         style == "gamer" -> R.drawable.nexus_widget_background_gamer
         style == "neon" -> R.drawable.nexus_widget_background_neon
+        opacity <= 50 -> R.drawable.nexus_widget_background_50
+        opacity <= 70 -> R.drawable.nexus_widget_background_70
+        opacity <= 85 -> R.drawable.nexus_widget_background_85
+        opacity <= 96 -> R.drawable.nexus_widget_background_96
         else -> R.drawable.nexus_widget_background
       }
       views.setInt(R.id.nexus_widget_root, "setBackgroundResource", backgroundResource)
@@ -251,12 +256,11 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       }
       val progressStyle = instance.optString("progressStyle", appearance?.optString("progressStyle", "bar") ?: "bar")
       val fontScale = appearance?.optString("fontScale", "normal") ?: "normal"
-      val textAlign = instance.optString("alignment", appearance?.optString("textAlign", "left") ?: "left")
+      val globalTextAlign = appearance?.optString("textAlign", "left") ?: "left"
+      val textAlign = instance.optString("alignment", "global").let { if (it == "global") globalTextAlign else it }
       val tapAction = instance.optString("tapAction", appearance?.optString("tapAction", "today") ?: "today")
       val customLabel = appearance?.optString("customLabel", "NEXUS ONLINE")?.take(24) ?: "NEXUS ONLINE"
-      val skin = appearance?.optString("skin", "classic") ?: "classic"
       val accessory = instance.optString("accessory", appearance?.optString("accessory", "") ?: "")
-      val professorVariant = appearance?.optString("professorVariant", "classic") ?: "classic"
       val accentColor = try { Color.parseColor(instance.optString("accentColor", appearance?.optString("accentColor", "#8B5CF6") ?: "#8B5CF6")) } catch (_: Exception) { Color.rgb(139, 92, 246) }
       val lightStyle = style == "light"
       val mainText = if (lightStyle) Color.rgb(21, 19, 27) else Color.rgb(247, 247, 248)
@@ -280,38 +284,11 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         "ember" -> R.drawable.ic_nexus_ember
         else -> R.drawable.ic_nexus_mascot
       })
-      val skinColor = when (skin) {
-        "shadow" -> Color.rgb(113, 113, 122)
-        "galaxy" -> Color.rgb(124, 58, 237)
-        "emerald" -> Color.rgb(16, 185, 129)
-        "gold" -> Color.rgb(245, 158, 11)
-        "ice" -> Color.rgb(56, 189, 248)
-        "rose" -> Color.rgb(236, 72, 153)
-        else -> accentColor
-      }
       views.setImageViewResource(R.id.nexus_widget_professor, R.drawable.ic_nexus_atlas)
-      val professorColor = when (professorVariant) {
-        "emerald" -> Color.rgb(16, 185, 129)
-        "gold" -> Color.rgb(245, 158, 11)
-        "ice" -> Color.rgb(56, 189, 248)
-        "rose" -> Color.rgb(236, 72, 153)
-        else -> accentColor
-      }
-      val mascotColor = when (selectedMascot) {
-        "atlas" -> professorColor
-        "nova" -> Color.parseColor("#F97316")
-        "byte" -> Color.parseColor("#38BDF8")
-        "pulse" -> Color.parseColor("#EC4899")
-        "orbit" -> Color.parseColor("#22D3EE")
-        "ember" -> Color.parseColor("#FB7185")
-        else -> skinColor
-      }
-      // Nexus pose vectors carry their own pixel colors and facial details.
-      // Tint only alternate companions; a global filter would flatten the
-      // celebrating/resting/watching artwork into a single-color silhouette.
-      if (selectedMascot != "nexus") {
-        views.setInt(R.id.nexus_widget_mascot, "setColorFilter", mascotColor)
-      }
+      // Every companion vector has its own palette, eyes and highlights.
+      // Applying a RemoteViews color filter flattens the entire vector into a
+      // single silhouette (the green "fallen off a bike" mascot regression).
+      // Accent colors belong to chrome and typography, never to character art.
       val completedForPose = payload?.optInt("completedCount", 0) ?: 0
       val totalForPose = payload?.optInt("totalCount", 0) ?: 0
       val pose = when {
@@ -338,13 +315,30 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         else -> Gravity.CENTER
       })
       views.setContentDescription(R.id.nexus_widget_mascot, "Nexus Companion: $pose")
-      views.setInt(R.id.nexus_widget_professor, "setColorFilter", professorColor)
       views.setTextViewText(R.id.nexus_widget_accessory, accessoryGlyph(accessory))
       views.setTextColor(R.id.nexus_widget_accessory, mainText)
-      views.setTextViewTextSize(R.id.nexus_widget_mission, 2, when (fontScale) { "pequena" -> 13f; "grande" -> 17f; else -> 15f })
+      val missionTextSize = when (family) {
+        NexusWidgetFamily.STRIP -> when (fontScale) { "pequena" -> 11f; "grande" -> 14f; else -> 13f }
+        NexusWidgetFamily.MISSION -> when (fontScale) { "pequena" -> 13f; "grande" -> 17f; else -> 15f }
+        NexusWidgetFamily.COMMAND -> when (fontScale) { "pequena" -> 14f; "grande" -> 18f; else -> 16f }
+        else -> 13f
+      }
+      views.setTextViewTextSize(R.id.nexus_widget_mission, 2, missionTextSize)
+      val bodyTextSize = when (fontScale) { "pequena" -> 10f; "grande" -> 14f; else -> 12f }
+      val taskTextSize = when (fontScale) { "pequena" -> 10f; "grande" -> 13f; else -> 11f }
+      views.setTextViewTextSize(R.id.nexus_widget_feature_body, 2, bodyTextSize)
+      views.setTextViewTextSize(R.id.nexus_widget_metrics, 2, if (fontScale == "grande") 12f else 10f)
+      views.setTextViewTextSize(R.id.nexus_widget_progress_text, 2, if (fontScale == "grande") 12f else 10f)
+      intArrayOf(
+        R.id.nexus_widget_task_title_1,
+        R.id.nexus_widget_task_title_2,
+        R.id.nexus_widget_task_title_3,
+        R.id.nexus_widget_task_title_4,
+        R.id.nexus_widget_task_title_5,
+      ).forEach { views.setTextViewTextSize(it, 2, taskTextSize) }
       views.setViewVisibility(R.id.nexus_widget_mascot, if (showMascot) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_professor, if (showProfessor) View.VISIBLE else View.GONE)
-      views.setViewVisibility(R.id.nexus_widget_brand, if (tiny) View.GONE else View.VISIBLE)
+      views.setViewVisibility(R.id.nexus_widget_brand, if (tiny || (family == NexusWidgetFamily.STRIP && width < 150)) View.GONE else View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_mission, if (showMission && !tiny) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_streak, if (showStreak) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_metrics, if (!tiny && (showXp || showLevel || showFocus)) View.VISIBLE else View.GONE)
@@ -353,7 +347,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_capture, if (showCapture && large && contentMode in listOf("full", "smart", "tasks")) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_page, if (pageCycle && !tiny) View.VISIBLE else View.GONE)
 
-      val gravity = if (textAlign == "center") Gravity.CENTER_HORIZONTAL else Gravity.START
+      val gravity = if (textAlign == "center") Gravity.CENTER else Gravity.START or Gravity.CENTER_VERTICAL
       intArrayOf(
         R.id.nexus_widget_brand,
         R.id.nexus_widget_mission,
@@ -408,7 +402,11 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         val tasks = payload.optJSONArray("tasks")
         val maxVisible = when (family) {
           NexusWidgetFamily.MINI, NexusWidgetFamily.STRIP, NexusWidgetFamily.COMPANION -> 0
-          NexusWidgetFamily.MISSION -> if (height < 120) 1 else minOf(3, if (compactTasks) 2 else 3)
+          NexusWidgetFamily.MISSION -> when {
+            height < 115 -> 1
+            height < 155 -> 2
+            else -> minOf(3, if (compactTasks) 2 else 3)
+          }
           NexusWidgetFamily.COMMAND -> when {
             compact -> if (compactTasks) 1 else 0
             large -> 5

@@ -5,6 +5,7 @@ import {
   isChatAtEnd,
   shouldShowChatJump,
 } from "@/components/brain/chat-scroll";
+import { resolveKeyboardOcclusion } from "@/components/brain/keyboard-occlusion";
 
 describe("Brain chat OTA layout", () => {
   it("keeps following streaming content while the reader is near the end", () => {
@@ -48,5 +49,15 @@ describe("Brain chat OTA layout", () => {
     expect(list).toContain("onLayout={restoreOrFollow}");
     expect(list).toContain("↓ Ir ao final");
     expect(list).toContain("scrollToEnd({ animated: false })");
+    expect(screen).toContain("resolveKeyboardOcclusion");
+    expect(screen).toContain('Keyboard.addListener("keyboardDidShow"');
+    expect(list).toContain("reflowAfterKeyboard");
+  });
+
+  it("compensates only for IME space Android did not resize", () => {
+    expect(resolveKeyboardOcclusion({ keyboardHeight: 420, baselineHeight: 760, viewportHeight: 760 })).toBe(420);
+    expect(resolveKeyboardOcclusion({ keyboardHeight: 420, baselineHeight: 760, viewportHeight: 340 })).toBe(0);
+    expect(resolveKeyboardOcclusion({ keyboardHeight: 420, baselineHeight: 760, viewportHeight: 500 })).toBe(160);
+    expect(resolveKeyboardOcclusion({ keyboardHeight: 0, baselineHeight: 760, viewportHeight: 760 })).toBe(0);
   });
 });

@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.3.1 — Recovery & Widget Polish
+
+- Bloqueado vazamento de raciocínio, prompts internos, respostas em inglês e textões do Brain/Professor Atlas.
+- Atlas agora entrega uma etapa e no máximo uma pergunta por resposta.
+- Roadmaps e revisões semanais só recebem selo de IA quando chegam estruturados do backend; falhas continuam com fallback local explícito.
+- Corrigida a oclusão do teclado na One UI, sem espaço branco por resize duplo e sem perder a posição em conversas longas.
+- Refinados os widgets Mini, Strip, Companion, Mission e Command com conteúdo responsivo, margens seguras e mascotes legíveis.
+- Personalização por instância agora respeita opacidade, alinhamento, fonte, conteúdo, tarefas, privacidade, mascote e estilo no widget Android real.
+
+> Esta versão altera Kotlin, XML, drawables e runtime. Ela exige um novo APK-base 2.3.1.
+
 ## 2.3.0 — Widget Family
 
 - O seletor Android agora oferece cinco widgets reais: Mini, Strip, Companion, Mission e Command.

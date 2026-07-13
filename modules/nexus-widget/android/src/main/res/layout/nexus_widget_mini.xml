@@ -5,7 +5,7 @@
   android:layout_height="match_parent"
   android:minWidth="48dp"
   android:minHeight="48dp"
-  android:padding="5dp"
+  android:padding="2dp"
   android:background="@drawable/nexus_widget_background_transparent">
 
   <LinearLayout
@@ -22,9 +22,11 @@
       android:gravity="center">
       <ImageView
         android:id="@+id/nexus_widget_mascot"
-        android:layout_width="46dp"
-        android:layout_height="46dp"
+        android:layout_width="72dp"
+        android:layout_height="72dp"
         android:layout_gravity="center"
+        android:adjustViewBounds="true"
+        android:scaleType="fitCenter"
         android:src="@drawable/ic_nexus_mascot"
         android:contentDescription="@string/nexus_widget_mascot_description" />
     </LinearLayout>
@@ -34,7 +36,7 @@
       android:layout_height="wrap_content"
       android:text="♨ 0"
       android:textColor="#FBBF24"
-      android:textSize="11sp"
+      android:textSize="10sp"
       android:textStyle="bold" />
   </LinearLayout>
 

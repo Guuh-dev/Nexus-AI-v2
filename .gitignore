@@ -3,6 +3,8 @@ node_modules/
 dist/
 web-build/
 coverage/
+.home/
+.npm-cache/
 .env
 .env.*
 !.env.example
