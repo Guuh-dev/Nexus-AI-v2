@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createStarterRoadmap } from "@/features/learning/roadmap";
 import { buildWeeklyEvidence, createEvidenceBasedWeeklyReview, sanitizeAiWeeklyReview } from "@/features/progress/weekly-review";
 import { synthesizeMission } from "@/features/context/synthesis";
+import { createLocalWeeklyReview } from "@/services/assistant.service";
 import { generateLocalPlan } from "@/services/planning.service";
 import { createWidgetPayload } from "@/services/widget.service";
 vi.mock("react-native", () => ({ Platform: { OS: "web" } }));
@@ -86,6 +87,25 @@ describe("systemic mission OS regressions", () => {
     expect(sanitized.consistencyScore).toBe(0);
     expect(sanitized.focusMinutes).toBe(0);
     expect(sanitized.patterns.join(" ")).not.toContain("Medo de falhar");
+  });
+
+  it("uses observable evidence and a deterministic score in the local weekly-review fallback", () => {
+    const data = makeAppData(advancedProfile());
+    const plan = generateLocalPlan({ profile: advancedProfile(), date: "2026-07-10", requestId: "request-review", clientId: "install-systemic" });
+    data.history = [
+      { date: "2026-07-07", plan, completedTasks: 2, totalTasks: 2, completionPercentage: 100, xpEarned: 50, focusMinutes: 30, countedForStreak: true },
+      { date: "2026-07-08", plan, completedTasks: 1, totalTasks: 2, completionPercentage: 50, xpEarned: 30, focusMinutes: 0, countedForStreak: true },
+      { date: "2026-07-09", plan, completedTasks: 0, totalTasks: 2, completionPercentage: 0, xpEarned: 0, focusMinutes: 0, countedForStreak: false },
+      { date: "2026-07-10", plan, completedTasks: 1, totalTasks: 2, completionPercentage: 50, xpEarned: 40, focusMinutes: 15, countedForStreak: true },
+    ];
+
+    const evidence = buildWeeklyEvidence(data);
+    const review = createLocalWeeklyReview(data);
+
+    expect(evidence).toMatchObject({ completionPercentage: 50, focusMinutes: 45, xpEarned: 120, activeDays: 3, score: 49 });
+    expect(review).toMatchObject({ completionPercentage: 50, focusMinutes: 45, xpEarned: 120, consistencyScore: 49, source: "local" });
+    expect(review.highlights.join(" ")).toContain("4 de 8 tarefas");
+    expect(review.highlights.join(" ")).toContain("45 min de foco");
   });
 
   it("generates clear offline mission and revenue action for commercial goals", () => {
