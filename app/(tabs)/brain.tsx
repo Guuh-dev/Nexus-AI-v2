@@ -1,10 +1,12 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   StyleSheet,
   View,
+  type LayoutChangeEvent,
 } from "react-native";
 import { router } from "expo-router";
 import {
@@ -23,6 +25,7 @@ import { NexusButton } from "@/components/ui/NexusButton";
 import { NexusText } from "@/components/ui/NexusText";
 import { Screen } from "@/components/ui/Screen";
 import type { ChatScrollPosition } from "@/components/brain/chat-scroll";
+import { resolveKeyboardOcclusion } from "@/components/brain/keyboard-occlusion";
 import { useNexus } from "@/providers/NexusProvider";
 import type { ChatKind, ChatThread } from "@/types";
 
@@ -61,6 +64,9 @@ export default function BrainScreen() {
   const [showArchived, setShowArchived] = useState(false);
   const chatListRef = useRef<BrainChatListHandle>(null);
   const chatPositions = useRef(new Map<string, ChatScrollPosition>());
+  const baselineChatHeight = useRef(0);
+  const [chatViewportHeight, setChatViewportHeight] = useState(0);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const activeId =
     kind === "brain"
       ? data.brain.activeBrainThreadId
@@ -136,13 +142,48 @@ export default function BrainScreen() {
     local: "MODO LOCAL",
   }[assistantStage];
 
+  useEffect(() => {
+    if (mode !== "chat" || Platform.OS !== "android") return undefined;
+    const show = Keyboard.addListener("keyboardDidShow", (event) => {
+      setKeyboardHeight(Math.max(0, event.endCoordinates.height));
+      setTimeout(() => chatListRef.current?.reflowAfterKeyboard(), 50);
+    });
+    const hide = Keyboard.addListener("keyboardDidHide", () => {
+      setKeyboardHeight(0);
+      setTimeout(() => chatListRef.current?.reflowAfterKeyboard(), 50);
+    });
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [mode]);
+
+  const onChatLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const height = event.nativeEvent.layout.height;
+      setChatViewportHeight(height);
+      if (keyboardHeight === 0) baselineChatHeight.current = Math.max(baselineChatHeight.current, height);
+    },
+    [keyboardHeight],
+  );
+
+  const androidKeyboardOcclusion =
+    Platform.OS === "android"
+      ? resolveKeyboardOcclusion({
+          keyboardHeight,
+          baselineHeight: baselineChatHeight.current,
+          viewportHeight: chatViewportHeight,
+        })
+      : 0;
+
   if (mode === "chat" && active) {
     return (
       <Screen scroll={false} padded={false} keyboardAware={false}>
         <KeyboardAvoidingView
-          style={styles.chatShell}
+          style={[styles.chatShell, androidKeyboardOcclusion > 0 && { paddingBottom: androidKeyboardOcclusion }]}
           enabled={Platform.OS === "ios"}
           behavior="padding"
+          onLayout={onChatLayout}
         >
           <View
             style={[

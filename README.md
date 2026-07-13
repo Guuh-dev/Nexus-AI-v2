@@ -9,7 +9,7 @@
 <p>
   <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/ci.yml?style=for-the-badge&label=CI" /></a>
   <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/security.yml"><img alt="Security" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/security.yml?style=for-the-badge&label=Security" /></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-2.3.0-8B5CF6?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-2.3.1-8B5CF6?style=for-the-badge" />
   <img alt="Expo" src="https://img.shields.io/badge/Expo-57-000020?style=for-the-badge&logo=expo" />
   <img alt="React Native" src="https://img.shields.io/badge/React_Native-0.86-20232A?style=for-the-badge&logo=react" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript" />
@@ -61,7 +61,16 @@ Nexus now ships a real Android widget family instead of forcing every experience
 - Shared local data, secure actions and independent configuration per instance.
 - Nexus Flow 2.2.1 chat improvements: fixed composer, virtualized history and faster AI fallback.
 
-Version 2.3.0 changes Kotlin, Android resources and widget providers, so it requires a new base APK. Compatible follow-up fixes can use OTA while the runtime stays on 2.3.0.
+Version 2.3.1 polishes the native widget family and repairs the Brain/Atlas reliability path, so it requires a new base APK. Compatible follow-up fixes can use OTA while the runtime stays on 2.3.1.
+
+### 2.3.1 — Recovery & Widget Polish
+
+- Blocks leaked model reasoning, English internal instructions and oversized Atlas answers before they reach the UI.
+- Keeps Atlas to one practical step and at most one question per turn.
+- Requires remotely generated structured roadmaps and weekly reviews before marking them as AI output; local fallback remains explicit.
+- Fixes Android keyboard occlusion without double-resize gaps and preserves the reader's position in long conversations.
+- Rebuilds the five native widget families with safer spacing, responsive content density, larger mascots and per-instance visual controls.
+- Makes opacity, alignment, privacy, task count and mascot choices match the real Android widget instead of only the Studio preview.
 
 ---
 

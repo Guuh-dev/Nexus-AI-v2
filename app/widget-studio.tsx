@@ -169,7 +169,7 @@ export default function WidgetStudioScreen() {
             </View>
           </Section>
 
-          <Section title="Tamanho preferido" subtitle="Escolha no Android a família Mini, Strip, Companion, Mission ou Command correspondente; o launcher pode redimensionar dentro dos limites seguros.">
+          <Section title="Tamanho preferido" subtitle="Escolha no Android a família Mini, Strip, Companion, Mission ou Command. O conteúdo real reduz tarefas e detalhes automaticamente antes de cortar textos.">
             <View style={styles.sizeGrid}>
               {SIZES.map((item) => (
                 <Pressable
@@ -379,7 +379,7 @@ export default function WidgetStudioScreen() {
       ) : null}
 
       <NexusText variant="caption" secondary style={styles.note}>
-        Nexus 2.2 amplia o motor nativo: novos conteúdos, humor por instância e troca de página exigem o novo APK-base.
+        Widget Family 2.3: cada instância mantém tamanho, conteúdo, estilo, mascote, humor e ação próprios. O preview respeita os limites do widget Android real.
       </NexusText>
     </Screen>
   );
