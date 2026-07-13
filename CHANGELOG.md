@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.4.0 — Systemic Mission OS RC
+
+- Correção global de teclado para formulários, entrevista Atlas, onboarding, modais e campos multiline usando uma abstração compartilhada de Screen/Field keyboard-aware.
+- Roadmaps agora classificam intenção e nível real para gerar trilhas avançadas de oferta, aquisição, fechamento e entrega quando o usuário já sabe construir LPs, SaaS, apps ou produtos com IA.
+- Planejamento diário e fallback local sintetizam metas longas em missão curta, próxima ação e resultado verificável em vez de copiar o texto bruto do usuário.
+- Revisão semanal passa a usar evidências determinísticas, marca dados insuficientes e sanitiza hipóteses de IA não sustentadas por fatos.
+- Widget payload ganha estado vazio útil e o Android evita renderizar cards grandes sem conteúdo, mantendo personalização e atualização nativa.
+- Tarefas exibem resultado esperado já no card recolhido para reduzir ambiguidade antes de abrir os detalhes.
+
+> Esta versão altera comportamento nativo de widget e teclado. Ela exige novo APK-base 2.4.0; não publique como OTA.
+
 ## 2.3.1 — Recovery & Widget Polish
 
 - Bloqueado vazamento de raciocínio, prompts internos, respostas em inglês e textões do Brain/Professor Atlas.

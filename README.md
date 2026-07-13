@@ -2,14 +2,14 @@
 
 <img src="assets/banner.svg" alt="Nexus AI — Personal Mission OS" width="100%" />
 
-# Nexus AI 2.3 · Widget Family
+# Nexus AI 2.4 · Systemic Mission OS
 
 ### A local-first Personal Mission OS that turns ambition into the next clear action.
 
 <p>
   <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/ci.yml?style=for-the-badge&label=CI" /></a>
   <a href="https://github.com/Guuh-dev/Nexus-AI-v2/actions/workflows/security.yml"><img alt="Security" src="https://img.shields.io/github/actions/workflow/status/Guuh-dev/Nexus-AI-v2/security.yml?style=for-the-badge&label=Security" /></a>
-  <img alt="Version" src="https://img.shields.io/badge/version-2.3.1-8B5CF6?style=for-the-badge" />
+  <img alt="Version" src="https://img.shields.io/badge/version-2.4.0-8B5CF6?style=for-the-badge" />
   <img alt="Expo" src="https://img.shields.io/badge/Expo-57-000020?style=for-the-badge&logo=expo" />
   <img alt="React Native" src="https://img.shields.io/badge/React_Native-0.86-20232A?style=for-the-badge&logo=react" />
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=for-the-badge&logo=typescript" />
@@ -61,7 +61,7 @@ Nexus now ships a real Android widget family instead of forcing every experience
 - Shared local data, secure actions and independent configuration per instance.
 - Nexus Flow 2.2.1 chat improvements: fixed composer, virtualized history and faster AI fallback.
 
-Version 2.3.1 polishes the native widget family and repairs the Brain/Atlas reliability path, so it requires a new base APK. Compatible follow-up fixes can use OTA while the runtime stays on 2.3.1.
+Version 2.4.0 is a native APK-base focused on systemic Mission OS correctness: keyboard-aware forms, evidence-based reviews, synthesized missions, advanced commercial roadmaps and widget parity. Native widget/keyboard changes must ship through a new APK, not OTA.
 
 ### 2.3.1 — Recovery & Widget Polish
 

@@ -27,6 +27,7 @@ export default function ProgressScreen() {
   const categories = categoryDistribution(data);
   const completedMissions = data.history.filter((day) => day.plan.mainMission.completed).slice(-10).reverse();
   const latestReview = data.weeklyReviews.at(-1);
+  const reviewHasEnoughData = latestReview ? !latestReview.patterns.some((item) => item.includes("Não há dados suficientes")) : false;
   const maxAttribute = Math.max(1, ...Object.values(data.progress.attributes));
   const activeChallenges = data.progress.challenges.filter((challenge) => new Date(challenge.expiresAt).getTime() >= Date.now() - 86_400_000);
 
@@ -125,10 +126,10 @@ export default function ProgressScreen() {
             <NexusButton label={latestReview ? "Atualizar revisão" : "Criar minha revisão"} loading={assistantBusy} onPress={() => void generateWeeklyReview()} fullWidth />
             {latestReview ? (
               <Card style={styles.review}>
-                <View style={styles.categoryTop}><NexusText variant="mono" color={latestReview.source === "ai" ? colors.success : colors.warning}>{latestReview.source === "ai" ? "ANÁLISE NEXUS" : "ANÁLISE LOCAL"}</NexusText><NexusText variant="title">{latestReview.consistencyScore}/100</NexusText></View>
+                <View style={styles.categoryTop}><NexusText variant="mono" color={latestReview.source === "ai" ? colors.success : colors.warning}>{latestReview.source === "ai" ? "ANÁLISE NEXUS" : "ANÁLISE LOCAL"}</NexusText><NexusText variant="title">{reviewHasEnoughData ? `${latestReview.consistencyScore}/100` : "Dados insuficientes"}</NexusText></View>
                 <NexusText variant="title">Foco da próxima semana</NexusText>
                 <NexusText>{latestReview.nextWeekFocus}</NexusText>
-                <ProgressBar progress={latestReview.consistencyScore / 100} color={latestReview.consistencyScore >= 70 ? colors.success : colors.warning} />
+                {reviewHasEnoughData ? <ProgressBar progress={latestReview.consistencyScore / 100} color={latestReview.consistencyScore >= 70 ? colors.success : colors.warning} /> : null}
                 <ReviewList title="O que funcionou" items={latestReview.keep} />
                 <ReviewList title="Padrões observados" items={latestReview.patterns} />
                 <ReviewList title="O que cortar" items={latestReview.cut} />

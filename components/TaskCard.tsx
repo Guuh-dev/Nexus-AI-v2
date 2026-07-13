@@ -70,6 +70,13 @@ export function TaskCard({
             </View>
             <NexusText variant="subtitle" style={task.completed ? styles.completed : undefined}>{task.title}</NexusText>
             {task.description ? <NexusText variant="caption" secondary numberOfLines={showGuidance ? undefined : 2}>{task.description}</NexusText> : null}
+            {!showGuidance ? (
+              <View style={[styles.quickOutcome, { borderColor: `${colors.success}28`, backgroundColor: `${colors.success}08` }]}>
+                <NexusText variant="caption" color={colors.success} numberOfLines={2}>
+                  Resultado: {guidance.deliverable}
+                </NexusText>
+              </View>
+            ) : null}
             <View style={styles.metaRow}>
               <NexusText variant="caption" secondary>◷ {task.estimatedMinutes} min</NexusText>
               <NexusText variant="caption" color={colors.primarySoft}>+{task.xp} XP</NexusText>
@@ -137,6 +144,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   metaRow: { flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 3 },
+  quickOutcome: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 7 },
   completed: { textDecorationLine: "line-through", opacity: 0.6 },
   guidanceToggle: { minHeight: 42, borderTopWidth: StyleSheet.hairlineWidth, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
   guidance: { borderTopWidth: StyleSheet.hairlineWidth, padding: 15, gap: 10 },

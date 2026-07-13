@@ -7,6 +7,7 @@ import type {
 } from "@/types";
 import { createId } from "@/utils/ids";
 import { sanitizeText } from "@/utils/text";
+import { classifyGoalIntent } from "@/features/context/synthesis";
 
 export const EVOLUTION_AREA_LABELS: Record<EvolutionArea, string> = {
   programacao: "Programação",
@@ -70,6 +71,62 @@ const GENERIC_PHASES = [
     ],
   },
 ] as const;
+
+function isLandingPageSalesTopic(topic: string): boolean {
+  return /landing\s*pages?|lp\b|vender|venda|freela|freelance|cliente/i.test(topic);
+}
+
+function landingPageSalesGuidance(kind: string, topic: string, minutes: number, intake?: ProfessorIntake) {
+  const outcome = sanitizeText(intake?.desiredOutcome, 220) || `vender uma landing page real ligada a ${topic}`;
+  const niche = sanitizeText(intake?.proofProject, 260) || "uma oferta simples para um nicho específico";
+  const base = {
+    diagnostic: {
+      objective: `Medir seu nível real criando uma oferta de landing page vendável, não só estudando ${topic}.`,
+      steps: [
+        "Escolha um nicho específico que você consiga contatar hoje.",
+        "Escreva o problema caro que a landing page resolveria para esse nicho.",
+        "Rascunhe promessa, público, prova e CTA em uma página simples.",
+        "Marque o que travou: oferta, copy, design, preço ou prospecção.",
+      ],
+      deliverable: `Um diagnóstico com nicho, oferta, lacunas e primeiro rascunho de LP para ${outcome}.`,
+      successCriteria: "Você sabe exatamente se o gargalo está em vender, escrever, montar ou prospectar.",
+    },
+    fundamentals: {
+      objective: "Montar a ordem mínima dos fundamentos que realmente vendem uma landing page.",
+      steps: [
+        "Separe os fundamentos em: nicho, dor, oferta, copy, layout, prova, CTA, preço e prospecção.",
+        "Dê nota de 0 a 2 para cada fundamento usando uma evidência real.",
+        "Escolha o primeiro gargalo que impede uma conversa com cliente.",
+        "Transforme esse gargalo em um treino de uma sessão.",
+      ],
+      deliverable: "Um mapa de vendas de LP com notas, dependências e prioridade comercial.",
+      successCriteria: "A próxima aula vira uma ação de venda, não uma lista vaga de coisas para estudar.",
+    },
+    guided: {
+      objective: `Construir uma primeira LP simples para ${niche} com foco em vender uma conversa.`,
+      steps: [
+        "Defina uma oferta única: resultado, prazo estimado e para quem serve.",
+        "Escreva hero, benefícios, prova possível, processo e CTA.",
+        "Monte uma versão mobile-first em ferramenta simples ou código básico.",
+        "Revise se cada seção responde uma objeção de compra.",
+      ],
+      deliverable: "Uma LP mínima com link, print ou arquivo e CTA claro para contato.",
+      successCriteria: "Alguém do nicho entende em 10 segundos o que você vende e como chamar você.",
+    },
+    precision: {
+      objective: "Treinar a parte mais fraca da venda de LP com repetição curta.",
+      steps: [
+        "Escolha uma habilidade: headline, oferta, CTA, preço, layout ou abordagem.",
+        "Crie 3 variações em vez de uma versão perfeita.",
+        "Compare qual é mais específica, clara e vendável.",
+        "Use a melhor variação na LP ou na mensagem de prospecção.",
+      ],
+      deliverable: "Três variações comparadas e uma versão escolhida para uso real.",
+      successCriteria: "A versão final é mais específica e menos genérica que a primeira.",
+    },
+  } as const;
+  return base[kind as keyof typeof base] ?? localLessonGuidance(kind, topic, minutes, intake);
+}
 
 function localLessonGuidance(
   kind: string,
@@ -238,6 +295,59 @@ function localLessonGuidance(
   return base[kind as keyof typeof base] ?? base.guided;
 }
 
+function commercialAdvancedPhases(topic: string, lessonMinutes: number, intake?: ProfessorIntake): RoadmapPhase[] {
+  const now = new Date().toISOString();
+  void now;
+  const proof = sanitizeText(intake?.proofProject, 260) || "uma entrega real para vender";
+  const outcome = sanitizeText(intake?.desiredOutcome, 260) || "fechar o primeiro projeto pago";
+  const phaseData = [
+    {
+      title: "Oferta vendável e posicionamento",
+      objective: `Transformar ${topic} em uma oferta comprável ligada a ${outcome}.`,
+      lessons: [
+        ["Escolher oferta de entrada", "Definir um serviço específico com escopo, prazo e preço inicial.", ["Escolha um nicho acessível hoje.", "Liste uma dor que custa tempo ou dinheiro para esse nicho.", "Defina uma oferta de LP/app/automação com início, fim e preço inicial.", "Escreva uma promessa que não dependa de hype de IA."], "Oferta com nicho, dor, escopo, prazo e preço inicial.", "Você consegue enviar a oferta sem explicar sua vida inteira."],
+        ["Prova rápida de portfólio", `Usar ${proof} como evidência comercial, não como estudo genérico.`, ["Escolha uma entrega já feita ou faça uma versão demonstrável.", "Escreva problema, solução, antes/depois e resultado esperado.", "Prepare um print, link ou vídeo curto.", "Anote a objeção que essa prova ainda não responde."], "Uma prova de portfólio pronta para ser enviada a prospects.", "Um prospect entende o valor em menos de 30 segundos."],
+        ["Mensagem de abordagem", "Criar uma abordagem curta baseada em problema real observado.", ["Selecione 5 prospects compatíveis com a oferta.", "Para cada um, observe um problema específico.", "Escreva uma mensagem com contexto, problema, proposta e CTA simples.", "Defina quando fará follow-up."], "5 mensagens personalizadas e datas de follow-up.", "Cada mensagem parece escrita para aquele prospect, não para todo mundo."],
+      ],
+    },
+    {
+      title: "Aquisição e fechamento",
+      objective: "Sair da preparação e gerar conversas comerciais mensuráveis.",
+      lessons: [
+        ["Primeiro lote de prospects", "Enviar abordagens reais e medir resposta.", ["Envie as 5 mensagens preparadas.", "Registre canal, data e resposta.", "Classifique objeções por preço, confiança, timing ou clareza.", "Escolha uma melhoria para o próximo lote."], "5 abordagens enviadas e registradas.", "Existe evidência enviada, não apenas intenção."],
+        ["Follow-up sem improviso", "Transformar silêncio ou objeção em próxima conversa.", ["Revise quem não respondeu.", "Envie follow-up com uma observação útil.", "Para objeções, responda com prova ou redução de escopo.", "Marque o próximo contato."], "Follow-ups enviados e próximos passos registrados.", "Nenhum prospect fica sem próximo estado claro."],
+        ["Fechamento simples", "Converter uma conversa em proposta objetiva.", ["Resuma problema, entrega, prazo e preço.", "Defina o que está fora do escopo.", "Peça confirmação explícita do próximo passo.", "Registre aprendizado se não fechar."], "Uma proposta simples enviada ou revisada.", "A proposta deixa claro o que será entregue e como começa."],
+      ],
+    },
+    {
+      title: "Entrega, depoimento e escala",
+      objective: "Usar entregas reais para melhorar técnica e aumentar confiança comercial.",
+      lessons: [
+        ["Entrega controlada", "Executar o projeto sem aumentar escopo no meio.", ["Quebre a entrega em marco 1, revisão e finalização.", "Mostre progresso cedo ao cliente/prospect.", "Registre dúvidas e decisões.", "Feche com checklist de aceite."], "Entrega com checklist e evidência final.", "O cliente ou avaliador consegue validar o resultado."],
+        ["Depoimento e case", "Transformar a entrega em ativo de venda.", ["Peça feedback específico.", "Escreva o case com problema, solução e resultado.", "Adicione prints ou link.", "Atualize a abordagem com essa prova."], "Mini-case pronto para portfólio e prospecção.", "A próxima venda usa uma prova melhor que a anterior."],
+        ["Sistema de repetição", "Criar rotina semanal de oferta, entrega e follow-up.", ["Defina meta de prospects por semana.", "Crie um quadro simples de status.", "Liste melhorias técnicas que surgiram de projetos reais.", "Escolha a próxima oferta a testar."], "Sistema semanal de aquisição e melhoria técnica.", "Você sabe exatamente quem abordar, o que vender e o que melhorar."],
+      ],
+    },
+  ];
+  return phaseData.map((phase, phaseIndex) => ({
+    id: createId(`phase-${phaseIndex + 1}`),
+    title: phase.title,
+    objective: phase.objective,
+    order: phaseIndex,
+    lessons: phase.lessons.map(([title, objective, steps, deliverable, successCriteria]) => ({
+      id: createId("lesson"),
+      title: sanitizeText(String(title), 160),
+      description: sanitizeText(`${objective} Entrega: ${deliverable}`, 700),
+      objective: String(objective),
+      steps: steps as string[],
+      deliverable: String(deliverable),
+      successCriteria: String(successCriteria),
+      estimatedMinutes: lessonMinutes,
+      completed: false,
+    })),
+  }));
+}
+
 export function createStarterRoadmap(
   topicInput: string,
   profile: Profile,
@@ -248,18 +358,25 @@ export function createStarterRoadmap(
   const lessonMinutes =
     intake?.sessionMinutes ?? evolution?.sessionLength ?? 25;
   const now = new Date().toISOString();
-  const phases: RoadmapPhase[] = GENERIC_PHASES.map((phase, phaseIndex) => ({
+  const intentText = `${topic} ${intake?.knownConcepts ?? ""} ${intake?.desiredOutcome ?? ""} ${intake?.proofProject ?? ""} ${profile.mainGoal}`;
+  const intent = classifyGoalIntent(intentText, intake?.knowledgeLevel === "avancado" ? "avancado" : profile.skillLevel);
+  const useCommercialAdvanced = Boolean(intake) && (intake?.knowledgeLevel === "avancado" || intent === "sell_service" || intent === "get_clients" || intent === "financial_goal" || intent === "build_product" || isLandingPageSalesTopic(topic));
+  const phases: RoadmapPhase[] = useCommercialAdvanced
+    ? commercialAdvancedPhases(topic, lessonMinutes, intake)
+    : GENERIC_PHASES.map((phase, phaseIndex) => ({
     id: createId(`phase-${phaseIndex + 1}`),
     title: phase.title,
     objective: `${phase.objective} Tema: ${topic}.`,
     order: phaseIndex,
     lessons: phase.lessons.map((lesson) => {
-      const guidance = localLessonGuidance(
-        lesson.kind,
-        topic,
-        lessonMinutes,
-        intake,
-      );
+      const guidance = isLandingPageSalesTopic(topic)
+        ? landingPageSalesGuidance(lesson.kind, topic, lessonMinutes, intake)
+        : localLessonGuidance(
+            lesson.kind,
+            topic,
+            lessonMinutes,
+            intake,
+          );
       return {
         id: createId("lesson"),
         title: lesson.title,

@@ -7,6 +7,7 @@ import {
 } from "@/features/learning/roadmap";
 import { getLessonGuidance } from "@/features/learning/lesson-guidance";
 import { getTaskGuidance } from "@/features/planning/task-guidance";
+import { createEvidenceBasedWeeklyReview, sanitizeAiWeeklyReview, buildWeeklyEvidence, weekFactsForAi } from "@/features/progress/weekly-review";
 import type {
   AppData,
   AssistantMeta,
@@ -283,46 +284,9 @@ function localCapture(message: string, data: AppData): AssistantResponse {
 }
 
 export function createLocalWeeklyReview(data: AppData): WeeklyReview {
-  const days = data.history.slice(-7);
-  const completion = days.length
-    ? Math.round(
-        days.reduce((sum, day) => sum + day.completionPercentage, 0) /
-          days.length,
-      )
-    : 0;
-  const xp = days.reduce((sum, day) => sum + day.xpEarned, 0);
-  const focusMinutes = days.reduce((sum, day) => sum + day.focusMinutes, 0);
-  const end = localDateKey(new Date(), data.profile?.timezone);
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 6);
-  return {
-    id: createId("review"),
-    weekStart: localDateKey(startDate, data.profile?.timezone),
-    weekEnd: end,
-    completionPercentage: completion,
-    xpEarned: xp,
-    focusMinutes,
-    consistencyScore: completion,
-    highlights:
-      completion >= 70
-        ? ["Você manteve uma semana de execução consistente."]
-        : ["Você registrou dados reais para ajustar a próxima semana."],
-    patterns:
-      days.length < 3
-        ? ["Ainda faltam alguns dias para identificar padrões com confiança."]
-        : [
-            completion >= 70
-              ? "Planos menores parecem estar funcionando."
-              : "A capacidade planejada pode estar acima do tempo real.",
-          ],
-    keep: ["Registrar conclusões e sessões de foco."],
-    cut: ["Tarefas vagas ou grandes demais para um único bloco."],
-    nextWeekFocus: data.profile?.mainGoal ?? "Avançar na missão principal.",
-    challenge: "Concluir a missão principal em três dias da próxima semana.",
-    source: "local",
-    createdAt: new Date().toISOString(),
-  };
+  return createEvidenceBasedWeeklyReview(data);
 }
+
 
 function localBrainMessage(request: AssistantRequest, data: AppData): string {
   const goal = sanitizeText(

@@ -192,7 +192,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       val contentMode = when (family) {
         NexusWidgetFamily.MINI -> "progress"
         NexusWidgetFamily.COMPANION -> "companion"
-        NexusWidgetFamily.MISSION -> if (configuredContent == "tasks") "tasks" else "mission"
+        NexusWidgetFamily.MISSION -> if (configuredContent in listOf("smart", "tasks", "mission", "boss", "learning", "focus", "progress")) configuredContent else "mission"
         NexusWidgetFamily.STRIP -> if (configuredContent in listOf("quote", "progress", "focus")) configuredContent else "mission"
         NexusWidgetFamily.COMMAND -> if (pageCycle) PAGE_MODES[pageIndex % PAGE_MODES.size] else configuredContent
       }
@@ -235,7 +235,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         else -> appearance?.optBoolean("showProfessor", false) ?: false
       }) && selectedMascot != "atlas"
 
-      val showLearning = family == NexusWidgetFamily.COMMAND &&
+      val showLearning = family in listOf(NexusWidgetFamily.COMMAND, NexusWidgetFamily.MISSION) &&
         (contentMode == "learning" || (appearance?.optBoolean("showLearning", false) ?: false))
       val showMission = family in listOf(NexusWidgetFamily.STRIP, NexusWidgetFamily.MISSION, NexusWidgetFamily.COMMAND) &&
         contentMode in listOf("full", "smart", "mission") && (appearance?.optBoolean("showMission", true) ?: true)
@@ -248,7 +248,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       val showProgress = instance.optString("progress", "global").let { mode ->
         when (mode) { "show" -> true; "hide" -> false; else -> appearance?.optBoolean("showProgress", true) ?: true }
       } && !privateMode
-      val showCapture = family == NexusWidgetFamily.COMMAND && instance.optString("capture", "global").let { mode ->
+      val showCapture = family in listOf(NexusWidgetFamily.COMMAND, NexusWidgetFamily.MISSION) && instance.optString("capture", "global").let { mode ->
         when (mode) { "show" -> true; "hide" -> false; else -> appearance?.optBoolean("showCapture", true) ?: true }
       }
       val compactTasks = instance.optString("density", "global").let { mode ->
@@ -344,7 +344,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_metrics, if (!tiny && (showXp || showLevel || showFocus)) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_progress, if (showProgress && progressStyle == "bar" && !tiny && contentMode !in listOf("companion", "quote", "finance", "habits", "boss")) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_progress_text, if (showProgress && !tiny && contentMode !in listOf("companion", "quote", "finance", "habits", "boss")) View.VISIBLE else View.GONE)
-      views.setViewVisibility(R.id.nexus_widget_capture, if (showCapture && large && contentMode in listOf("full", "smart", "tasks")) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_capture, if (showCapture && (large || family == NexusWidgetFamily.MISSION) && contentMode in listOf("full", "smart", "tasks")) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_page, if (pageCycle && !tiny) View.VISIBLE else View.GONE)
 
       val gravity = if (textAlign == "center") Gravity.CENTER else Gravity.START or Gravity.CENTER_VERTICAL
@@ -400,7 +400,8 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         }
 
         val tasks = payload.optJSONArray("tasks")
-        val maxVisible = when (family) {
+        val hasTasks = total > 0
+        val maxVisible = if (!hasTasks) 0 else when (family) {
           NexusWidgetFamily.MINI, NexusWidgetFamily.STRIP, NexusWidgetFamily.COMPANION -> 0
           NexusWidgetFamily.MISSION -> when {
             height < 115 -> 1
@@ -494,6 +495,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         }
         "focus" -> "FOCUS OS" to "${payload.optInt("focusMinutes", 0)} minutos focados hoje. Toque para iniciar outro bloco."
         "progress" -> "PROGRESSO" to "Nível ${payload.optInt("level", 1)} • ${payload.optInt("totalXp", 0)} XP • streak ${payload.optInt("streak", 0)}"
+        "mission" -> if (payload.optInt("totalCount", 0) == 0) "PRÓXIMA AÇÃO" to payload.optString("nextAction", "Abra o Nexus para gerar um plano útil.") else null
         "smart" -> "FAÇA AGORA" to payload.optString("nextAction", "Escolha uma tarefa e comece por 15 minutos.")
         else -> null
       }
