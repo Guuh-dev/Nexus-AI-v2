@@ -3,6 +3,7 @@ import type { Category, DailyPlan, PlanRequest, PlanResponse, Profile, Task } fr
 import { createId, stableHash } from "@/utils/ids";
 import { NexusError, codeFromStatus, isAbortError } from "@/utils/errors";
 import { sanitizeText } from "@/utils/text";
+import { makeActionTask, profileMission } from "@/features/context/synthesis";
 import { weekdayFromKey } from "@/utils/dates";
 import { fetchNexusApi } from "@/services/api-config";
 
@@ -72,13 +73,14 @@ export function generateLocalPlan(request: PlanRequest, warning?: string): Daily
   const generated: Task[] = [];
   const seed = stableHash(`${date}:${profile.mainGoal}:${profile.nickname}`);
   const categories = profile.priorities.length > 0 ? profile.priorities : (["pessoal"] as Category[]);
+  const synthesized = profileMission(profile);
 
   if (activeToday && request.context?.learning && generated.length + carried.length < taskCount) {
     const learning = request.context.learning;
     generated.push({
       id: createId("learning-task"),
       title: sanitizeText(learning.nextLesson, 120),
-      description: `Sessão guiada pelo Professor Atlas para avançar em ${sanitizeText(learning.topic, 120)}.`,
+      description: `Sessão guiada pelo Professor Atlas para avançar em ${sanitizeText(learning.topic, 120)}. Resultado: entregue uma evidência prática sem recomeçar pelo básico.`,
       category: "estudos",
       priority: "media",
       estimatedMinutes: Math.max(5, Math.min(180, learning.estimatedMinutes)),
@@ -86,6 +88,14 @@ export function generateLocalPlan(request: PlanRequest, warning?: string): Daily
       recurring: false,
       completed: false,
     });
+  }
+
+  if (activeToday && categories.includes("dinheiro") && generated.length + carried.length < taskCount) {
+    const commercial = makeActionTask(profile.mainGoal, "dinheiro", profile.skillLevel);
+    if (!used.has(taskKey(commercial.title))) {
+      used.add(taskKey(commercial.title));
+      generated.push({ id: createId("revenue-task"), ...commercial });
+    }
   }
 
   for (let index = 0; generated.length + carried.length < taskCount && index < 24; index += 1) {
@@ -115,13 +125,12 @@ export function generateLocalPlan(request: PlanRequest, warning?: string): Daily
   const missionMinutes = activeToday
     ? Math.max(20, Math.min(180, Math.floor(profile.availableMinutes * 0.35)))
     : Math.max(15, Math.min(30, Math.floor(profile.availableMinutes * 0.2)));
-  const goal = sanitizeText(profile.mainGoal, 180);
 
   return {
     date,
     mainMission: {
-      title: `Avançar de verdade em: ${goal}`.slice(0, 120),
-      description: "Conclua uma entrega concreta ligada à sua grande missão. Resultado visível vale mais que preparação infinita.",
+      title: synthesized.title,
+      description: `${synthesized.description} Resultado esperado: ${synthesized.result}`,
       estimatedMinutes: missionMinutes,
       priority: "alta",
       completed: false,

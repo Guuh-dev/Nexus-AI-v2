@@ -1,7 +1,8 @@
-import { useState } from "react";
-import { StyleSheet, TextInput, View, type TextInputProps } from "react-native";
+import { useContext, useState } from "react";
+import { StyleSheet, TextInput, View, type LayoutChangeEvent, type TextInputProps } from "react-native";
 import { NexusText } from "@/components/ui/NexusText";
 import { useNexus } from "@/providers/NexusProvider";
+import { KeyboardAwareFormContext } from "@/components/ui/KeyboardAwareContext";
 
 type Props = TextInputProps & {
   label: string;
@@ -12,8 +13,15 @@ type Props = TextInputProps & {
 export function Field({ label, hint, error, style, ...props }: Props) {
   const { colors, visuals } = useNexus();
   const [focused, setFocused] = useState(false);
+  const [layout, setLayout] = useState({ y: 0, height: 0 });
+  const keyboardAware = useContext(KeyboardAwareFormContext);
+  const onLayout = (event: LayoutChangeEvent) => {
+    const next = { y: event.nativeEvent.layout.y, height: event.nativeEvent.layout.height };
+    setLayout(next);
+    props.onLayout?.(event);
+  };
   return (
-    <View style={styles.wrapper}>
+    <View style={styles.wrapper} onLayout={onLayout}>
       <NexusText variant="caption" color={error ? colors.danger : colors.textSecondary}>
         {label}
       </NexusText>
@@ -24,6 +32,7 @@ export function Field({ label, hint, error, style, ...props }: Props) {
         selectionColor={colors.primary}
         onFocus={(event) => {
           setFocused(true);
+          keyboardAware?.registerFocusedField(layout.y, layout.height);
           props.onFocus?.(event);
         }}
         onBlur={(event) => {

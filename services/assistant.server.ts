@@ -362,7 +362,7 @@ function modeInstructions(request: AssistantRequest): string {
   if (mode === "capture")
     return `${shared} Converta a anotação em uma tarefa objetiva, com primeiro passo e resultado esperado. Não invente datas.`;
   if (mode === "weekly_review")
-    return `${shared} É obrigatório preencher weeklyReview. Analise apenas os fatos fornecidos. Relacione a análise à missão e aos números da semana. Mostre padrões como hipóteses e transforme recomendações em ações observáveis.`;
+    return `${shared} É obrigatório preencher weeklyReview. Use somente os fatos e evidence fornecidos. Não invente personalidade, medo, rotina, horários, mentores, perfeccionismo ou lacunas sem registro explícito. Separe fatos observados de hipóteses usando frases como "Possível padrão". Se houver poucos dados, escreva "Não há dados suficientes". A nota vem dos dados determinísticos; não crie score próprio.`;
   return `${shared} Você é o Nexus Brain. Estrutura preferida: **Resposta**, **Agora** com até 3 ações, e só use **Detalhes** quando forem essenciais. Evite conselhos genéricos. ${length}`;
 }
 

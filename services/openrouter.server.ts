@@ -5,6 +5,7 @@ import { generateLocalPlan } from "@/services/planning.service";
 import { sanitizeText } from "@/utils/text";
 import { FREE_ROUTER, PRIMARY_MODEL } from "@/constants/models";
 import { shouldRetryWithoutJsonSchema } from "@/services/openrouter-compat";
+import { profileMission } from "@/features/context/synthesis";
 
 
 export type OpenRouterPlanResult = {
@@ -69,11 +70,14 @@ function planningPrompt(request: PlanRequest): string {
     priority: task.priority,
     estimatedMinutes: task.estimatedMinutes,
   }));
+  const synthesized = profileMission(request.profile);
   return [
     "Crie o plano diário do usuário para o Personal Mission OS Nexus AI.",
     "Responda somente com JSON válido, sem Markdown e sem comentários.",
+    "O texto bruto do usuário é contexto: sintetize, não copie como título, missão ou tarefa.",
+    `Síntese obrigatória da missão: ${JSON.stringify(synthesized)}`,
     "O plano deve ser executável hoje, específico, realista, em português brasileiro e respeitar o tempo disponível.",
-    "Gere de 2 até o máximo informado de tarefas. Não repita títulos. Priorize resultado concreto, não preparação vaga.",
+    "Gere de 2 até o máximo informado de tarefas. Não repita títulos. Priorize resultado concreto, primeiro passo e entrega verificável, não preparação vaga.",
     "XP obrigatório por prioridade: baixa=15, media=30, alta=50.",
     "Categorias aceitas: desenvolvimento, estudos, dinheiro, saude, organizacao, pessoal.",
     `A data deve ser exatamente ${request.date}.`,

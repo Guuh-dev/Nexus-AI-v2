@@ -400,7 +400,8 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         }
 
         val tasks = payload.optJSONArray("tasks")
-        val maxVisible = when (family) {
+        val hasTasks = total > 0
+        val maxVisible = if (!hasTasks) 0 else when (family) {
           NexusWidgetFamily.MINI, NexusWidgetFamily.STRIP, NexusWidgetFamily.COMPANION -> 0
           NexusWidgetFamily.MISSION -> when {
             height < 115 -> 1
@@ -494,6 +495,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         }
         "focus" -> "FOCUS OS" to "${payload.optInt("focusMinutes", 0)} minutos focados hoje. Toque para iniciar outro bloco."
         "progress" -> "PROGRESSO" to "Nível ${payload.optInt("level", 1)} • ${payload.optInt("totalXp", 0)} XP • streak ${payload.optInt("streak", 0)}"
+        "mission" -> if (payload.optInt("totalCount", 0) == 0) "PRÓXIMA AÇÃO" to payload.optString("nextAction", "Abra o Nexus para gerar um plano útil.") else null
         "smart" -> "FAÇA AGORA" to payload.optString("nextAction", "Escolha uma tarefa e comece por 15 minutos.")
         else -> null
       }
