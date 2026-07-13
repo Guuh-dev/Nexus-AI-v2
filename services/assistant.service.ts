@@ -317,8 +317,24 @@ export function createLocalWeeklyReview(data: AppData): WeeklyReview {
           ],
     keep: ["Registrar conclusões e sessões de foco."],
     cut: ["Tarefas vagas ou grandes demais para um único bloco."],
-    nextWeekFocus: data.profile?.mainGoal ?? "Avançar na missão principal.",
-    challenge: "Concluir a missão principal em três dias da próxima semana.",
+    nextWeekFocus: (() => {
+      const activeRoadmap = data.learning.roadmaps.find(
+        (roadmap) =>
+          roadmap.id === data.learning.activeRoadmapId &&
+          roadmap.status === "active",
+      );
+      const lesson = activeRoadmap ? nextRoadmapLesson(activeRoadmap) : undefined;
+      if (lesson) return `Concluir ${lesson.title} e registrar a entrega prática.`;
+      const nextTask = data.activePlan?.tasks.find((task) => !task.completed);
+      if (nextTask) return `Finalizar ${nextTask.title} em um bloco de ${nextTask.estimatedMinutes} min.`;
+      return data.profile?.mainGoal ?? "Avançar na missão principal.";
+    })(),
+    challenge: (() => {
+      const unfinished = data.activePlan?.tasks.filter((task) => !task.completed).slice(0, 2).map((task) => task.title) ?? [];
+      return unfinished.length
+        ? `Concluir: ${unfinished.join(" + ")}.`
+        : "Planejar 3 blocos pequenos e concluir pelo menos 2 com entrega visível.";
+    })(),
     source: "local",
     createdAt: new Date().toISOString(),
   };

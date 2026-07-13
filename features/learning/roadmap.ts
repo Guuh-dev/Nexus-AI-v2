@@ -71,6 +71,62 @@ const GENERIC_PHASES = [
   },
 ] as const;
 
+function isLandingPageSalesTopic(topic: string): boolean {
+  return /landing\s*pages?|lp\b|vender|venda|freela|freelance|cliente/i.test(topic);
+}
+
+function landingPageSalesGuidance(kind: string, topic: string, minutes: number, intake?: ProfessorIntake) {
+  const outcome = sanitizeText(intake?.desiredOutcome, 220) || `vender uma landing page real ligada a ${topic}`;
+  const niche = sanitizeText(intake?.proofProject, 260) || "uma oferta simples para um nicho específico";
+  const base = {
+    diagnostic: {
+      objective: `Medir seu nível real criando uma oferta de landing page vendável, não só estudando ${topic}.`,
+      steps: [
+        "Escolha um nicho específico que você consiga contatar hoje.",
+        "Escreva o problema caro que a landing page resolveria para esse nicho.",
+        "Rascunhe promessa, público, prova e CTA em uma página simples.",
+        "Marque o que travou: oferta, copy, design, preço ou prospecção.",
+      ],
+      deliverable: `Um diagnóstico com nicho, oferta, lacunas e primeiro rascunho de LP para ${outcome}.`,
+      successCriteria: "Você sabe exatamente se o gargalo está em vender, escrever, montar ou prospectar.",
+    },
+    fundamentals: {
+      objective: "Montar a ordem mínima dos fundamentos que realmente vendem uma landing page.",
+      steps: [
+        "Separe os fundamentos em: nicho, dor, oferta, copy, layout, prova, CTA, preço e prospecção.",
+        "Dê nota de 0 a 2 para cada fundamento usando uma evidência real.",
+        "Escolha o primeiro gargalo que impede uma conversa com cliente.",
+        "Transforme esse gargalo em um treino de uma sessão.",
+      ],
+      deliverable: "Um mapa de vendas de LP com notas, dependências e prioridade comercial.",
+      successCriteria: "A próxima aula vira uma ação de venda, não uma lista vaga de coisas para estudar.",
+    },
+    guided: {
+      objective: `Construir uma primeira LP simples para ${niche} com foco em vender uma conversa.`,
+      steps: [
+        "Defina uma oferta única: resultado, prazo estimado e para quem serve.",
+        "Escreva hero, benefícios, prova possível, processo e CTA.",
+        "Monte uma versão mobile-first em ferramenta simples ou código básico.",
+        "Revise se cada seção responde uma objeção de compra.",
+      ],
+      deliverable: "Uma LP mínima com link, print ou arquivo e CTA claro para contato.",
+      successCriteria: "Alguém do nicho entende em 10 segundos o que você vende e como chamar você.",
+    },
+    precision: {
+      objective: "Treinar a parte mais fraca da venda de LP com repetição curta.",
+      steps: [
+        "Escolha uma habilidade: headline, oferta, CTA, preço, layout ou abordagem.",
+        "Crie 3 variações em vez de uma versão perfeita.",
+        "Compare qual é mais específica, clara e vendável.",
+        "Use a melhor variação na LP ou na mensagem de prospecção.",
+      ],
+      deliverable: "Três variações comparadas e uma versão escolhida para uso real.",
+      successCriteria: "A versão final é mais específica e menos genérica que a primeira.",
+    },
+  } as const;
+  return base[kind as keyof typeof base] ?? localLessonGuidance(kind, topic, minutes, intake);
+}
+
 function localLessonGuidance(
   kind: string,
   topic: string,
@@ -254,12 +310,14 @@ export function createStarterRoadmap(
     objective: `${phase.objective} Tema: ${topic}.`,
     order: phaseIndex,
     lessons: phase.lessons.map((lesson) => {
-      const guidance = localLessonGuidance(
-        lesson.kind,
-        topic,
-        lessonMinutes,
-        intake,
-      );
+      const guidance = isLandingPageSalesTopic(topic)
+        ? landingPageSalesGuidance(lesson.kind, topic, lessonMinutes, intake)
+        : localLessonGuidance(
+            lesson.kind,
+            topic,
+            lessonMinutes,
+            intake,
+          );
       return {
         id: createId("lesson"),
         title: lesson.title,
