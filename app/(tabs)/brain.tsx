@@ -180,7 +180,7 @@ export default function BrainScreen() {
     return (
       <Screen scroll={false} padded={false} keyboardAware={false}>
         <KeyboardAvoidingView
-          style={[styles.chatShell, androidKeyboardOcclusion > 0 && { paddingBottom: androidKeyboardOcclusion }]}
+          style={styles.chatShell}
           enabled={Platform.OS === "ios"}
           behavior="padding"
           onLayout={onChatLayout}
@@ -256,6 +256,7 @@ export default function BrainScreen() {
           <View
             style={[
               styles.composer,
+              androidKeyboardOcclusion > 0 && { marginBottom: androidKeyboardOcclusion },
               {
                 backgroundColor: colors.background,
                 borderTopColor: colors.border,
