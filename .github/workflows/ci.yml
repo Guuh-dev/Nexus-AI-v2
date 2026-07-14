@@ -85,4 +85,5 @@ jobs:
         run: pnpm exec expo prebuild --platform android --clean
 
       - name: Compile Android debug APK
-        run: ./android/gradlew --no-daemon :app:assembleDebug
+        working-directory: android
+        run: ./gradlew --no-daemon :app:assembleDebug

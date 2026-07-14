@@ -37,6 +37,9 @@ describe("GitHub workflow security", () => {
     expect(ci).toContain("pnpm run release:check");
     expect(ci).toContain("pnpm run doctor");
     expect(ci).toContain("expo prebuild --platform android --clean");
+    expect(ci).toContain("working-directory: android");
+    expect(ci).toContain("./gradlew --no-daemon :app:assembleDebug");
+    expect(ci).not.toContain("./android/gradlew --no-daemon :app:assembleDebug");
     expect(ci).toContain(":app:assembleDebug");
     expect(ci).toContain("git diff --check");
   });
