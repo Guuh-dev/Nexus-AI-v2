@@ -40,15 +40,10 @@ export type EnergyLevel = "baixa" | "media" | "alta";
 export type ThemeId =
   | "nexus"
   | "amoled"
-  | "oneui"
-  | "hud"
-  | "aurora"
-  | "ocean"
-  | "ember"
-  | "rose"
-  | "monochrome"
+  | "glass"
   | "light"
-  | "custom";
+  | "pixel"
+  | "minimal";
 export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 export type LearningStyle = "visual" | "pratica" | "leitura" | "explicacao" | "mista";
 export type AccountabilityStyle = "gentil" | "direta" | "competitiva" | "analitica";
@@ -130,6 +125,9 @@ export type OnboardingDraft = Partial<Profile>;
 export type MainMission = {
   title: string;
   description: string;
+  firstStep?: string;
+  expectedResult?: string;
+  doneWhen?: string;
   estimatedMinutes: number;
   priority: Priority;
   completed: boolean;
@@ -141,6 +139,14 @@ export type Task = {
   id: string;
   title: string;
   description?: string;
+  /** Contexto curto que explica por que esta ação existe. */
+  context?: string;
+  /** A menor ação concreta para iniciar sem replanejar. */
+  firstStep?: string;
+  /** Entrega observável que deve existir ao final. */
+  expectedResult?: string;
+  /** Critério verificável usado para marcar a tarefa como concluída. */
+  doneWhen?: string;
   category: Category;
   priority: Priority;
   estimatedMinutes: number;
@@ -336,18 +342,29 @@ export type ProgressState = {
   achievements: Achievement[];
   attributes: ProgressAttributes;
   challenges: Challenge[];
+  /** IDs de desafios cujo XP já foi concedido. Nunca depende da lista visível. */
+  challengeRewardLedger: string[];
 };
 
 export type ChatRole = "user" | "assistant" | "system";
 export type ChatKind = "brain" | "professor";
-export type AssistantActionType = "replan" | "create_task" | "create_roadmap" | "update_goal" | "start_operation";
+export type AssistantActionType = "replan" | "create_task" | "create_roadmap" | "save_memory" | "update_goal" | "start_operation";
 
-export type AssistantAction = {
-  id: string;
-  type: AssistantActionType;
+type AssistantActionDraftBase = {
   title: string;
   description: string;
-  payload: Record<string, unknown>;
+};
+
+export type AssistantActionDraft = AssistantActionDraftBase & (
+  | { type: "update_goal"; payload: { mainGoal: string } }
+  | {
+      type: Exclude<AssistantActionType, "update_goal">;
+      payload: Record<string, unknown>;
+    }
+);
+
+export type AssistantAction = AssistantActionDraft & {
+  id: string;
   status: "proposed" | "accepted" | "rejected";
 };
 
@@ -401,6 +418,14 @@ export type RoadmapLesson = {
   estimatedMinutes: number;
   completed: boolean;
   completedAt?: string;
+  evidence?: {
+    submission: string;
+    status: "submitted" | "needs_revision" | "accepted";
+    submittedAt: string;
+    feedback?: string;
+    nextAdjustment?: string;
+    reviewedAt?: string;
+  };
 };
 
 export type RoadmapPhase = {
@@ -411,6 +436,19 @@ export type RoadmapPhase = {
   lessons: RoadmapLesson[];
 };
 
+export type RoadmapIntent =
+  | "technical"
+  | "applied_technical"
+  | "learning"
+  | "product"
+  | "commercial"
+  | "clients"
+  | "financial"
+  | "career"
+  | "exam"
+  | "health"
+  | "general";
+
 export type LearningRoadmap = {
   id: string;
   topic: string;
@@ -419,7 +457,9 @@ export type LearningRoadmap = {
   weeklyMinutes: number;
   intake?: ProfessorIntake;
   phases: RoadmapPhase[];
-  status: "active" | "paused" | "completed";
+  intent?: RoadmapIntent;
+  status: "active" | "paused" | "completed" | "archived";
+  archivedAt?: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -439,7 +479,13 @@ export type WeeklyReview = {
   completionPercentage: number;
   xpEarned: number;
   focusMinutes: number;
-  consistencyScore: number;
+  consistencyScore: number | null;
+  confidence?: "insufficient" | "low" | "medium" | "high";
+  statements?: {
+    kind: "fact" | "hypothesis" | "insufficient";
+    text: string;
+    evidenceKeys: string[];
+  }[];
   highlights: string[];
   patterns: string[];
   keep: string[];
@@ -487,9 +533,15 @@ export type WeeklyPlanItem = {
   id: string;
   date: string;
   title: string;
+  description?: string;
+  context?: string;
+  firstStep?: string;
+  expectedResult?: string;
+  doneWhen?: string;
   category: Category;
   estimatedMinutes: number;
   priority: Priority;
+  recurring?: boolean;
   completed: boolean;
 };
 
@@ -544,15 +596,6 @@ export type WidgetPayload = {
   nextAction?: string;
   quote?: string;
   companionLines?: Partial<Record<CompanionMood, string>>;
-  finance?: FinanceState;
-  habits?: { completed: number; total: number; next?: string };
-  boss?: { title: string; progress: number; target: number };
-  learning?: {
-    topic: string;
-    nextLesson: string;
-    estimatedMinutes: number;
-    progress: number;
-  };
   appearance?: {
     contentMode: WidgetContentMode;
     privacyMode: boolean;
@@ -563,9 +606,6 @@ export type WidgetPayload = {
     mascot: MascotId;
     companionMood: CompanionMood;
     companionSpeech: WidgetPreferences["companionSpeech"];
-    showProfessor: boolean;
-    showLearning: boolean;
-    professorVariant: ProfessorVariant;
     skin: MascotSkin;
     accessory?: string;
     showMission: boolean;
@@ -575,14 +615,8 @@ export type WidgetPayload = {
     showStreak: boolean;
     showFocus: boolean;
     showProgress: boolean;
-    showCapture: boolean;
-    showFinance: boolean;
     showQuote: boolean;
     showNextAction: boolean;
-    showHabits: boolean;
-    showBoss: boolean;
-    allowPageCycle: boolean;
-    compactTasks: boolean;
     progressStyle: WidgetPreferences["progressStyle"];
     fontScale: WidgetPreferences["fontScale"];
     opacity: number;
@@ -638,8 +672,20 @@ export type AssistantMeta = {
   requestId?: string;
 };
 
+export type AssistantLessonReview = {
+  accepted: boolean;
+  feedback: string;
+  nextAdjustment?: string;
+};
+
 export type AssistantRequest = {
-  mode: "brain" | "professor" | "roadmap" | "capture" | "weekly_review";
+  mode:
+    | "brain"
+    | "professor"
+    | "roadmap"
+    | "capture"
+    | "weekly_review"
+    | "evidence_review";
   requestId: string;
   clientId: string;
   message: string;
@@ -651,10 +697,11 @@ export type AssistantResponse = {
   message: string;
   title?: string;
   memories?: Pick<MemoryItem, "kind" | "content" | "confidence">[];
-  actions?: Omit<AssistantAction, "id" | "status">[];
+  actions?: AssistantActionDraft[];
   roadmap?: LearningRoadmap;
   capture?: Omit<Task, "id" | "completed" | "completedAt"> & { scheduledDate?: string };
   weeklyReview?: WeeklyReview;
+  lessonReview?: AssistantLessonReview;
   warning?: string;
   meta?: AssistantMeta;
 };

@@ -5,38 +5,40 @@ import { NexusError, codeFromStatus, isAbortError } from "@/utils/errors";
 import { sanitizeText } from "@/utils/text";
 import { makeActionTask, profileMission } from "@/features/context/synthesis";
 import { weekdayFromKey } from "@/utils/dates";
-import { fetchNexusApi } from "@/services/api-config";
+import { fetchNexusApi, NexusApiError } from "@/services/api-config";
 
-const CATEGORY_TASKS: Record<Category, { title: string; description: string }[]> = {
+type StructuredTaskTemplate = Pick<Task, "title" | "description" | "context" | "firstStep" | "expectedResult" | "doneWhen">;
+
+const CATEGORY_TASKS: Record<Category, StructuredTaskTemplate[]> = {
   desenvolvimento: [
-    { title: "Construir uma entrega visível", description: "Transforme conhecimento em algo que possa ser demonstrado hoje." },
-    { title: "Praticar uma habilidade central", description: "Faça um bloco sem distrações na habilidade que mais aproxima você da meta." },
-    { title: "Melhorar um projeto do portfólio", description: "Escolha uma melhoria pequena, termine e registre o resultado." },
+    { title: "Implementar uma função pequena", description: "Conclua uma unidade de comportamento que possa ser executada hoje.", context: "Uma entrega curta reduz o risco de estudar sem aplicar.", firstStep: "Escreva em uma frase a entrada, a saída e o caso principal da função.", expectedResult: "Uma função executável com um exemplo de uso.", doneWhen: "O exemplo produz a saída esperada e o código foi salvo." },
+    { title: "Corrigir um erro reproduzível", description: "Encontre a causa de um erro real antes de alterar o código.", context: "Debugging com reprodução gera aprendizado verificável.", firstStep: "Registre os passos exatos que fazem o erro acontecer.", expectedResult: "Causa identificada e correção validada no mesmo cenário.", doneWhen: "O erro não ocorre mais e a verificação anterior continua funcionando." },
+    { title: "Adicionar um teste de comportamento", description: "Proteja a função principal de uma regressão concreta.", context: "Um teste torna o resultado do trabalho observável e repetível.", firstStep: "Escolha um comportamento importante e descreva a entrada e a saída esperada.", expectedResult: "Um teste automatizado que falha sem a implementação correta.", doneWhen: "O teste passa e também cobre ao menos um caso de falha." },
   ],
   estudos: [
-    { title: "Estudo ativo da prioridade", description: "Aprenda um conceito e teste a memória sem consultar a resposta." },
-    { title: "Revisão com exercícios", description: "Resolva questões e anote exatamente onde errou." },
-    { title: "Resumo de cinco minutos", description: "Explique o conteúdo com palavras simples para fixar." },
+    { title: "Resolver três questões sem consulta", description: "Use exercícios para medir o que realmente ficou disponível na memória.", context: "Responder antes de revisar revela lacunas reais.", firstStep: "Selecione três questões do mesmo assunto e esconda o gabarito.", expectedResult: "Três respostas registradas e corrigidas.", doneWhen: "Cada erro tem uma correção e a regra que faltava foi anotada." },
+    { title: "Explicar um conceito com exemplo", description: "Converta uma definição em explicação própria e aplicável.", context: "Explicar sem copiar testa compreensão, não reconhecimento.", firstStep: "Escolha um conceito e escreva uma frase sem consultar o material.", expectedResult: "Uma explicação curta com exemplo e contraexemplo.", doneWhen: "A explicação foi conferida e as imprecisões foram corrigidas." },
+    { title: "Corrigir os erros do último exercício", description: "Transforme erros recentes em regras para a próxima tentativa.", context: "Revisão focada evita repetir o mesmo padrão.", firstStep: "Separe os dois erros mais importantes da sessão anterior.", expectedResult: "Dois erros refeitos corretamente e uma checklist curta.", doneWhen: "As novas respostas estão corretas e a causa de cada erro foi registrada." },
   ],
   dinheiro: [
-    { title: "Executar uma ação de receita", description: "Faça uma ação que possa gerar conversa, proposta ou venda." },
-    { title: "Prospectar com qualidade", description: "Encontre contatos adequados e envie abordagens personalizadas." },
-    { title: "Fortalecer sua oferta", description: "Melhore prova, proposta ou demonstração do que você vende." },
+    { title: "Enviar uma proposta para um prospect", description: "Apresente uma entrega, prazo e próximo passo a uma pessoa compatível.", context: "Esta tarefa só é criada quando a meta atual declara intenção comercial.", firstStep: "Escolha um prospect e registre o problema específico observado.", expectedResult: "Uma proposta personalizada enviada e um follow-up agendado.", doneWhen: "Há evidência do envio, destinatário e data do próximo contato." },
+    { title: "Personalizar três abordagens", description: "Prepare mensagens baseadas em problemas observados, sem disparo genérico.", context: "Abordagens específicas produzem um sinal comercial mensurável.", firstStep: "Liste três prospects e uma observação concreta sobre cada um.", expectedResult: "Três mensagens diferentes prontas para envio.", doneWhen: "Cada mensagem cita um contexto real e termina com um próximo passo simples." },
+    { title: "Revisar escopo e preço da oferta", description: "Deixe claro o que entra, o que não entra, prazo e valor inicial.", context: "Uma oferta verificável evita propostas vagas.", firstStep: "Escreva a entrega principal em uma frase com início e fim.", expectedResult: "Uma oferta curta com escopo, prazo, preço e critério de aceite.", doneWhen: "A oferta pode ser enviada sem depender de explicação adicional." },
   ],
   saude: [
-    { title: "Movimentar o corpo", description: "Faça um treino compatível com sua energia e termine melhor do que começou." },
-    { title: "Cuidar da recuperação", description: "Organize água, alimentação e descanso para sustentar a execução." },
-    { title: "Bloco curto de mobilidade", description: "Reduza tensão e prepare o corpo para o restante do dia." },
+    { title: "Concluir vinte minutos de treino", description: "Execute um bloco compatível com sua energia atual.", context: "A duração definida evita uma meta de saúde abstrata.", firstStep: "Vista a roupa de treino e prepare um cronômetro de vinte minutos.", expectedResult: "Treino concluído com duração e exercícios registrados.", doneWhen: "O cronômetro terminou e o registro da sessão foi salvo." },
+    { title: "Preparar água e refeição de recuperação", description: "Organize uma decisão concreta de recuperação para hoje.", context: "Preparar antes reduz decisões improvisadas depois do treino.", firstStep: "Encha a garrafa e escolha a refeição que já está disponível.", expectedResult: "Água e refeição definidas para o período de recuperação.", doneWhen: "Os itens estão preparados ou separados em local visível." },
+    { title: "Executar dez minutos de mobilidade", description: "Trabalhe as regiões mais tensionadas com um bloco curto.", context: "Mobilidade curta é uma entrega mensurável de cuidado físico.", firstStep: "Escolha três movimentos e posicione o cronômetro.", expectedResult: "Dez minutos completos e uma nota simples de desconforto antes/depois.", doneWhen: "Os três movimentos foram feitos e a diferença foi registrada." },
   ],
   organizacao: [
-    { title: "Preparar o campo de execução", description: "Organize ambiente, arquivos e próxima ação antes de começar." },
-    { title: "Limpar pendências pequenas", description: "Resolva o que está ocupando atenção sem contribuir para a meta." },
-    { title: "Planejar o próximo bloco", description: "Defina horário, duração e resultado esperado da próxima sessão." },
+    { title: "Preparar arquivos para o próximo bloco", description: "Deixe aberto apenas o material necessário para iniciar.", context: "Ambiente pronto reduz o custo do primeiro passo.", firstStep: "Feche distrações e abra o arquivo principal da tarefa prioritária.", expectedResult: "Workspace limpo, arquivo correto aberto e próxima ação anotada.", doneWhen: "É possível iniciar a tarefa prioritária sem procurar outro recurso." },
+    { title: "Resolver duas pendências de cinco minutos", description: "Feche itens pequenos que ocupam atenção e têm resultado claro.", context: "O limite de duas impede que organização substitua a missão principal.", firstStep: "Liste pendências que realmente cabem em cinco minutos e escolha duas.", expectedResult: "Duas pendências encerradas e removidas da lista.", doneWhen: "Os dois resultados foram confirmados e não exigem novo follow-up." },
+    { title: "Agendar o próximo bloco de foco", description: "Defina horário, duração e entrega antes da sessão.", context: "Um compromisso específico é mais executável que uma intenção aberta.", firstStep: "Escolha um horário livre real no calendário de hoje.", expectedResult: "Bloco agendado com tarefa e resultado esperado.", doneWhen: "O evento ou lembrete tem horário, duração e nome da entrega." },
   ],
   pessoal: [
-    { title: "Fazer uma pausa intencional", description: "Recupere energia sem cair em distração infinita." },
-    { title: "Registrar o progresso", description: "Anote o que avançou, o que travou e qual será o próximo movimento." },
-    { title: "Cuidar de uma relação importante", description: "Separe alguns minutos para uma conversa ou gesto genuíno." },
+    { title: "Fazer uma pausa de dez minutos", description: "Recupere energia com início e fim definidos.", context: "Uma pausa com limite evita virar distração sem fim.", firstStep: "Ative um cronômetro de dez minutos e afaste a tela principal.", expectedResult: "Pausa concluída e retorno à próxima ação no horário.", doneWhen: "O cronômetro terminou e a tarefa seguinte foi reaberta." },
+    { title: "Registrar avanço, bloqueio e próximo passo", description: "Feche o dia com três informações objetivas.", context: "Um registro curto preserva continuidade sem inventar interpretações.", firstStep: "Escreva uma frase sobre o que ficou pronto.", expectedResult: "Um registro de três linhas: avanço, bloqueio e próxima ação.", doneWhen: "As três linhas estão preenchidas com fatos do dia." },
+    { title: "Enviar uma mensagem para uma pessoa importante", description: "Faça um contato curto e genuíno que estava sendo adiado.", context: "Relações melhoram com ações observáveis, não lembretes vagos.", firstStep: "Escolha uma pessoa e escreva a primeira frase da mensagem.", expectedResult: "Uma mensagem enviada ou uma conversa agendada.", doneWhen: "O contato foi enviado e, se necessário, o próximo horário foi combinado." },
   ],
 };
 
@@ -72,15 +74,22 @@ export function generateLocalPlan(request: PlanRequest, warning?: string): Daily
   const used = new Set(carried.map((task) => taskKey(task.title)));
   const generated: Task[] = [];
   const seed = stableHash(`${date}:${profile.mainGoal}:${profile.nickname}`);
-  const categories = profile.priorities.length > 0 ? profile.priorities : (["pessoal"] as Category[]);
   const synthesized = profileMission(profile);
+  const commercialIntent = synthesized.intent === "sell_service" || synthesized.intent === "get_clients" || synthesized.intent === "financial_goal";
+  const preferredCategories = profile.priorities.length > 0 ? profile.priorities : (["pessoal"] as Category[]);
+  const categories = (commercialIntent ? preferredCategories : preferredCategories.filter((category) => category !== "dinheiro"));
+  if (!categories.length) categories.push(synthesized.intent === "health" ? "saude" : synthesized.intent === "exam" || synthesized.intent === "learn_skill" ? "estudos" : "desenvolvimento");
 
   if (activeToday && request.context?.learning && generated.length + carried.length < taskCount) {
     const learning = request.context.learning;
     generated.push({
       id: createId("learning-task"),
       title: sanitizeText(learning.nextLesson, 120),
-      description: `Sessão guiada pelo Professor Atlas para avançar em ${sanitizeText(learning.topic, 120)}. Resultado: entregue uma evidência prática sem recomeçar pelo básico.`,
+      description: `Sessão guiada pelo Professor Atlas para avançar em ${sanitizeText(learning.topic, 120)}.`,
+      context: `Esta lição pertence ao roadmap ativo de ${sanitizeText(learning.topic, 120)}.`,
+      firstStep: `Abra a lição “${sanitizeText(learning.nextLesson, 120)}” e leia a entrega exigida antes de iniciar.`,
+      expectedResult: "Uma evidência prática da lição, produzida sem recomeçar pelo básico.",
+      doneWhen: "A entrega foi registrada e pode ser avaliada pelo Professor Atlas.",
       category: "estudos",
       priority: "media",
       estimatedMinutes: Math.max(5, Math.min(180, learning.estimatedMinutes)),
@@ -90,25 +99,31 @@ export function generateLocalPlan(request: PlanRequest, warning?: string): Daily
     });
   }
 
-  if (activeToday && categories.includes("dinheiro") && generated.length + carried.length < taskCount) {
-    const commercial = makeActionTask(profile.mainGoal, "dinheiro", profile.skillLevel);
-    if (!used.has(taskKey(commercial.title))) {
-      used.add(taskKey(commercial.title));
-      generated.push({ id: createId("revenue-task"), ...commercial });
+  if (activeToday && generated.length + carried.length < taskCount) {
+    const primaryCategory: Category = commercialIntent
+      ? "dinheiro"
+      : synthesized.intent === "health"
+        ? "saude"
+        : synthesized.intent === "exam" || synthesized.intent === "learn_skill"
+          ? "estudos"
+          : "desenvolvimento";
+    const primary = makeActionTask(profile.mainGoal, primaryCategory, profile.skillLevel);
+    if (!used.has(taskKey(primary.title))) {
+      used.add(taskKey(primary.title));
+      generated.push({ id: createId("mission-task"), ...primary });
     }
   }
 
   for (let index = 0; generated.length + carried.length < taskCount && index < 24; index += 1) {
     const category = categories[(seed + index) % categories.length] ?? "pessoal";
     const templates = CATEGORY_TASKS[category];
-    const template = templates[(seed + index + Math.floor(index / categories.length)) % templates.length];
+    const template = templates[(seed + Math.floor(index / categories.length)) % templates.length];
     if (!template || used.has(taskKey(template.title))) continue;
     used.add(taskKey(template.title));
     const priority = index === 0 ? "alta" : index < 3 ? "media" : "baixa";
     generated.push({
       id: createId("task"),
-      title: template.title,
-      description: template.description,
+      ...template,
       category,
       priority,
       estimatedMinutes: minutes,
@@ -130,7 +145,10 @@ export function generateLocalPlan(request: PlanRequest, warning?: string): Daily
     date,
     mainMission: {
       title: synthesized.title,
-      description: `${synthesized.description} Resultado esperado: ${synthesized.result}`,
+      description: synthesized.description,
+      firstStep: synthesized.nextAction,
+      expectedResult: synthesized.result,
+      doneWhen: "O resultado esperado existe, foi conferido e o próximo passo está registrado.",
       estimatedMinutes: missionMinutes,
       priority: "alta",
       completed: false,
@@ -213,6 +231,7 @@ export async function generatePlan(
         !permanentConfigurationError &&
         !isAbortError(error) &&
         (error instanceof TypeError ||
+          (error instanceof NexusApiError && error.code === "unreachable") ||
           (error instanceof NexusError && typeof error.status === "number" && shouldRetry(error.status)));
       if (!retryable || attempt === 1) break;
     } finally {

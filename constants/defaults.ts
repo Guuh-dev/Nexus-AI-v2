@@ -1,8 +1,9 @@
 import type { AppData, EvolutionProfile, Preferences, Profile } from "@/types";
 
-export const STORAGE_VERSION = 5;
+export const STORAGE_VERSION = 6;
 export const STORAGE_KEY = "@nexus-ai/state";
-export const MIGRATION_BACKUP_KEY = "@nexus-ai/pre-v2.1-backup";
+export const MIGRATION_BACKUP_KEY = "@nexus-ai/pre-v3.0-backup";
+export const LEGACY_MIGRATION_BACKUP_KEYS = ["@nexus-ai/pre-v2.1-backup"] as const;
 export const TEMP_STORAGE_KEYS = ["@nexus-ai/onboarding-request", "@nexus-ai/loading", "@nexus-ai/focus-runtime"];
 
 export const DEFAULT_EVOLUTION_PROFILE: EvolutionProfile = {
@@ -39,7 +40,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
     density: "confortavel",
     glow: "sutil",
     backgroundEffect: "grade",
-    sections: ["smart", "mission", "tasks", "operation", "habits", "quick", "progress", "message"],
+    sections: ["mission", "tasks", "quick", "progress", "message"],
     hiddenSections: [],
   },
   mascot: {
@@ -76,14 +77,14 @@ export const DEFAULT_PREFERENCES: Preferences = {
     showStreak: true,
     showFocus: false,
     showProgress: true,
-    showCapture: true,
+    showCapture: false,
     showFinance: false,
     showQuote: false,
     showNextAction: true,
     showHabits: false,
     showBoss: false,
-    allowPageCycle: true,
-    compactTasks: false,
+    allowPageCycle: false,
+    compactTasks: true,
     taskCount: 3,
     progressStyle: "bar",
     privacyMode: false,
@@ -115,6 +116,7 @@ export const DEFAULT_APP_DATA: AppData = {
     achievements: [],
     attributes: { foco: 0, execucao: 0, consistencia: 0, disciplina: 0 },
     challenges: [],
+    challengeRewardLedger: [],
   },
   brain: { threads: [], memories: [] },
   learning: { professorEnabled: false, roadmaps: [], pendingTopics: [] },
@@ -148,3 +150,5 @@ export const PRIORITY_XP = {
 } as const;
 
 export const MAIN_MISSION_XP = 75;
+export const BACKUP_MAX_BYTES = 8_000_000;
+export const IMPORT_ROLLBACK_KEY = "@nexus-ai/pre-import-backup";

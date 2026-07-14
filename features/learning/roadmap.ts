@@ -1,8 +1,12 @@
 import type {
+  AppData,
   EvolutionArea,
+  LearningState,
   LearningRoadmap,
   ProfessorIntake,
   Profile,
+  RoadmapIntent,
+  RoadmapLesson,
   RoadmapPhase,
 } from "@/types";
 import { createId } from "@/utils/ids";
@@ -72,61 +76,123 @@ const GENERIC_PHASES = [
   },
 ] as const;
 
-function isLandingPageSalesTopic(topic: string): boolean {
-  return /landing\s*pages?|lp\b|vender|venda|freela|freelance|cliente/i.test(topic);
+const TECHNICAL_TOPIC_RE = /programa[cç][aã]o|c[oó]digo|desenvolvimento|javascript|typescript|python|java\b|kotlin|react|api\b|banco de dados|software/i;
+const AI_TOPIC_RE = /intelig[eê]ncia artificial|programa[cç][aã]o com ia|c[oó]digo com ia|\bia\b|llm|prompt/i;
+const COMMERCIAL_CONTENT_RE = /prospec[cç][aã]o|prospects?|oferta vend[aá]vel|fechar (?:o )?(?:primeiro )?cliente|pre[cç]o inicial|follow[- ]?up|venda de|vender como servi[cç]o|freelance/i;
+
+export function classifyRoadmapIntent(topicInput: string, intake?: ProfessorIntake): RoadmapIntent {
+  const topic = sanitizeText(topicInput, 160);
+  const explicitContext = sanitizeText([
+    topic,
+    intake?.desiredOutcome,
+    intake?.proofProject,
+    intake?.motivation,
+  ].filter(Boolean).join(" "), 2200);
+  const level = intake?.knowledgeLevel === "avancado" ? "avancado" : undefined;
+  const goalIntent = classifyGoalIntent(explicitContext, level);
+
+  if (goalIntent === "sell_service") return "commercial";
+  if (goalIntent === "get_clients") return "clients";
+  if (goalIntent === "financial_goal") return "financial";
+  if (goalIntent === "career") return "career";
+  if (goalIntent === "exam") return "exam";
+  if (goalIntent === "health") return "health";
+  if (goalIntent === "build_product") return "product";
+  if (AI_TOPIC_RE.test(topic)) return "applied_technical";
+  if (TECHNICAL_TOPIC_RE.test(topic)) return "technical";
+  if (goalIntent === "learn_skill" || goalIntent === "deepen_skill" || goalIntent === "technical_skill") return "learning";
+  return "general";
 }
 
-function landingPageSalesGuidance(kind: string, topic: string, minutes: number, intake?: ProfessorIntake) {
-  const outcome = sanitizeText(intake?.desiredOutcome, 220) || `vender uma landing page real ligada a ${topic}`;
-  const niche = sanitizeText(intake?.proofProject, 260) || "uma oferta simples para um nicho específico";
-  const base = {
-    diagnostic: {
-      objective: `Medir seu nível real criando uma oferta de landing page vendável, não só estudando ${topic}.`,
-      steps: [
-        "Escolha um nicho específico que você consiga contatar hoje.",
-        "Escreva o problema caro que a landing page resolveria para esse nicho.",
-        "Rascunhe promessa, público, prova e CTA em uma página simples.",
-        "Marque o que travou: oferta, copy, design, preço ou prospecção.",
-      ],
-      deliverable: `Um diagnóstico com nicho, oferta, lacunas e primeiro rascunho de LP para ${outcome}.`,
-      successCriteria: "Você sabe exatamente se o gargalo está em vender, escrever, montar ou prospectar.",
-    },
-    fundamentals: {
-      objective: "Montar a ordem mínima dos fundamentos que realmente vendem uma landing page.",
-      steps: [
-        "Separe os fundamentos em: nicho, dor, oferta, copy, layout, prova, CTA, preço e prospecção.",
-        "Dê nota de 0 a 2 para cada fundamento usando uma evidência real.",
-        "Escolha o primeiro gargalo que impede uma conversa com cliente.",
-        "Transforme esse gargalo em um treino de uma sessão.",
-      ],
-      deliverable: "Um mapa de vendas de LP com notas, dependências e prioridade comercial.",
-      successCriteria: "A próxima aula vira uma ação de venda, não uma lista vaga de coisas para estudar.",
-    },
-    guided: {
-      objective: `Construir uma primeira LP simples para ${niche} com foco em vender uma conversa.`,
-      steps: [
-        "Defina uma oferta única: resultado, prazo estimado e para quem serve.",
-        "Escreva hero, benefícios, prova possível, processo e CTA.",
-        "Monte uma versão mobile-first em ferramenta simples ou código básico.",
-        "Revise se cada seção responde uma objeção de compra.",
-      ],
-      deliverable: "Uma LP mínima com link, print ou arquivo e CTA claro para contato.",
-      successCriteria: "Alguém do nicho entende em 10 segundos o que você vende e como chamar você.",
-    },
-    precision: {
-      objective: "Treinar a parte mais fraca da venda de LP com repetição curta.",
-      steps: [
-        "Escolha uma habilidade: headline, oferta, CTA, preço, layout ou abordagem.",
-        "Crie 3 variações em vez de uma versão perfeita.",
-        "Compare qual é mais específica, clara e vendável.",
-        "Use a melhor variação na LP ou na mensagem de prospecção.",
-      ],
-      deliverable: "Três variações comparadas e uma versão escolhida para uso real.",
-      successCriteria: "A versão final é mais específica e menos genérica que a primeira.",
-    },
-  } as const;
-  return base[kind as keyof typeof base] ?? localLessonGuidance(kind, topic, minutes, intake);
-}
+type CurriculumLesson = {
+  title: string;
+  objective: string;
+  kind: string;
+};
+
+type CurriculumPhase = {
+  title: string;
+  objective: string;
+  lessons: CurriculumLesson[];
+};
+
+const PROGRAMMING_CURRICULUM: CurriculumPhase[] = [
+  {
+    title: "Lógica e fundamentos",
+    objective: "Raciocinar sobre problemas e dominar a base da linguagem sem depender de copiar soluções.",
+    lessons: [
+      { title: "Lógica e decomposição", objective: "Quebrar um problema em entradas, regras e saídas antes de escrever código.", kind: "diagnostic" },
+      { title: "Fundamentos da linguagem", objective: "Aplicar tipos, condições, repetições e funções em um exercício executável.", kind: "fundamentals" },
+      { title: "Leitura e execução de código", objective: "Explicar o fluxo de um programa pequeno e prever seu resultado antes de executá-lo.", kind: "explain" },
+    ],
+  },
+  {
+    title: "Projeto, APIs e dados",
+    objective: "Conectar fundamentos em uma aplicação pequena que recebe, processa e persiste dados.",
+    lessons: [
+      { title: "Projeto funcional pequeno", objective: "Construir uma função principal do início ao fim com escopo controlado.", kind: "project" },
+      { title: "Integração com APIs", objective: "Consumir ou criar uma API, tratar erros e validar a resposta.", kind: "challenge" },
+      { title: "Banco de dados", objective: "Modelar e persistir os dados essenciais do projeto com consultas verificáveis.", kind: "guided" },
+    ],
+  },
+  {
+    title: "Qualidade e arquitetura",
+    objective: "Tornar o projeto compreensível, testável e resistente a erros reais.",
+    lessons: [
+      { title: "Debugging sistemático", objective: "Reproduzir um erro, localizar sua causa e comprovar a correção.", kind: "review" },
+      { title: "Testes automatizados", objective: "Cobrir o comportamento principal e pelo menos um caso de falha.", kind: "precision" },
+      { title: "Arquitetura e limites", objective: "Separar responsabilidades e justificar dependências importantes do projeto.", kind: "advanced" },
+    ],
+  },
+  {
+    title: "Entrega e autonomia",
+    objective: "Publicar uma versão segura, documentada e reproduzível do projeto.",
+    lessons: [
+      { title: "Segurança básica", objective: "Revisar entradas, segredos, permissões e dependências antes da entrega.", kind: "review" },
+      { title: "Deploy reproduzível", objective: "Publicar o projeto e registrar os passos necessários para repetir o deploy.", kind: "portfolio" },
+      { title: "Documentação e próxima evolução", objective: "Explicar como usar, testar e evoluir a entrega sem ampliar o escopo atual.", kind: "plan" },
+    ],
+  },
+];
+
+const AI_PROGRAMMING_CURRICULUM: CurriculumPhase[] = [
+  {
+    title: "Base para programar com IA",
+    objective: "Dominar fundamentos suficientes para avaliar o que a IA produz em vez de aceitar código por aparência.",
+    lessons: [
+      { title: "Fundamentos suficientes", objective: "Reconhecer fluxo, dados, funções e dependências usados no projeto real.", kind: "fundamentals" },
+      { title: "Leitura de código gerado", objective: "Explicar entrada, processamento, saída e riscos de um trecho gerado por IA.", kind: "explain" },
+      { title: "Prompting técnico", objective: "Pedir uma alteração com contexto, restrições, contrato e critério de aceite.", kind: "precision" },
+    ],
+  },
+  {
+    title: "Arquitetura e projeto real",
+    objective: "Usar IA dentro de limites arquiteturais claros e manter decisões sob controle humano.",
+    lessons: [
+      { title: "Arquitetura antes do prompt", objective: "Definir componentes, contratos e fronteiras antes de solicitar implementação.", kind: "advanced" },
+      { title: "Implementação incremental", objective: "Construir uma função por vez e verificar cada mudança no projeto.", kind: "guided" },
+      { title: "Projeto aplicado com IA", objective: "Entregar uma pequena funcionalidade cuja lógica você consegue explicar e modificar.", kind: "project" },
+    ],
+  },
+  {
+    title: "Validação, testes e debugging",
+    objective: "Tratar toda saída gerada como hipótese até haver evidência executável.",
+    lessons: [
+      { title: "Validação de saídas", objective: "Comparar a implementação com requisitos e casos observáveis.", kind: "diagnostic" },
+      { title: "Testes contra alucinações", objective: "Criar testes para comportamento esperado, bordas e falhas prováveis.", kind: "precision" },
+      { title: "Debugging assistido", objective: "Usar logs e reprodução mínima para corrigir a causa, não apenas o sintoma sugerido.", kind: "review" },
+    ],
+  },
+  {
+    title: "Segurança e entrega",
+    objective: "Revisar riscos, publicar e documentar um projeto que continue compreensível sem a conversa com a IA.",
+    lessons: [
+      { title: "Segurança e segredos", objective: "Auditar dados sensíveis, permissões, dependências e instruções não confiáveis.", kind: "advanced" },
+      { title: "Deploy verificado", objective: "Publicar a versão testada e executar uma verificação pós-deploy.", kind: "portfolio" },
+      { title: "Explicação sem a IA", objective: "Documentar arquitetura, decisões e limites com suas próprias palavras.", kind: "teach" },
+    ],
+  },
+];
 
 function localLessonGuidance(
   kind: string,
@@ -295,6 +361,68 @@ function localLessonGuidance(
   return base[kind as keyof typeof base] ?? base.guided;
 }
 
+function curriculumPhases(
+  curriculum: CurriculumPhase[],
+  topic: string,
+  lessonMinutes: number,
+  intake?: ProfessorIntake,
+): RoadmapPhase[] {
+  return curriculum.map((phase, phaseIndex) => ({
+    id: createId(`phase-${phaseIndex + 1}`),
+    title: phase.title,
+    objective: phase.objective,
+    order: phaseIndex,
+    lessons: phase.lessons.map((lesson) => {
+      const guidance = localLessonGuidance(lesson.kind, topic, lessonMinutes, intake);
+      const deliverable = lesson.kind === "project" && sanitizeText(intake?.proofProject, 400)
+        ? sanitizeText(intake?.proofProject, 400)
+        : guidance.deliverable;
+      return {
+        id: createId("lesson"),
+        title: lesson.title,
+        description: sanitizeText(`${lesson.objective} Entrega: ${deliverable}`, 700),
+        objective: lesson.objective,
+        steps: [...guidance.steps],
+        deliverable,
+        successCriteria: guidance.successCriteria,
+        estimatedMinutes: lessonMinutes,
+        completed: false,
+      };
+    }),
+  }));
+}
+
+function technicalCurriculum(intent: RoadmapIntent, advanced: boolean): CurriculumPhase[] {
+  const base = intent === "applied_technical" ? AI_PROGRAMMING_CURRICULUM : PROGRAMMING_CURRICULUM;
+  if (!advanced) return base;
+  // Um aluno avançado começa por arquitetura, qualidade e lacunas observadas;
+  // fundamentos só reaparecem se uma evidência real demonstrar necessidade.
+  return [base[2], base[1], base[3]].filter((phase): phase is CurriculumPhase => Boolean(phase));
+}
+
+export function validateRoadmapSemantics(
+  roadmap: LearningRoadmap,
+  expectedIntent: RoadmapIntent = roadmap.intent ?? classifyRoadmapIntent(roadmap.topic, roadmap.intake),
+): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+  const commercialAllowed = expectedIntent === "commercial" || expectedIntent === "clients" || expectedIntent === "financial";
+  const searchable = roadmap.phases.flatMap((phase) => [
+    phase.title,
+    phase.objective,
+    ...phase.lessons.flatMap((lesson) => [lesson.title, lesson.description, lesson.objective ?? "", lesson.deliverable ?? ""]),
+  ]).join(" ");
+  if (!commercialAllowed && COMMERCIAL_CONTENT_RE.test(searchable)) {
+    issues.push("O roadmap introduz venda, prospecção ou clientes sem intenção comercial explícita.");
+  }
+  if ((expectedIntent === "technical" || expectedIntent === "applied_technical") && roadmap.phases.length < 3) {
+    issues.push("O roadmap técnico precisa cobrir construção, qualidade e entrega.");
+  }
+  if (!roadmap.phases.every((phase) => phase.lessons.length > 0)) {
+    issues.push("Toda fase precisa conter pelo menos uma lição executável.");
+  }
+  return { valid: issues.length === 0, issues };
+}
+
 function commercialAdvancedPhases(topic: string, lessonMinutes: number, intake?: ProfessorIntake): RoadmapPhase[] {
   const now = new Date().toISOString();
   void now;
@@ -358,25 +486,28 @@ export function createStarterRoadmap(
   const lessonMinutes =
     intake?.sessionMinutes ?? evolution?.sessionLength ?? 25;
   const now = new Date().toISOString();
-  const intentText = `${topic} ${intake?.knownConcepts ?? ""} ${intake?.desiredOutcome ?? ""} ${intake?.proofProject ?? ""} ${profile.mainGoal}`;
-  const intent = classifyGoalIntent(intentText, intake?.knowledgeLevel === "avancado" ? "avancado" : profile.skillLevel);
-  const useCommercialAdvanced = Boolean(intake) && (intake?.knowledgeLevel === "avancado" || intent === "sell_service" || intent === "get_clients" || intent === "financial_goal" || intent === "build_product" || isLandingPageSalesTopic(topic));
-  const phases: RoadmapPhase[] = useCommercialAdvanced
+  // A meta global do perfil não participa desta classificação. Somente o
+  // pedido do roadmap e o diagnóstico específico podem ativar conteúdo comercial.
+  const intent = classifyRoadmapIntent(topic, intake);
+  const advanced = (intake?.knowledgeLevel ?? profile.skillLevel) === "avancado";
+  const commercial = intent === "commercial" || intent === "clients" || intent === "financial";
+  const technical = intent === "technical" || intent === "applied_technical" || (intent === "product" && (TECHNICAL_TOPIC_RE.test(topic) || AI_TOPIC_RE.test(topic)));
+  const phases: RoadmapPhase[] = commercial
     ? commercialAdvancedPhases(topic, lessonMinutes, intake)
-    : GENERIC_PHASES.map((phase, phaseIndex) => ({
+    : technical
+      ? curriculumPhases(technicalCurriculum(AI_TOPIC_RE.test(topic) ? "applied_technical" : "technical", advanced), topic, lessonMinutes, intake)
+      : GENERIC_PHASES.map((phase, phaseIndex) => ({
     id: createId(`phase-${phaseIndex + 1}`),
     title: phase.title,
     objective: `${phase.objective} Tema: ${topic}.`,
     order: phaseIndex,
     lessons: phase.lessons.map((lesson) => {
-      const guidance = isLandingPageSalesTopic(topic)
-        ? landingPageSalesGuidance(lesson.kind, topic, lessonMinutes, intake)
-        : localLessonGuidance(
-            lesson.kind,
-            topic,
-            lessonMinutes,
-            intake,
-          );
+      const guidance = localLessonGuidance(
+        lesson.kind,
+        topic,
+        lessonMinutes,
+        intake,
+      );
       return {
         id: createId("lesson"),
         title: lesson.title,
@@ -408,6 +539,7 @@ export function createStarterRoadmap(
     weeklyMinutes:
       intake?.weeklyMinutes ?? evolution?.weeklyLearningMinutes ?? 180,
     ...(intake ? { intake } : {}),
+    intent,
     phases,
     status: "active",
     createdAt: now,
@@ -435,4 +567,268 @@ export function nextRoadmapLesson(roadmap: LearningRoadmap) {
   return roadmap.phases
     .flatMap((phase) => phase.lessons)
     .find((lesson) => !lesson.completed);
+}
+
+function fallbackActiveRoadmapId(roadmaps: LearningRoadmap[]): string | undefined {
+  return roadmaps.find((roadmap) => roadmap.status === "active")?.id
+    ?? roadmaps.find((roadmap) => roadmap.status === "paused")?.id;
+}
+
+export function removeRoadmap(learning: LearningState, roadmapId: string): LearningState {
+  if (!learning.roadmaps.some((roadmap) => roadmap.id === roadmapId)) return learning;
+  const roadmaps = learning.roadmaps.filter((roadmap) => roadmap.id !== roadmapId);
+  const activeRoadmapId = learning.activeRoadmapId === roadmapId
+    ? fallbackActiveRoadmapId(roadmaps)
+    : learning.activeRoadmapId && roadmaps.some((roadmap) => roadmap.id === learning.activeRoadmapId)
+      ? learning.activeRoadmapId
+      : fallbackActiveRoadmapId(roadmaps);
+  return { ...learning, roadmaps, ...(activeRoadmapId ? { activeRoadmapId } : { activeRoadmapId: undefined }) };
+}
+
+export function archiveRoadmap(learning: LearningState, roadmapId: string, now = new Date().toISOString()): LearningState {
+  if (!learning.roadmaps.some((roadmap) => roadmap.id === roadmapId)) return learning;
+  const roadmaps = learning.roadmaps.map((roadmap) => roadmap.id === roadmapId
+    ? { ...roadmap, status: "archived" as const, archivedAt: now, updatedAt: now }
+    : roadmap);
+  const activeRoadmapId = learning.activeRoadmapId === roadmapId
+    ? fallbackActiveRoadmapId(roadmaps)
+    : learning.activeRoadmapId;
+  return { ...learning, roadmaps, ...(activeRoadmapId ? { activeRoadmapId } : { activeRoadmapId: undefined }) };
+}
+
+export function activateRoadmap(learning: LearningState, roadmapId: string, now = new Date().toISOString()): LearningState {
+  if (!learning.roadmaps.some((roadmap) => roadmap.id === roadmapId)) return learning;
+  return {
+    ...learning,
+    activeRoadmapId: roadmapId,
+    roadmaps: learning.roadmaps.map((roadmap) => roadmap.id === roadmapId
+      ? { ...roadmap, status: "active" as const, archivedAt: undefined, updatedAt: now }
+      : roadmap),
+  };
+}
+
+export function renameRoadmap(learning: LearningState, roadmapId: string, title: string, now = new Date().toISOString()): LearningState {
+  const topic = sanitizeText(title, 160);
+  if (topic.length < 2) return learning;
+  return {
+    ...learning,
+    roadmaps: learning.roadmaps.map((roadmap) => roadmap.id === roadmapId
+      ? { ...roadmap, topic, updatedAt: now }
+      : roadmap),
+  };
+}
+
+function lessonEvidenceIdentity(lesson: RoadmapLesson): string {
+  const normalize = (value: string | undefined) => (value ?? "")
+    .normalize("NFKC")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleLowerCase("pt-BR");
+  return JSON.stringify([
+    normalize(lesson.title),
+    normalize(lesson.description),
+    normalize(lesson.objective),
+    ...(lesson.steps ?? []).map(normalize),
+    normalize(lesson.deliverable),
+    normalize(lesson.successCriteria),
+  ]);
+}
+
+function preserveMatchingRoadmapEvidence(
+  previous: LearningRoadmap,
+  generated: LearningRoadmap,
+): RoadmapPhase[] {
+  const previousByIdentity = new Map<string, RoadmapLesson[]>();
+  for (const lesson of previous.phases.flatMap((phase) => phase.lessons)) {
+    const identity = lessonEvidenceIdentity(lesson);
+    previousByIdentity.set(identity, [
+      ...(previousByIdentity.get(identity) ?? []),
+      lesson,
+    ]);
+  }
+
+  const generatedIdentityCounts = new Map<string, number>();
+  for (const lesson of generated.phases.flatMap((phase) => phase.lessons)) {
+    const identity = lessonEvidenceIdentity(lesson);
+    generatedIdentityCounts.set(
+      identity,
+      (generatedIdentityCounts.get(identity) ?? 0) + 1,
+    );
+  }
+
+  return generated.phases.map((phase) => ({
+    ...phase,
+    lessons: phase.lessons.map((lesson) => {
+      const identity = lessonEvidenceIdentity(lesson);
+      const candidates = previousByIdentity.get(identity) ?? [];
+      const previousLesson = candidates.length === 1 && generatedIdentityCounts.get(identity) === 1
+        ? candidates[0]
+        : undefined;
+      const previousEvidence = previousLesson?.evidence;
+      const evidenceIsCoherent = previousEvidence
+        ? previousLesson.completed === (previousEvidence.status === "accepted")
+        : false;
+      const evidence = evidenceIsCoherent ? previousEvidence : undefined;
+      const completed = evidence?.status === "accepted";
+      return {
+        ...lesson,
+        completed,
+        completedAt: completed ? previousLesson?.completedAt : undefined,
+        evidence: evidence ? { ...evidence } : undefined,
+      };
+    }),
+  }));
+}
+
+export function replaceRoadmap(
+  learning: LearningState,
+  roadmapId: string,
+  generated: LearningRoadmap,
+  now = new Date().toISOString(),
+): LearningState {
+  const previous = learning.roadmaps.find((roadmap) => roadmap.id === roadmapId);
+  if (!previous) return learning;
+  const phases = preserveMatchingRoadmapEvidence(previous, generated);
+  const lessons = phases.flatMap((phase) => phase.lessons);
+  const allDone = lessons.length > 0 && lessons.every((lesson) => lesson.completed);
+  const status = previous.status === "archived"
+    ? "archived"
+    : allDone
+      ? "completed"
+      : previous.status === "paused"
+        ? "paused"
+        : "active";
+  const replacement: LearningRoadmap = {
+    ...generated,
+    id: previous.id,
+    topic: previous.topic,
+    phases,
+    createdAt: previous.createdAt,
+    updatedAt: now,
+    status,
+    archivedAt: status === "archived" ? previous.archivedAt : undefined,
+  };
+  return {
+    ...learning,
+    roadmaps: learning.roadmaps.map((roadmap) => roadmap.id === roadmapId ? replacement : roadmap),
+  };
+}
+
+function updateLesson(
+  roadmap: LearningRoadmap,
+  lessonId: string,
+  update: (lesson: RoadmapLesson) => RoadmapLesson,
+  updatedAt = new Date().toISOString(),
+): LearningRoadmap {
+  return {
+    ...roadmap,
+    updatedAt,
+    phases: roadmap.phases.map((phase) => ({
+      ...phase,
+      lessons: phase.lessons.map((lesson) => lesson.id === lessonId ? update(lesson) : lesson),
+    })),
+  };
+}
+
+export function submitLessonEvidence(
+  roadmap: LearningRoadmap,
+  lessonId: string,
+  submission: string,
+  now = new Date().toISOString(),
+): LearningRoadmap {
+  const clean = sanitizeText(submission, 4000);
+  if (clean.length < 2) return roadmap;
+  return updateLesson(roadmap, lessonId, (lesson) => {
+    if (lesson.evidence?.status === "accepted") return lesson;
+    return {
+      ...lesson,
+      evidence: {
+        ...lesson.evidence,
+        submission: clean,
+        status: "submitted",
+        submittedAt: now,
+      },
+    };
+  }, now);
+}
+
+export function reviewLessonEvidence(
+  roadmap: LearningRoadmap,
+  lessonId: string,
+  review: { accepted: boolean; feedback: string; nextAdjustment?: string },
+  now = new Date().toISOString(),
+): LearningRoadmap {
+  const feedback = sanitizeText(review.feedback, 2000);
+  const nextAdjustment = sanitizeText(review.nextAdjustment, 1000);
+  if (!review.accepted && nextAdjustment.length < 2) return roadmap;
+  const reviewed = updateLesson(roadmap, lessonId, (lesson) => {
+    if (!lesson.evidence || feedback.length < 2) return lesson;
+    return {
+      ...lesson,
+      completed: review.accepted,
+      ...(review.accepted ? { completedAt: now } : { completedAt: undefined }),
+      evidence: {
+        submission: lesson.evidence.submission,
+        submittedAt: lesson.evidence.submittedAt,
+        status: review.accepted ? "accepted" : "needs_revision",
+        feedback,
+        ...(nextAdjustment ? { nextAdjustment } : {}),
+        reviewedAt: now,
+      },
+    };
+  }, now);
+  const allDone = reviewed.phases.every((phase) =>
+    phase.lessons.every((lesson) => lesson.completed)
+  );
+  const status = reviewed.status === "archived"
+    ? "archived"
+    : allDone
+      ? "completed"
+      : reviewed.status === "paused"
+        ? "paused"
+        : "active";
+  return { ...reviewed, status };
+}
+
+export function applyLessonEvidenceReview(
+  data: AppData,
+  roadmapId: string,
+  lessonId: string,
+  review: { accepted: boolean; feedback: string; nextAdjustment?: string },
+  now = new Date().toISOString(),
+): AppData {
+  const roadmap = data.learning.roadmaps.find((item) => item.id === roadmapId);
+  const lesson = roadmap?.phases
+    .flatMap((phase) => phase.lessons)
+    .find((item) => item.id === lessonId);
+  if (!roadmap || !lesson?.evidence) return data;
+
+  const reviewed = reviewLessonEvidence(roadmap, lessonId, review, now);
+  const reviewedLesson = reviewed.phases
+    .flatMap((phase) => phase.lessons)
+    .find((item) => item.id === lessonId);
+  const newlyAccepted = lesson.evidence.status !== "accepted" &&
+    reviewedLesson?.evidence?.status === "accepted";
+
+  return {
+    ...data,
+    learning: {
+      ...data.learning,
+      roadmaps: data.learning.roadmaps.map((item) =>
+        item.id === roadmapId ? reviewed : item
+      ),
+    },
+    ...(newlyAccepted
+      ? {
+          progress: {
+            ...data.progress,
+            totalXp: data.progress.totalXp + 20,
+            attributes: {
+              ...data.progress.attributes,
+              disciplina: data.progress.attributes.disciplina + 1,
+            },
+          },
+        }
+      : {}),
+  };
 }

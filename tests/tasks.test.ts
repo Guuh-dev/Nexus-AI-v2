@@ -37,6 +37,8 @@ describe("task state and XP", () => {
     const completed = toggleTaskCompletion(initial, task.id);
     const deleted = deleteTask(completed, task.id);
     expect(deleted.progress.totalXp).toBe(0);
+    expect(deleted.progress.attributes.execucao).toBe(0);
+    expect(deleted.progress.attributes.disciplina).toBe(0);
     expect(deleted.activePlan?.tasks.some((item) => item.id === task.id)).toBe(false);
   });
 
@@ -44,9 +46,17 @@ describe("task state and XP", () => {
     const initial = stateWithPlan();
     const task = initial.activePlan!.tasks.find((item) => item.priority === "media") ?? initial.activePlan!.tasks[0]!;
     const completed = toggleTaskCompletion(initial, task.id);
+    const disciplineBeforeEdit = completed.progress.attributes.disciplina;
     const edited = updateTask(completed, task.id, { priority: "alta" });
     expect(edited.progress.totalXp).toBe(50);
     expect(edited.activePlan?.tasks.find((item) => item.id === task.id)?.xp).toBe(50);
+    expect(edited.progress.attributes.execucao).toBe(completed.progress.attributes.execucao);
+    expect(edited.progress.attributes.disciplina).toBe(
+      disciplineBeforeEdit + (task.priority === "alta" ? 0 : 1),
+    );
+
+    const lowered = updateTask(edited, task.id, { priority: "baixa" });
+    expect(lowered.progress.attributes.disciplina).toBe(disciplineBeforeEdit);
   });
 
   it("postpones without keeping a duplicate today", () => {

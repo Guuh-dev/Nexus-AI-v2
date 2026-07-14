@@ -26,14 +26,25 @@ export const evolutionProfileSchema = z.object({
   professorOutcome: z.string().trim().max(600),
 }).strict();
 
-const assistantActionSchema = z.object({
+const assistantActionFields = {
   id,
-  type: z.enum(["replan", "create_task", "create_roadmap", "update_goal", "start_operation"]),
   title: shortText,
   description: mediumText,
-  payload: z.record(z.string(), z.unknown()),
   status: z.enum(["proposed", "accepted", "rejected"]),
-}).strict();
+};
+
+const assistantActionSchema = z.discriminatedUnion("type", [
+  z.object({
+    ...assistantActionFields,
+    type: z.literal("update_goal"),
+    payload: z.object({ mainGoal: z.string().trim().min(10).max(600) }).strict(),
+  }).strict(),
+  z.object({
+    ...assistantActionFields,
+    type: z.enum(["replan", "create_task", "create_roadmap", "save_memory", "start_operation"]),
+    payload: z.record(z.string(), z.unknown()),
+  }).strict(),
+]);
 
 const chatMessageSchema = z.object({
   id,
@@ -84,6 +95,14 @@ const roadmapLessonSchema = z.object({
   estimatedMinutes: z.number().int().min(5).max(360),
   completed: z.boolean(),
   completedAt: dateTime.optional(),
+  evidence: z.object({
+    submission: z.string().trim().min(2).max(4000),
+    status: z.enum(["submitted", "needs_revision", "accepted"]),
+    submittedAt: dateTime,
+    feedback: z.string().trim().min(2).max(2000).optional(),
+    nextAdjustment: z.string().trim().min(2).max(1000).optional(),
+    reviewedAt: dateTime.optional(),
+  }).strict().optional(),
 }).strict();
 
 const roadmapPhaseSchema = z.object({
@@ -122,7 +141,9 @@ export const roadmapSchema = z.object({
   weeklyMinutes: z.number().int().min(30).max(3000),
   intake: professorIntakeSchema.optional(),
   phases: z.array(roadmapPhaseSchema).min(1).max(12),
-  status: z.enum(["active", "paused", "completed"]),
+  intent: z.enum(["technical", "applied_technical", "learning", "product", "commercial", "clients", "financial", "career", "exam", "health", "general"]).optional(),
+  status: z.enum(["active", "paused", "completed", "archived"]),
+  archivedAt: dateTime.optional(),
   createdAt: dateTime,
   updatedAt: dateTime,
 }).strict();
@@ -142,7 +163,13 @@ export const weeklyReviewSchema = z.object({
   completionPercentage: z.number().min(0).max(100),
   xpEarned: z.number().int().min(0).max(1_000_000),
   focusMinutes: z.number().int().min(0).max(100_000),
-  consistencyScore: z.number().min(0).max(100),
+  consistencyScore: z.number().min(0).max(100).nullable(),
+  confidence: z.enum(["insufficient", "low", "medium", "high"]).optional(),
+  statements: z.array(z.object({
+    kind: z.enum(["fact", "hypothesis", "insufficient"]),
+    text: z.string().trim().min(2).max(500),
+    evidenceKeys: z.array(z.string().trim().min(1).max(80)).max(12),
+  }).strict()).max(20).optional(),
   highlights: z.array(shortText).max(12),
   patterns: z.array(shortText).max(12),
   keep: z.array(shortText).max(12),
@@ -184,8 +211,14 @@ export const weeklyPlanItemSchema = z.object({
   id,
   date: z.string().date(),
   title: shortText,
+  description: z.string().trim().max(300).optional(),
+  context: z.string().trim().max(300).optional(),
+  firstStep: z.string().trim().max(240).optional(),
+  expectedResult: z.string().trim().max(300).optional(),
+  doneWhen: z.string().trim().max(300).optional(),
   category: z.enum(CATEGORIES),
   estimatedMinutes: z.number().int().min(5).max(720),
   priority: z.enum(["alta", "media", "baixa"]),
+  recurring: z.boolean().optional(),
   completed: z.boolean(),
 }).strict();

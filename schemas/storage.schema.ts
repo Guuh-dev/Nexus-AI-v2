@@ -79,7 +79,7 @@ const mascotPreferencesSchema = z.object({
 }).strict();
 
 export const preferencesSchema = z.object({
-  theme: z.enum(["nexus", "amoled", "oneui", "hud", "aurora", "ocean", "ember", "rose", "monochrome", "light", "custom"]),
+  theme: z.enum(["nexus", "amoled", "glass", "light", "pixel", "minimal"]),
   customAccent: z.string().regex(/^#[0-9A-Fa-f]{6}$/),
   haptics: z.boolean(),
   sound: z.boolean(),
@@ -153,6 +153,7 @@ export const progressSchema = z.object({
     disciplina: z.number().int().min(0).max(1_000_000),
   }).strict(),
   challenges: z.array(challengeSchema).max(100),
+  challengeRewardLedger: z.array(z.string().min(1).max(120)).max(20_000),
 }).strict();
 
 

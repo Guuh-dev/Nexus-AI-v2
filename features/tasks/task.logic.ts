@@ -75,7 +75,18 @@ export function toggleMainMission(data: AppData): AppData {
 
 export function addTask(
   data: AppData,
-  input: { title: string; description?: string; category: Category; priority: Priority; estimatedMinutes: number; recurring: boolean },
+  input: {
+    title: string;
+    description?: string;
+    context?: string;
+    firstStep?: string;
+    expectedResult?: string;
+    doneWhen?: string;
+    category: Category;
+    priority: Priority;
+    estimatedMinutes: number;
+    recurring: boolean;
+  },
 ): AppData {
   if (!data.activePlan || data.activePlan.tasks.length >= 5) return data;
   const title = sanitizeText(input.title, 120);
@@ -83,7 +94,11 @@ export function addTask(
   const task: Task = {
     id: createId("task"),
     title,
-    ...(input.description ? { description: sanitizeText(input.description, 300) } : {}),
+    description: sanitizeText(input.description ?? input.context, 300) || `Ação manual para concluir “${title}”.`,
+    context: sanitizeText(input.context ?? input.description, 300) || "Tarefa adicionada manualmente ao plano de hoje.",
+    firstStep: sanitizeText(input.firstStep, 240) || `Abra o recurso necessário e inicie “${title}”.`,
+    expectedResult: sanitizeText(input.expectedResult ?? input.description, 300) || `Uma entrega observável ligada a “${title}”.`,
+    doneWhen: sanitizeText(input.doneWhen, 300) || "O resultado esperado foi conferido e registrado.",
     category: input.category,
     priority: input.priority,
     estimatedMinutes: Math.max(5, Math.min(240, Math.round(input.estimatedMinutes))),
@@ -95,7 +110,7 @@ export function addTask(
   return task.recurring ? { ...next, recurringTasks: [...next.recurringTasks, task] } : next;
 }
 
-export function updateTask(data: AppData, taskId: string, patch: Partial<Pick<Task, "title" | "description" | "category" | "priority" | "estimatedMinutes" | "recurring">>): AppData {
+export function updateTask(data: AppData, taskId: string, patch: Partial<Pick<Task, "title" | "description" | "context" | "firstStep" | "expectedResult" | "doneWhen" | "category" | "priority" | "estimatedMinutes" | "recurring">>): AppData {
   const before = data.activePlan?.tasks.find((task) => task.id === taskId);
   if (!before) return data;
   const updated = withPlan(data, (tasks) =>
@@ -107,6 +122,10 @@ export function updateTask(data: AppData, taskId: string, patch: Partial<Pick<Ta
         ...patch,
         title: sanitizeText(patch.title ?? task.title, 120) || task.title,
         ...(patch.description !== undefined ? { description: sanitizeText(patch.description, 300) } : {}),
+        ...(patch.context !== undefined ? { context: sanitizeText(patch.context, 300) || task.context } : {}),
+        ...(patch.firstStep !== undefined ? { firstStep: sanitizeText(patch.firstStep, 240) || task.firstStep } : {}),
+        ...(patch.expectedResult !== undefined ? { expectedResult: sanitizeText(patch.expectedResult, 300) || task.expectedResult } : {}),
+        ...(patch.doneWhen !== undefined ? { doneWhen: sanitizeText(patch.doneWhen, 300) || task.doneWhen } : {}),
         estimatedMinutes: Math.max(5, Math.min(240, Math.round(patch.estimatedMinutes ?? task.estimatedMinutes))),
         priority,
         xp: PRIORITY_XP[priority],
@@ -116,6 +135,9 @@ export function updateTask(data: AppData, taskId: string, patch: Partial<Pick<Ta
   const after = updated.activePlan?.tasks.find((task) => task.id === taskId);
   if (!after) return updated;
   const xpDelta = before.completed ? after.xp - before.xp : 0;
+  const disciplineDelta = before.completed
+    ? Number(after.priority === "alta") - Number(before.priority === "alta")
+    : 0;
   return {
     ...updated,
     recurringTasks: [
@@ -125,6 +147,10 @@ export function updateTask(data: AppData, taskId: string, patch: Partial<Pick<Ta
     progress: {
       ...updated.progress,
       totalXp: Math.max(0, updated.progress.totalXp + xpDelta),
+      attributes: {
+        ...updated.progress.attributes,
+        disciplina: Math.max(0, updated.progress.attributes.disciplina + disciplineDelta),
+      },
     },
   };
 }
@@ -139,6 +165,11 @@ export function deleteTask(data: AppData, taskId: string): AppData {
     progress: {
       ...next.progress,
       totalXp: Math.max(0, next.progress.totalXp - (task.completed ? task.xp : 0)),
+      attributes: {
+        ...next.progress.attributes,
+        execucao: Math.max(0, next.progress.attributes.execucao - (task.completed ? 1 : 0)),
+        disciplina: Math.max(0, next.progress.attributes.disciplina - (task.completed && task.priority === "alta" ? 1 : 0)),
+      },
     },
   };
 }
