@@ -8,7 +8,7 @@ const LINES: Record<CompanionMood, { idle: string[]; progress: string[]; stalled
     done: ["Missão cumprida. Hoje foi seu.", "GG. O Nexus está oficialmente orgulhoso.", "Dia fechado com chave roxa."],
   },
   playful: {
-    idle: ["O botão não vai apertar sozinho, chefe 😭", "Seu futuro mandou mensagem: começa logo.", "A procrastinação abriu lobby. Bora sair dele."],
+    idle: ["O botão não vai apertar sozinho, chefe 😭", "Seu futuro mandou mensagem: começa logo.", "A primeira tarefa abriu o lobby. Bora entrar."],
     progress: ["Olha ele executando 👀", "XP pingando. Continua.", "Um task a menos, um monstro a mais."],
     stalled: ["Você e essa tarefa estão num relacionamento complicado.", "Prometo não julgar... muito. Faz 10 min.", "A missão está te encarando faz tempo, viu?"],
     done: ["GG EZ. Próximo boss.", "Terminou mesmo? Cinema absoluto.", "O dia tentou. Você venceu."],
@@ -28,7 +28,7 @@ const LINES: Record<CompanionMood, { idle: string[]; progress: string[]; stalled
   strict: {
     idle: ["Chega de negociar. Comece.", "A meta não se move sem você.", "Faça a tarefa antes de procurar outra ideia."],
     progress: ["Melhor. Não quebre o ritmo.", "Continue até existir uma entrega.", "Bom começo. Termine."],
-    stalled: ["Você está evitando. Abra a tarefa agora.", "Sem outra aba. Sem outro plano. Execute.", "Quinze minutos. Agora."],
+    stalled: ["Há tarefas adiadas no plano. Abra a primeira agora.", "Sem outra aba. Sem outro plano. Execute.", "Quinze minutos. Agora."],
     done: ["Concluído. Era isso que precisava acontecer.", "Resultado entregue.", "Missão cumprida. Pode descansar."],
   },
   calm: {
@@ -58,14 +58,24 @@ export function companionStatus(data: AppData): "idle" | "progress" | "stalled" 
   const completed = plan.tasks.filter((task) => task.completed).length + Number(plan.mainMission.completed);
   if (completed >= total && total > 0) return "done";
   if (completed > 0) return "progress";
-  const ageMinutes = Math.floor((Date.now() - new Date(plan.createdAt).getTime()) / 60_000);
-  return ageMinutes > 180 ? "stalled" : "idle";
+  const postponed = plan.tasks.filter((task) => !task.completed && Boolean(task.postponedFrom)).length;
+  return postponed >= 2 ? "stalled" : "idle";
+}
+
+export function shouldShowCompanion(data: AppData): boolean {
+  const mascot = data.preferences.mascot;
+  if (!mascot.showCompanion || mascot.companionPresence === "quiet") return false;
+  if (mascot.companionPresence === "active") return true;
+  return companionStatus(data) !== "idle";
 }
 
 export function getCompanionLine(data: AppData, mood: CompanionMood, salt = "main"): string {
   const status = companionStatus(data);
   const day = data.activePlan?.date ?? new Date().toISOString().slice(0, 10);
-  return deterministicPick(LINES[mood][status], `${day}:${salt}:${data.progress.totalXp}:${status}`);
+  const completed = data.activePlan?.tasks.filter((task) => task.completed).length ?? 0;
+  const focus = data.progress.focusSessions.length;
+  const timeWindow = Math.floor(Date.now() / (4 * 60 * 60 * 1000));
+  return deterministicPick(LINES[mood][status], `${day}:${salt}:${data.progress.totalXp}:${completed}:${focus}:${timeWindow}:${status}`);
 }
 
 export function companionLines(data: AppData): Partial<Record<CompanionMood, string>> {

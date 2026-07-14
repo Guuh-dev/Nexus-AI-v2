@@ -36,8 +36,18 @@ const requestSchema = z
 type Bucket = { count: number; resetAt: number };
 const clientBuckets = new Map<string, Bucket>();
 let globalBucket: Bucket = { count: 0, resetAt: Date.now() + DAY_MS };
-const idempotencyCache = new Map<string, { expiresAt: number; response: PlanResponse }>();
-const inFlightPlans = new Map<string, Promise<PlanResponse>>();
+type IdempotentPlan = {
+  fingerprint: string;
+  response: PlanResponse;
+};
+
+type InFlightPlan = {
+  fingerprint: string;
+  promise: Promise<PlanResponse>;
+};
+
+const idempotencyCache = new Map<string, IdempotentPlan & { expiresAt: number }>();
+const inFlightPlans = new Map<string, InFlightPlan>();
 
 function responseHeaders(request: Request): HeadersInit {
   const origin = request.headers.get("origin");
@@ -95,7 +105,7 @@ function rateLimit(request: Request): { allowed: true } | { allowed: false; retr
   return { allowed: true };
 }
 
-function cached(cacheKey: string): PlanResponse | undefined {
+function cached(cacheKey: string): IdempotentPlan | undefined {
   const now = Date.now();
   const value = idempotencyCache.get(cacheKey);
   if (!value) return undefined;
@@ -103,7 +113,22 @@ function cached(cacheKey: string): PlanResponse | undefined {
     idempotencyCache.delete(cacheKey);
     return undefined;
   }
-  return value.response;
+  return value;
+}
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (!value || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(record)
+      .sort()
+      .map((key) => [key, canonicalize(record[key])]),
+  );
+}
+
+function requestFingerprint(requestData: PlanRequest): string {
+  return JSON.stringify(canonicalize(requestData));
 }
 
 function upstreamStatus(error: unknown): number | undefined {
@@ -153,13 +178,22 @@ export async function POST(request: Request): Promise<Response> {
     return json(request, { error: { code: "bad_request", message: "Identificador do cliente inconsistente." } }, 400);
   }
   const requestCacheKey = `${requestData.clientId}:${requestData.requestId}`;
+  const fingerprint = requestFingerprint(requestData);
   const previous = cached(requestCacheKey);
-  if (previous) return json(request, previous);
+  if (previous) {
+    if (previous.fingerprint !== fingerprint) {
+      return json(request, { error: { code: "request_conflict", message: "Este identificador já foi usado por outra solicitação." } }, 409);
+    }
+    return json(request, previous.response);
+  }
 
   const existingRequest = inFlightPlans.get(requestCacheKey);
   if (existingRequest) {
+    if (existingRequest.fingerprint !== fingerprint) {
+      return json(request, { error: { code: "request_conflict", message: "Este identificador já está processando outra solicitação." } }, 409);
+    }
     try {
-      return json(request, await existingRequest);
+      return json(request, await existingRequest.promise);
     } catch {
       return json(request, { error: { code: "provider_unavailable", message: "A inteligência está temporariamente indisponível." } }, 503);
     }
@@ -187,10 +221,11 @@ export async function POST(request: Request): Promise<Response> {
       repaired: result.repaired,
     },
   } satisfies PlanResponse));
-  inFlightPlans.set(requestCacheKey, generation);
+  const operation = { fingerprint, promise: generation };
+  inFlightPlans.set(requestCacheKey, operation);
   try {
     const response = await generation;
-    idempotencyCache.set(requestCacheKey, { expiresAt: Date.now() + WINDOW_MS, response });
+    idempotencyCache.set(requestCacheKey, { expiresAt: Date.now() + WINDOW_MS, fingerprint, response });
     return json(request, response);
   } catch (error) {
     if (controller.signal.aborted) {
@@ -208,7 +243,7 @@ export async function POST(request: Request): Promise<Response> {
     return json(request, { error: { code: "provider_unavailable", message: "A inteligência está temporariamente indisponível." } }, 503);
   } finally {
     clearTimeout(timeout);
-    inFlightPlans.delete(requestCacheKey);
+    if (inFlightPlans.get(requestCacheKey) === operation) inFlightPlans.delete(requestCacheKey);
   }
 }
 

@@ -11,6 +11,9 @@ const aiMissionSchema = z
   .object({
     title: z.string().trim().min(2).max(120),
     description: z.string().trim().min(2).max(360),
+    firstStep: z.string().trim().min(2).max(240).optional(),
+    expectedResult: z.string().trim().min(2).max(300).optional(),
+    doneWhen: z.string().trim().min(2).max(300).optional(),
     estimatedMinutes: z.number().int().min(5).max(360),
     priority: prioritySchema,
   })
@@ -21,6 +24,10 @@ const aiTaskSchema = z
     id: z.string().trim().min(1).max(100).optional(),
     title: z.string().trim().min(2).max(120),
     description: z.string().trim().max(300).optional(),
+    context: z.string().trim().min(2).max(300).optional(),
+    firstStep: z.string().trim().min(2).max(240).optional(),
+    expectedResult: z.string().trim().min(2).max(300).optional(),
+    doneWhen: z.string().trim().min(2).max(300).optional(),
     category: categorySchema,
     priority: prioritySchema,
     estimatedMinutes: z.number().int().min(5).max(240),
@@ -60,7 +67,9 @@ export const dailyPlanSchema = z
   .object({
     date: z.string().date(),
     mainMission: storedMissionSchema,
-    tasks: z.array(storedTaskSchema).min(1).max(5),
+    // AI generation must create at least one task, but the user may later
+    // delete or postpone every task while keeping the day's main mission.
+    tasks: z.array(storedTaskSchema).max(5),
     focusMessage: z.string().trim().min(1).max(240),
     avoidToday: z.array(z.string().trim().min(1).max(140)).max(5),
     totalEstimatedMinutes: z.number().int().min(0).max(1200),
@@ -84,6 +93,9 @@ export const DAILY_PLAN_JSON_SCHEMA = {
       properties: {
         title: { type: "string", maxLength: 120 },
         description: { type: "string", maxLength: 360 },
+        firstStep: { type: "string", maxLength: 240 },
+        expectedResult: { type: "string", maxLength: 300 },
+        doneWhen: { type: "string", maxLength: 300 },
         estimatedMinutes: { type: "integer", minimum: 5, maximum: 360 },
         priority: { type: "string", enum: ["alta", "media", "baixa"] },
       },
@@ -95,11 +107,15 @@ export const DAILY_PLAN_JSON_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "title", "category", "priority", "estimatedMinutes", "xp", "recurring"],
+        required: ["id", "title", "context", "firstStep", "expectedResult", "doneWhen", "category", "priority", "estimatedMinutes", "xp", "recurring"],
         properties: {
           id: { type: "string", maxLength: 100 },
           title: { type: "string", maxLength: 120 },
           description: { type: "string", maxLength: 300 },
+          context: { type: "string", maxLength: 300 },
+          firstStep: { type: "string", maxLength: 240 },
+          expectedResult: { type: "string", maxLength: 300 },
+          doneWhen: { type: "string", maxLength: 300 },
           category: { type: "string", enum: [...CATEGORIES] },
           priority: { type: "string", enum: ["alta", "media", "baixa"] },
           estimatedMinutes: { type: "integer", minimum: 5, maximum: 240 },
@@ -146,7 +162,11 @@ export function parseAiDailyPlan(raw: string): AiDailyPlan {
     tasks.push({
       id,
       title,
-      ...(task.description ? { description: sanitizeText(task.description, 300) } : {}),
+      description: sanitizeText(task.description ?? task.context, 300) || `Ação concreta para avançar em ${title}.`,
+      context: sanitizeText(task.context ?? task.description, 300) || `Esta tarefa move a missão de hoje por meio de uma entrega observável.`,
+      firstStep: sanitizeText(task.firstStep, 240) || `Abra o material necessário e execute a primeira parte de “${title}”.`,
+      expectedResult: sanitizeText(task.expectedResult, 300) || `Uma entrega verificável ligada a “${title}”.`,
+      doneWhen: sanitizeText(task.doneWhen, 300) || `A entrega foi finalizada, conferida e registrada.`,
       category: task.category,
       priority: task.priority,
       estimatedMinutes: task.estimatedMinutes,
@@ -159,6 +179,9 @@ export function parseAiDailyPlan(raw: string): AiDailyPlan {
     mainMission: {
       title: sanitizeText(parsed.mainMission.title, 120),
       description: sanitizeText(parsed.mainMission.description, 360),
+      ...(parsed.mainMission.firstStep ? { firstStep: sanitizeText(parsed.mainMission.firstStep, 240) } : {}),
+      ...(parsed.mainMission.expectedResult ? { expectedResult: sanitizeText(parsed.mainMission.expectedResult, 300) } : {}),
+      ...(parsed.mainMission.doneWhen ? { doneWhen: sanitizeText(parsed.mainMission.doneWhen, 300) } : {}),
       estimatedMinutes: parsed.mainMission.estimatedMinutes,
       priority: parsed.mainMission.priority,
     },

@@ -4,9 +4,11 @@ import { sanitizeText } from "@/utils/text";
 export type ActionGuidance = {
   steps: string[];
   deliverable: string;
+  doneWhen: string;
+  context?: string;
 };
 
-function taskSpecificSteps(task: Task): ActionGuidance {
+function taskSpecificSteps(task: Task): Pick<ActionGuidance, "steps" | "deliverable"> {
   const title = task.title.toLocaleLowerCase("pt-BR");
   const description = sanitizeText(task.description, 300);
 
@@ -94,16 +96,26 @@ function taskSpecificSteps(task: Task): ActionGuidance {
 }
 
 export function getTaskGuidance(task: Task): ActionGuidance {
-  return taskSpecificSteps(task);
+  const inferred = taskSpecificSteps(task);
+  const firstStep = sanitizeText(task.firstStep, 240);
+  return {
+    steps: firstStep
+      ? [firstStep, ...inferred.steps.filter((step) => step !== firstStep)].slice(0, 5)
+      : inferred.steps,
+    deliverable: sanitizeText(task.expectedResult, 400) || inferred.deliverable,
+    doneWhen: sanitizeText(task.doneWhen, 400) || "A entrega esperada existe, foi conferida e está registrada.",
+    ...(task.context ? { context: sanitizeText(task.context, 300) } : {}),
+  };
 }
 
 export function getMissionGuidance(mission: MainMission): ActionGuidance {
   return {
     steps: [
-      "Defina uma entrega que prove avanço na missão hoje.",
+      sanitizeText(mission.firstStep, 240) || "Defina uma entrega que prove avanço na missão hoje.",
       `Reserve um bloco de ${Math.min(mission.estimatedMinutes, 45)} minutos para a parte mais importante.`,
       "Conclua uma versão demonstrável e registre a próxima ação.",
     ],
-    deliverable: sanitizeText(mission.description, 360) || `Uma entrega concreta relacionada a “${mission.title}”.`,
+    deliverable: sanitizeText(mission.expectedResult, 360) || sanitizeText(mission.description, 360) || `Uma entrega concreta relacionada a “${mission.title}”.`,
+    doneWhen: sanitizeText(mission.doneWhen, 360) || "A entrega foi conferida e o próximo passo está registrado.",
   };
 }

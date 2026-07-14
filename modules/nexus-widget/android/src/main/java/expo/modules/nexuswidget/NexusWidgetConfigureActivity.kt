@@ -3,6 +3,7 @@ package expo.modules.nexuswidget
 import android.app.Activity
 import android.appwidget.AppWidgetManager
 import android.content.Intent
+import android.content.SharedPreferences
 import android.graphics.Color
 import android.os.Bundle
 import android.view.ViewGroup
@@ -31,251 +32,168 @@ class NexusWidgetConfigureActivity : Activity() {
 
     window.statusBarColor = Color.rgb(5, 5, 5)
     window.navigationBarColor = Color.rgb(5, 5, 5)
+    val family = resolveFamily()
+    if (family == null) {
+      finish()
+      return
+    }
+    val preferences = getSharedPreferences(NexusWidgetProvider.PREFERENCES_NAME, MODE_PRIVATE)
+    val saved = loadConfiguration(preferences, family)
 
     val root = LinearLayout(this).apply {
       orientation = LinearLayout.VERTICAL
       setPadding(dp(22), dp(24), dp(22), dp(30))
       setBackgroundColor(Color.rgb(5, 5, 5))
     }
-    val providerName = AppWidgetManager.getInstance(this).getAppWidgetInfo(widgetId)?.provider?.className.orEmpty()
-    val family = when {
-      providerName.endsWith("NexusMiniWidgetProvider") -> "mini"
-      providerName.endsWith("NexusStripWidgetProvider") -> "strip"
-      providerName.endsWith("NexusCompanionWidgetProvider") -> "companion"
-      providerName.endsWith("NexusMissionWidgetProvider") -> "mission"
-      else -> "command"
-    }
-    val familyLabel = when (family) {
-      "mini" -> "MINI 1×1"
-      "strip" -> "STRIP 2×1 / 4×1"
-      "companion" -> "COMPANION 2×2"
-      "mission" -> "MISSION 4×2"
-      else -> "COMMAND 4×4"
-    }
-    root.addView(label("WIDGET STUDIO • $familyLabel", 12, Color.rgb(167, 139, 250)))
-    root.addView(label("Uma instância. Uma personalidade.", 27, Color.WHITE).apply {
-      setPadding(0, dp(6), 0, dp(12))
+    root.addView(label("WIDGET STUDIO 3.0 • ${familyLabel(family)}", 12, Color.rgb(167, 139, 250)))
+    root.addView(label("Configure esta instância", 27, Color.WHITE).apply {
+      setPadding(0, dp(6), 0, dp(10))
     })
     root.addView(label(
-      "Cada widget pode ter conteúdo, visual, humor, mascote e ação próprios. Crie um Nexus feliz ao lado de um Nexus sério sem alterar o app inteiro.",
+      "Só aparecem opções que esta família consegue renderizar. Você pode ajustar novamente pelo Widget Studio no app.",
       14,
       Color.rgb(161, 161, 170),
-    ).apply { setPadding(0, 0, 0, dp(14)) })
-
-    val preferences = getSharedPreferences(NexusWidgetProvider.PREFERENCES_NAME, MODE_PRIVATE)
-    val saved = try {
-      JSONObject(preferences.getString("instance_$widgetId", "{}") ?: "{}")
-    } catch (_: Exception) {
-      JSONObject()
-    }
+    ).apply { setPadding(0, 0, 0, dp(12)) })
 
     val style = radioSection(
       root,
       "Estilo",
       listOf(
-        "nexus" to "Nexus Original",
+        "nexus" to "Nexus",
         "amoled" to "AMOLED",
-        "transparent" to "Transparente",
-        "glass" to "Glass",
+        "transparent" to "Transparente real",
         "pixel" to "Pixel",
-        "minimal" to "Minimalista",
-        "gamer" to "Gamer HUD",
-        "neon" to "Neon controlado",
-        "mascot" to "Mascote em destaque",
-        "privacy" to "Privacidade",
-        "light" to "Light Clean",
+        "minimal" to "Minimal",
       ),
-      saved.optString("style", "nexus"),
+      normalizeStyle(saved.optString("style", "nexus")),
     )
+    val contentOptions = contentOptions(family)
     val content = radioSection(
       root,
       "Conteúdo",
-      listOf(
-        "smart" to "Plano inteligente / faça agora",
-        "full" to "Missão + tarefas",
-        "mission" to "Somente missão",
-        "tasks" to "Somente tarefas",
-        "focus" to "Focus OS",
-        "learning" to "Professor Atlas",
-        "companion" to "Nexus Companion",
-        "finance" to "Money Mission / freelas",
-        "quote" to "Frase Nexus",
-        "progress" to "XP, nível e streak",
-        "habits" to "Hábitos",
-        "boss" to "Boss Battle",
-        "private" to "Conteúdo privado",
-      ),
-      saved.optString("content", "smart"),
+      contentOptions,
+      normalizeContent(family, saved.optString("content", contentOptions.first().first)),
     )
-    val pageCycle = radioSection(
+    val opacity = radioSection(
       root,
-      "Troca de página",
+      "Transparência do fundo",
       listOf(
-        "false" to "Uma tela fixa",
-        "true" to "Botão para alternar Smart, Companion, Finanças, Atlas e Progresso",
+        "100" to "Sólido",
+        "96" to "Padrão 96%",
+        "85" to "85%",
+        "70" to "70%",
+        "0" to "Transparente",
       ),
-      saved.optString("pageCycle", "false"),
+      normalizeOpacity(saved).toString(),
     )
-    val mascot = radioSection(
+    val accentValue = saved.optString("accentColor", "#8B5CF6")
+    val accentOptions = mutableListOf(
+      "#8B5CF6" to "Roxo Nexus",
+      "#38BDF8" to "Azul",
+      "#10B981" to "Verde",
+      "#F59E0B" to "Dourado",
+      "#EC4899" to "Rosa",
+    ).apply {
+      if (none { (value, _) -> value == accentValue }) add(0, accentValue to "Atual ($accentValue)")
+    }
+    val accent = radioSection(
+      root,
+      "Cor de destaque",
+      accentOptions,
+      accentValue,
+    )
+
+    val hasCompanion = family in setOf("mini", "companion", "command")
+    val mascot = if (hasCompanion) radioSection(
       root,
       "Mascote",
       listOf(
         "nexus" to "Nexus",
-        "atlas" to "Professor Atlas",
-        "nova" to "Nova",
+        "atlas" to "Atlas",
         "byte" to "Byte",
+        "nova" to "Nova",
         "pulse" to "Pulse",
         "orbit" to "Orbit",
         "ember" to "Ember",
-        "none" to "Sem mascote",
       ),
       saved.optString("mascot", "nexus"),
-    )
-    val mood = radioSection(
+    ) else null
+    val personality = if (hasCompanion) radioSection(
       root,
-      "Humor desta instância",
+      "Personalidade",
       listOf(
         "happy" to "Feliz",
         "playful" to "Zoeiro",
         "motivational" to "Motivador",
         "serious" to "Sério",
-        "strict" to "Bravo / exigente",
+        "strict" to "Exigente",
         "calm" to "Calmo",
         "quiet" to "Quieto",
       ),
-      saved.optString("mood", "happy"),
-    )
-    val speech = radioSection(
+      saved.optString("personality", saved.optString("mood", "happy")),
+    ) else null
+    val speech = if (hasCompanion) radioSection(
       root,
-      "Falas",
+      "Fala",
       listOf(
-        "contextual" to "Contextuais ao seu dia",
-        "motivational" to "Motivacionais",
-        "fun" to "Mais humor",
+        "contextual" to "Contextual",
         "silent" to "Silencioso",
       ),
-      saved.optString("speech", "contextual"),
-    )
-    val accessory = radioSection(
+      normalizeSpeech(saved.optString("speech", "contextual")),
+    ) else null
+    val privacyFloor = saved.optBoolean("privacyFloor", false)
+    val privateMode = radioSection(
       root,
-      "Acessório",
-      listOf(
-        "" to "Nenhum",
-        "glasses" to "Óculos",
-        "crown" to "Coroa",
-        "headphones" to "Headset",
-        "cap" to "Boné",
-        "scarf" to "Cachecol",
-        "backpack" to "Mochila",
-        "laptop" to "Notebook",
-        "book" to "Livro",
-        "coffee" to "Café",
-        "sword" to "Espada",
-        "controller" to "Controle",
-        "wizard_hat" to "Chapéu do Atlas",
-        "medal" to "Medalha",
-        "cape" to "Capa",
-      ),
-      saved.optString("accessory", ""),
-    )
-    val professor = radioSection(
-      root,
-      "Professor ao lado",
-      listOf(
-        "global" to "Seguir Widget Studio",
-        "show" to "Sempre mostrar",
-        "hide" to "Esconder nesta instância",
-      ),
-      saved.optString("professor", "global"),
-    )
-    val accent = radioSection(
-      root,
-      "Cor",
-      listOf(
-        "#8B5CF6" to "Roxo Nexus",
-        "#38BDF8" to "Azul",
-        "#10B981" to "Verde",
-        "#F59E0B" to "Dourado",
-        "#F97316" to "Laranja",
-        "#EC4899" to "Rosa",
-        "#E4E4E7" to "Monocromático",
-      ),
-      saved.optString("accentColor", "#8B5CF6"),
-    )
-    val alignment = radioSection(
-      root,
-      "Alinhamento",
-      listOf("global" to "Seguir Widget Studio", "left" to "Esquerda", "center" to "Centralizado"),
-      saved.optString("alignment", "global"),
-    )
-    val density = radioSection(
-      root,
-      "Densidade das tarefas",
-      listOf("global" to "Seguir Widget Studio", "compact" to "Compacta", "comfortable" to "Confortável"),
-      saved.optString("density", "global"),
-    )
-    val progress = radioSection(
-      root,
-      "Progresso",
-      listOf("global" to "Seguir Widget Studio", "show" to "Sempre mostrar", "hide" to "Esconder"),
-      saved.optString("progress", "global"),
-    )
-    val progressStyle = radioSection(
-      root,
-      "Formato do progresso",
-      listOf("bar" to "Barra", "circle" to "Círculo/texto", "text" to "Texto", "number" to "Porcentagem"),
-      saved.optString("progressStyle", "bar"),
-    )
-    val capture = radioSection(
-      root,
-      "Captura rápida",
-      listOf("global" to "Seguir Widget Studio", "show" to "Sempre mostrar", "hide" to "Esconder"),
-      saved.optString("capture", "global"),
+      "Privacidade",
+      if (privacyFloor) {
+        listOf("true" to "Modo privado (exigido pelo padrão global)")
+      } else {
+        listOf(
+          "false" to "Conteúdo visível",
+          "true" to "Modo privado",
+        )
+      },
+      saved.optBoolean("privateMode", false).toString(),
     )
     val tapAction = radioSection(
       root,
-      "Ao tocar no fundo",
+      "Ao tocar",
       listOf(
         "today" to "Abrir Hoje",
         "brain" to "Abrir Brain",
-        "focus" to "Abrir Focus OS",
-        "capture" to "Abrir captura",
+        "focus" to "Abrir Focus",
         "progress" to "Abrir Progresso",
-        "finance" to "Abrir Money Mission",
-        "habits" to "Abrir Hábitos",
-        "week" to "Abrir Semana",
       ),
-      saved.optString("tapAction", "today"),
+      normalizeTapAction(saved.optString("tapAction", "today")),
     )
 
     val save = Button(this).apply {
-      text = "Salvar widget"
+      text = "Salvar e ativar"
       textSize = 16f
       setTextColor(Color.WHITE)
       setBackgroundColor(Color.rgb(139, 92, 246))
       setPadding(dp(12), dp(12), dp(12), dp(12))
       setOnClickListener {
+        val requestedStyle = selected(style, "nexus")
+        val selectedOpacity = selected(opacity, "96").toIntOrNull()?.coerceIn(0, 100) ?: 96
+        val selectedStyle = if (selectedOpacity == 0) "transparent" else requestedStyle
         val config = JSONObject()
+          .put("schemaVersion", 3)
           .put("family", family)
-          .put("style", selected(style, "nexus"))
-          .put("content", selected(content, "smart"))
-          .put("pageCycle", selected(pageCycle, "false") == "true")
-          .put("mascot", selected(mascot, "nexus"))
-          .put("mood", selected(mood, "happy"))
-          .put("speech", selected(speech, "contextual"))
-          .put("accessory", selected(accessory, ""))
-          .put("professor", selected(professor, "global"))
+          .put("style", selectedStyle)
+          .put("content", normalizeContent(family, selected(content, contentOptions.first().first)))
+          .put("opacityPercent", if (selectedStyle == "transparent") 0 else selectedOpacity)
           .put("accentColor", selected(accent, "#8B5CF6"))
-          .put("alignment", selected(alignment, "global"))
-          .put("density", selected(density, "global"))
-          .put("progress", selected(progress, "global"))
-          .put("progressStyle", selected(progressStyle, "bar"))
-          .put("capture", selected(capture, "global"))
-          .put("tapAction", selected(tapAction, "today"))
-        preferences.edit()
+          .put("mascot", mascot?.let { selected(it, "nexus") } ?: "nexus")
+          .put("personality", personality?.let { selected(it, "happy") } ?: "happy")
+          .put("speech", normalizeSpeech(speech?.let { selected(it, "contextual") } ?: "contextual"))
+          .put("tapAction", normalizeTapAction(selected(tapAction, "today")))
+          .put("privateMode", privacyFloor || selected(privateMode, "false") == "true")
+        val persisted = preferences.edit()
           .putString("instance_$widgetId", config.toString())
           .putInt("page_$widgetId", 0)
-          .apply()
+          .commit()
+        if (!persisted) return@setOnClickListener
         NexusWidgetProvider.updateAllWidgetFamilies(this@NexusWidgetConfigureActivity)
         setResult(
           RESULT_OK,
@@ -290,7 +208,166 @@ class NexusWidgetConfigureActivity : Activity() {
         topMargin = dp(22)
       },
     )
+    root.addView(label(
+      "Para trocar a família, remova este widget e adicione Mini, Strip, Companion, Mission ou Command pelo launcher.",
+      12,
+      Color.rgb(161, 161, 170),
+    ).apply { setPadding(0, dp(16), 0, 0) })
     setContentView(ScrollView(this).apply { addView(root) })
+  }
+
+  private fun resolveFamily(): String? {
+    val providerName = AppWidgetManager.getInstance(this)
+      .getAppWidgetInfo(widgetId)
+      ?.provider
+      ?.className
+      ?: return null
+    return NexusWidgetProvider.familyForProviderClass(providerName)?.storageName
+  }
+
+  private fun loadConfiguration(preferences: SharedPreferences, family: String): JSONObject {
+    val payload = try {
+      JSONObject(preferences.getString(NexusWidgetProvider.PAYLOAD_KEY, "{}") ?: "{}")
+    } catch (_: Exception) {
+      JSONObject()
+    }
+    val appearance = payload.optJSONObject("appearance") ?: JSONObject()
+    val shared = payload.optJSONObject("renderSpecs")?.optJSONObject(family)
+      ?: payload.optJSONObject("renderSpec")
+      ?: JSONObject()
+    val colors = shared.optJSONObject("colors") ?: JSONObject()
+    val mascot = shared.optJSONObject("mascot") ?: JSONObject()
+    val actions = shared.optJSONObject("actions") ?: JSONObject()
+    val instance = try {
+      JSONObject(preferences.getString("instance_$widgetId", "{}") ?: "{}")
+    } catch (_: Exception) {
+      JSONObject()
+    }
+    val legacyPrivateMode = instance.optString("style") == "privacy" || instance.optString("content") == "private"
+    val defaultContent = contentOptions(family).first().first
+    val styleValue = instance.optString(
+      "style",
+      shared.optString("style", appearance.optString("style", "nexus")),
+    )
+    val opacityValue = when {
+      instance.has("opacityPercent") -> instance.optDouble("opacityPercent", 96.0)
+      instance.has("opacity") -> instance.optDouble("opacity", 0.96)
+      shared.has("opacityPercent") -> shared.optDouble("opacityPercent", 96.0)
+      else -> appearance.optDouble("opacity", 0.96)
+    }
+    val normalizedStyle = normalizeStyle(styleValue)
+    val opacityPercent = normalizeOpacityValue(opacityValue)
+    val globalPrivateMode = shared.optBoolean("privateMode", false) ||
+      appearance.optBoolean("privacyMode", false)
+    val instancePrivateMode = when {
+      instance.has("privateMode") -> instance.optBoolean("privateMode", false)
+      legacyPrivateMode -> true
+      else -> false
+    }
+    val isPrivate = globalPrivateMode || instancePrivateMode
+
+    return JSONObject()
+      .put("style", normalizedStyle)
+      .put(
+        "content",
+        normalizeContent(
+          family,
+          instance.optString(
+            "content",
+            shared.optString("content", appearance.optString("contentMode", defaultContent)),
+          ),
+        ),
+      )
+      .put("opacityPercent", if (normalizedStyle == "transparent") 0 else opacityPercent)
+      .put(
+        "accentColor",
+        instance.optString("accentColor", colors.optString("accent", appearance.optString("accentColor", "#8B5CF6"))),
+      )
+      .put("mascot", instance.optString("mascot", mascot.optString("id", appearance.optString("mascot", "nexus"))))
+      .put(
+        "personality",
+        instance.optString(
+          "personality",
+          instance.optString(
+            "mood",
+            mascot.optString("personality", appearance.optString("companionMood", "happy")),
+          ),
+        ),
+      )
+      .put(
+        "speech",
+        normalizeSpeech(
+          instance.optString(
+            "speech",
+            mascot.optString("speech", appearance.optString("companionSpeech", "contextual")),
+          ),
+        ),
+      )
+      .put(
+        "tapAction",
+        normalizeTapAction(
+          instance.optString(
+            "tapAction",
+            actions.optString("tap", appearance.optString("tapAction", "today")),
+          ),
+        ),
+      )
+      .put("privateMode", isPrivate)
+      .put("privacyFloor", globalPrivateMode)
+  }
+
+  private fun familyLabel(family: String): String = when (family) {
+    "mini" -> "MINI 1×1"
+    "strip" -> "STRIP 2×1"
+    "companion" -> "COMPANION 2×2"
+    "mission" -> "MISSION 4×2"
+    else -> "COMMAND 4×4"
+  }
+
+  private fun contentOptions(family: String): List<Pair<String, String>> = when (family) {
+    "mini" -> listOf("streak" to "Streak", "xp" to "XP")
+    "strip" -> listOf("nextAction" to "Próxima ação", "progress" to "Progresso")
+    "companion" -> listOf("companion" to "Fala do Companion")
+    "mission" -> listOf("mission" to "Missão + progresso", "tasks" to "Duas tarefas + progresso")
+    else -> listOf("command" to "Command completo", "focus" to "Foco em destaque")
+  }
+
+  private fun normalizeContent(family: String, value: String): String = when (family) {
+    "mini" -> if (value == "xp") "xp" else "streak"
+    "strip" -> if (value == "progress") "progress" else "nextAction"
+    "companion" -> "companion"
+    "mission" -> if (value == "tasks") "tasks" else "mission"
+    else -> if (value == "focus") "focus" else "command"
+  }
+
+  private fun normalizeStyle(value: String): String = when (value) {
+    "nexus", "amoled", "transparent", "pixel", "minimal" -> value
+    "gamer" -> "pixel"
+    "privacy", "light" -> "minimal"
+    else -> "nexus"
+  }
+
+  private fun normalizeSpeech(value: String): String = if (value == "silent") "silent" else "contextual"
+
+  private fun normalizeTapAction(value: String): String = when (value) {
+    "brain", "focus", "progress" -> value
+    else -> "today"
+  }
+
+  private fun normalizeOpacity(saved: JSONObject): Int {
+    val raw = when {
+      saved.has("opacityPercent") -> saved.optDouble("opacityPercent", 96.0)
+      saved.has("opacity") -> saved.optDouble("opacity", 0.96)
+      saved.optString("style") == "transparent" -> 0.0
+      else -> 96.0
+    }
+    val normalized = normalizeOpacityValue(raw)
+    return listOf(0, 70, 85, 96, 100).minByOrNull { kotlin.math.abs(it - normalized) } ?: 96
+  }
+
+  private fun normalizeOpacityValue(raw: Double): Int {
+    val percent = if (raw <= 1.0) raw * 100.0 else raw
+    return percent.toInt().coerceIn(0, 100)
   }
 
   private fun radioSection(

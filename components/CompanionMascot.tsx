@@ -36,18 +36,18 @@ export function CompanionMascot({ mascot, state = "idle", size = 48, variant }: 
 
   if (mascot === "nexus") return <PixelMascot state={state} size={size} />;
   const professorVariant = variant ?? data.preferences.mascot.professorVariant;
-  const professorColor = { classic: colors.primary, emerald: "#10B981", gold: "#F59E0B", ice: "#38BDF8", rose: "#EC4899" }[professorVariant];
+  const professorColor = { classic: colors.primary, emerald: colors.success, gold: colors.warning, ice: colors.primarySoft, rose: colors.danger }[professorVariant];
   const mascotColor = mascot === "atlas" ? professorColor : ({
-    nova: "#F97316",
-    byte: "#38BDF8",
-    pulse: "#EC4899",
-    orbit: "#22D3EE",
-    ember: "#FB7185",
+    nova: colors.warning,
+    byte: colors.primarySoft,
+    pulse: colors.danger,
+    orbit: colors.primary,
+    ember: colors.danger,
   } as const)[mascot];
-  const softColor = mascot === "orbit" ? "#A5F3FC" : mascot === "ember" ? "#FDBA74" : `${mascotColor}C8`;
+  const softColor = `${mascotColor}C8`;
   const color = (kind: Pixel[2]) => {
     if (kind === "eye") return state === "sleeping" ? colors.textSecondary : colors.text;
-    if (kind === "accent") return state === "celebrating" ? colors.success : mascot === "ember" ? "#FBBF24" : colors.warning;
+    if (kind === "accent") return state === "celebrating" ? colors.success : colors.warning;
     if (kind === "soft") return softColor;
     if (kind === "shade") return `${mascotColor}99`;
     return state === "warning" ? colors.warning : mascotColor;

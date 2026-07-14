@@ -1,11 +1,20 @@
 import { OpenRouter } from "@openrouter/sdk";
 import { DAILY_PLAN_JSON_SCHEMA, hydrateAiPlan, parseAiDailyPlan } from "@/schemas/daily-plan.schema";
 import type { DailyPlan, PlanRequest } from "@/types";
-import { generateLocalPlan } from "@/services/planning.service";
 import { sanitizeText } from "@/utils/text";
-import { FREE_ROUTER, PRIMARY_MODEL } from "@/constants/models";
-import { shouldRetryWithoutJsonSchema } from "@/services/openrouter-compat";
+import {
+  assertModelSupportsMode,
+  defaultModelsForMode,
+  modelDefinition,
+  modelSupportsMode,
+} from "@/constants/models";
+import {
+  isTransientOpenRouterError,
+  shouldRetryWithoutJsonSchema,
+} from "@/services/openrouter-compat";
+import { openRouterProviderPolicy } from "@/services/openrouter-policy";
 import { profileMission } from "@/features/context/synthesis";
+import { mergeRequiredCarryOver } from "@/features/planning/carry-over";
 
 
 export type OpenRouterPlanResult = {
@@ -21,6 +30,132 @@ type StreamResult = {
   model: string;
   reasoningTokens?: number;
 };
+
+export type PlanningAttemptTelemetry = {
+  requestId: string;
+  model: string;
+  attempt: number;
+  latencyMs: number;
+  status: "success" | "failed" | "blocked";
+  fallbackReason?: string;
+  errorCode?: string;
+  at: string;
+};
+
+const planningTelemetry: PlanningAttemptTelemetry[] = [];
+const PLANNING_TELEMETRY_LIMIT = 100;
+export const PLANNING_ROUTING_BUDGET_MS = 40_000;
+const PLANNING_INITIAL_TIMEOUT_MS = 12_000;
+const PLANNING_RETRY_TIMEOUT_MS = 4_000;
+const PLANNING_JSON_HINT_TIMEOUT_MS = 7_000;
+const PLANNING_ALTERNATE_RESERVE_MS = 14_000;
+const PLANNING_MIN_ATTEMPT_MS = 1_000;
+
+function configuredModels(value: string | undefined): string[] {
+  return (value ?? "")
+    .split(",")
+    .map((model) => model.trim())
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+export function planningModelOrder(
+  environment: Readonly<Record<string, string | undefined>> = process.env,
+): string[] {
+  const configured = configuredModels(
+    environment.OPENROUTER_PLANNING_MODELS ??
+      environment.OPENROUTER_PLANNING_MODEL ??
+      environment.OPENROUTER_FAST_MODELS ??
+      environment.OPENROUTER_FAST_MODEL,
+  );
+  const candidates = [
+    ...configured.flatMap((model) => {
+      const definition = modelDefinition(model);
+      return definition && modelSupportsMode(model, "planning")
+        ? [definition.id]
+        : [];
+    }),
+    ...defaultModelsForMode("planning"),
+  ];
+  const canonical = new Set<string>();
+  return candidates.filter((model) => {
+    const id = modelDefinition(model)?.id ?? model;
+    if (canonical.has(id)) return false;
+    canonical.add(id);
+    return true;
+  }).slice(0, 2);
+}
+
+function planningErrorCode(error: unknown): string {
+  const message = error instanceof Error ? error.message : "";
+  if (/MODEL_BLOCKED|CAPABILITY_MISMATCH|NOT_ALLOWLISTED/i.test(message))
+    return "model_blocked";
+  if (/401|unauthor|invalid.*key/i.test(message)) return "unauthorized";
+  if (/402|payment|credit/i.test(message)) return "payment_required";
+  if (/429|rate|overload|busy/i.test(message)) return "rate_limit";
+  if (/timeout|abort|408|425|504|529/i.test(message)) return "timeout";
+  if (/JSON|SCHEMA|INVALID|EMPTY/i.test(message)) return "invalid_response";
+  return "provider_unavailable";
+}
+
+function isTerminalPlanningError(error: unknown): boolean {
+  const code = planningErrorCode(error);
+  return code === "unauthorized" || code === "payment_required";
+}
+
+function assertPlanningModel(model: string): void {
+  try {
+    assertModelSupportsMode(model, "planning");
+  } catch (error) {
+    if (error && typeof error === "object") {
+      Object.assign(error, { resolvedModel: model });
+    }
+    throw error;
+  }
+}
+
+function resolvedPlanningModel(error: unknown, fallback: string): string {
+  if (error && typeof error === "object" && "resolvedModel" in error) {
+    const value = (error as { resolvedModel?: unknown }).resolvedModel;
+    if (typeof value === "string") return value;
+  }
+  return fallback;
+}
+
+function recordPlanningAttempt(
+  event: Omit<PlanningAttemptTelemetry, "at">,
+): void {
+  const telemetry: PlanningAttemptTelemetry = {
+    ...event,
+    requestId: sanitizeText(event.requestId, 160),
+    model: sanitizeText(event.model, 200),
+    ...(event.fallbackReason
+      ? { fallbackReason: sanitizeText(event.fallbackReason, 80) }
+      : {}),
+    ...(event.errorCode
+      ? { errorCode: sanitizeText(event.errorCode, 80) }
+      : {}),
+    at: new Date().toISOString(),
+  };
+  planningTelemetry.push(telemetry);
+  if (planningTelemetry.length > PLANNING_TELEMETRY_LIMIT) {
+    planningTelemetry.splice(
+      0,
+      planningTelemetry.length - PLANNING_TELEMETRY_LIMIT,
+    );
+  }
+  if (process.env.NODE_ENV !== "test") {
+    console.info("[nexus-planning-attempt]", JSON.stringify(telemetry));
+  }
+}
+
+export function planningTelemetrySnapshot(): PlanningAttemptTelemetry[] {
+  return planningTelemetry.map((event) => ({ ...event }));
+}
+
+export function resetPlanningTelemetry(): void {
+  planningTelemetry.length = 0;
+}
 
 function createClient(): OpenRouter {
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -93,8 +228,10 @@ async function streamCompletion(
   model: string,
   messages: { role: "system" | "user"; content: string }[],
   signal: AbortSignal,
+  timeoutMs: number,
   structured = true,
 ): Promise<StreamResult> {
+  assertPlanningModel(model);
   const stream = await openrouter.chat.send(
     {
       appTitle: "Nexus AI",
@@ -104,6 +241,7 @@ async function streamCompletion(
         stream: true,
         temperature: 0.25,
         maxCompletionTokens: 2_400,
+        provider: openRouterProviderPolicy(structured),
         ...(structured ? {
           responseFormat: {
             type: "json_schema" as const,
@@ -116,7 +254,7 @@ async function streamCompletion(
         } : {}),
       },
     },
-    { signal, timeoutMs: 45_000, retries: { strategy: "none" } },
+    { signal, timeoutMs, retries: { strategy: "none" } },
   );
 
   let response = "";
@@ -124,9 +262,12 @@ async function streamCompletion(
   let resolvedModel = model;
   for await (const chunk of stream) {
     if (chunk.error) throw new Error(`OPENROUTER_STREAM_${chunk.error.code}`);
+    if (chunk.model) {
+      resolvedModel = chunk.model;
+      assertPlanningModel(resolvedModel);
+    }
     const content = chunk.choices[0]?.delta?.content;
     if (content) response += content;
-    if (chunk.model) resolvedModel = chunk.model;
     if (chunk.usage) {
       // OpenRouter SDK releases have exposed this value both at usage.reasoningTokens
       // and inside completionTokensDetails. Read both without logging private usage data.
@@ -139,6 +280,7 @@ async function streamCompletion(
     }
   }
   if (!response.trim()) throw new Error("OPENROUTER_EMPTY_RESPONSE");
+  assertPlanningModel(resolvedModel);
   return {
     content: response,
     model: resolvedModel,
@@ -150,34 +292,121 @@ async function firstAvailableCompletion(
   openrouter: OpenRouter,
   messages: { role: "system" | "user"; content: string }[],
   signal: AbortSignal,
+  requestId: string,
 ): Promise<StreamResult> {
-  let freeError: unknown;
-  try {
-    return await streamCompletion(openrouter, FREE_ROUTER, messages, signal, true);
-  } catch (error) {
-    freeError = error;
-    if (signal.aborted) throw error;
-    if (shouldRetryWithoutJsonSchema(error)) {
-      try {
-        return await streamCompletion(openrouter, FREE_ROUTER, messages, signal, false);
-      } catch (plainError) {
-        freeError = plainError;
-        if (signal.aborted) throw plainError;
-      }
-    }
-  }
-  if (process.env.OPENROUTER_ALLOW_PAID_FALLBACK === "true") {
+  const models = planningModelOrder();
+  let attempt = 0;
+  let fallbackReason: string | undefined;
+  let lastError: unknown = new Error("NEXUS_NO_PLANNING_MODEL");
+  const routingDeadline = Date.now() + PLANNING_ROUTING_BUDGET_MS;
+
+  const timeoutFor = (
+    modelIndex: number,
+    modelAttempt: number,
+    structured: boolean,
+  ): number | null => {
+    const remaining = routingDeadline - Date.now();
+    const reserve = modelIndex < models.length - 1
+      ? PLANNING_ALTERNATE_RESERVE_MS
+      : 0;
+    const usable = remaining - reserve;
+    if (usable < PLANNING_MIN_ATTEMPT_MS) return null;
+    const desired = !structured
+      ? PLANNING_JSON_HINT_TIMEOUT_MS
+      : modelAttempt > 0
+        ? PLANNING_RETRY_TIMEOUT_MS
+        : PLANNING_INITIAL_TIMEOUT_MS;
+    return Math.max(PLANNING_MIN_ATTEMPT_MS, Math.min(desired, usable));
+  };
+
+  const execute = async (
+    model: string,
+    structured: boolean,
+    timeoutMs: number,
+  ): Promise<StreamResult> => {
+    attempt += 1;
+    const startedAt = Date.now();
     try {
-      return await streamCompletion(openrouter, PRIMARY_MODEL, messages, signal, true);
-    } catch (paidError) {
-      if (signal.aborted) throw paidError;
-      if (shouldRetryWithoutJsonSchema(paidError)) {
-        return streamCompletion(openrouter, PRIMARY_MODEL, messages, signal, false);
+      const result = await streamCompletion(
+        openrouter,
+        model,
+        messages,
+        signal,
+        timeoutMs,
+        structured,
+      );
+      try {
+        parseAiDailyPlan(result.content);
+      } catch (error) {
+        const invalid = new Error("NEXUS_INVALID_PLANNING_RESPONSE");
+        Object.assign(invalid, { cause: error });
+        throw invalid;
       }
-      throw paidError;
+      recordPlanningAttempt({
+        requestId,
+        model: result.model,
+        attempt,
+        latencyMs: Date.now() - startedAt,
+        status: "success",
+        ...(fallbackReason ? { fallbackReason } : {}),
+      });
+      return result;
+    } catch (error) {
+      const errorCode = planningErrorCode(error);
+      recordPlanningAttempt({
+        requestId,
+        model: resolvedPlanningModel(error, model),
+        attempt,
+        latencyMs: Date.now() - startedAt,
+        status: errorCode === "model_blocked" ? "blocked" : "failed",
+        ...(fallbackReason ? { fallbackReason } : {}),
+        errorCode,
+      });
+      fallbackReason = errorCode;
+      throw error;
+    }
+  };
+
+  for (let modelIndex = 0; modelIndex < models.length; modelIndex += 1) {
+    const model = models[modelIndex]!;
+    let structuredError: unknown;
+    for (let modelAttempt = 0; modelAttempt < 2; modelAttempt += 1) {
+      const timeoutMs = timeoutFor(modelIndex, modelAttempt, true);
+      if (timeoutMs === null) {
+        fallbackReason = "timeout";
+        break;
+      }
+      try {
+        return await execute(model, true, timeoutMs);
+      } catch (error) {
+        lastError = error;
+        structuredError = error;
+        if (signal.aborted) throw error;
+        if (isTerminalPlanningError(error)) throw error;
+        if (modelAttempt === 0 && isTransientOpenRouterError(error)) {
+          if (routingDeadline - Date.now() <= 180) break;
+          await new Promise<void>((resolve) => setTimeout(resolve, 180));
+          if (signal.aborted) throw error;
+          continue;
+        }
+        break;
+      }
+    }
+
+    if (structuredError && shouldRetryWithoutJsonSchema(structuredError)) {
+      const timeoutMs = timeoutFor(modelIndex, 0, false);
+      if (timeoutMs === null) continue;
+      try {
+        return await execute(model, false, timeoutMs);
+      } catch (error) {
+        lastError = error;
+        if (signal.aborted) throw error;
+        if (isTerminalPlanningError(error)) throw error;
+      }
     }
   }
-  throw freeError;
+
+  throw lastError;
 }
 
 export async function generatePlanWithOpenRouter(request: PlanRequest, signal: AbortSignal): Promise<OpenRouterPlanResult> {
@@ -189,49 +418,20 @@ export async function generatePlanWithOpenRouter(request: PlanRequest, signal: A
     },
     { role: "user" as const, content: planningPrompt(request) },
   ];
-  const first = await firstAvailableCompletion(openrouter, messages, signal);
-
-  try {
-    const parsed = parseAiDailyPlan(first.content);
-    return {
-      plan: hydrateAiPlan(parsed, { date: request.date, requestId: request.requestId }),
-      model: first.model,
-      ...(first.reasoningTokens !== undefined ? { reasoningTokens: first.reasoningTokens } : {}),
-      repaired: false,
-    };
-  } catch {
-    const malformed = first.content.slice(0, 12_000);
-    try {
-      const repaired = await firstAvailableCompletion(
-        openrouter,
-        [
-          {
-            role: "system",
-            content: "Repare o JSON fornecido. Responda somente com JSON válido que siga exatamente o schema. Não invente campos extras.",
-          },
-          {
-            role: "user",
-            content: `Data obrigatória: ${request.date}\nSchema: ${JSON.stringify(DAILY_PLAN_JSON_SCHEMA)}\nResposta inválida: ${malformed}`,
-          },
-        ],
-        signal,
-      );
-      const parsed = parseAiDailyPlan(repaired.content);
-      return {
-        plan: hydrateAiPlan(parsed, { date: request.date, requestId: request.requestId }),
-        model: repaired.model,
-        ...(repaired.reasoningTokens !== undefined ? { reasoningTokens: repaired.reasoningTokens } : {}),
-        repaired: true,
-        warning: "A resposta foi corrigida automaticamente antes de abrir o painel.",
-      };
-    } catch {
-      return {
-        plan: generateLocalPlan(request, "A resposta da inteligência veio incompleta. Criamos um plano seguro para hoje."),
-        model: first.model,
-        ...(first.reasoningTokens !== undefined ? { reasoningTokens: first.reasoningTokens } : {}),
-        repaired: true,
-        warning: "A resposta da inteligência veio incompleta. Criamos um plano seguro para hoje.",
-      };
-    }
-  }
+  const first = await firstAvailableCompletion(
+    openrouter,
+    messages,
+    signal,
+    request.requestId,
+  );
+  const parsed = parseAiDailyPlan(first.content);
+  return {
+    plan: mergeRequiredCarryOver(
+      hydrateAiPlan(parsed, { date: request.date, requestId: request.requestId }),
+      request,
+    ),
+    model: first.model,
+    ...(first.reasoningTokens !== undefined ? { reasoningTokens: first.reasoningTokens } : {}),
+    repaired: false,
+  };
 }

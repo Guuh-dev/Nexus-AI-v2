@@ -3,21 +3,23 @@ import { describe, expect, it } from "vitest";
 
 const provider = readFileSync("modules/nexus-widget/android/src/main/java/expo/modules/nexuswidget/NexusWidgetProvider.kt", "utf8");
 const configure = readFileSync("modules/nexus-widget/android/src/main/java/expo/modules/nexuswidget/NexusWidgetConfigureActivity.kt", "utf8");
-const layout = readFileSync("modules/nexus-widget/android/src/main/res/layout/nexus_widget.xml", "utf8");
+const companionLayout = readFileSync("modules/nexus-widget/android/src/main/res/layout/nexus_widget_companion.xml", "utf8");
 
-describe("native Companion widgets 2.2", () => {
-  it("supports independent content, mood, speech and page-cycle preferences", () => {
-    for (const value of ["companion", "finance", "habits", "boss", "happy", "playful", "strict", "silent", "orbit", "ember"]) {
-      expect(configure).toContain(`\"${value}\"`);
+describe("native Companion widgets 3.0", () => {
+  it("supports the seven personalities and per-instance speech without unrelated dashboards", () => {
+    for (const value of ["happy", "playful", "motivational", "serious", "strict", "calm", "quiet", "contextual", "silent"]) {
+      expect(configure).toContain(`"${value}"`);
     }
-    expect(provider).toContain("PAGE_MODES");
-    expect(provider).toContain("ACTION_NEXT_PAGE");
-    expect(layout).toContain("nexus_widget_page");
-    expect(provider).toContain("ic_nexus_orbit");
-    expect(provider).toContain("ic_nexus_ember");
+    expect(configure).not.toContain('"finance" to');
+    expect(configure).not.toContain('"habits" to');
+    expect(configure).not.toContain('"boss" to');
+    expect(provider).toContain("companionLine");
+    expect(companionLayout).toContain('android:maxLines="3"');
+    expect(companionLayout).toContain('android:ellipsize="end"');
   });
 
-  it("keeps task and page broadcasts nonce-protected", () => {
+  it("keeps legacy page and task broadcasts nonce-protected", () => {
+    expect(provider).toContain("ACTION_NEXT_PAGE");
     expect(provider.match(/if \(!validNonce\(context, intent\)\) return/g)?.length).toBeGreaterThanOrEqual(2);
     expect(provider).toContain("PendingIntent.FLAG_IMMUTABLE");
   });

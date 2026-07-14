@@ -29,7 +29,12 @@ jobs:
       - name: Confirm production release
         env:
           CONFIRM: ${{ inputs.confirm }}
+          SOURCE_REF: ${{ github.ref }}
         run: |
+          if [ "$SOURCE_REF" != "refs/heads/main" ]; then
+            echo "Production OTA can only be dispatched from main." >&2
+            exit 1
+          fi
           if [ "$CONFIRM" != "PRODUCTION" ]; then
             echo "Confirmation must be exactly PRODUCTION." >&2
             exit 1
@@ -55,13 +60,17 @@ jobs:
             echo "GitHub Release ${BASE_TAG} has no APK asset. Complete the base release first." >&2
             exit 1
           fi
+          if ! git merge-base --is-ancestor "$BASE_TAG" HEAD; then
+            echo "Installed baseline ${BASE_TAG} is not an ancestor of main HEAD." >&2
+            exit 1
+          fi
           echo "ref=${BASE_TAG}" >> "$GITHUB_OUTPUT"
 
       - name: Block native changes since the installed runtime
         id: scope
         env:
           BASE_REF: ${{ steps.base.outputs.ref }}
-        run: node scripts/detect-native-changes.mjs "$BASE_REF" HEAD
+        run: node scripts/detect-native-changes.mjs "$BASE_REF" HEAD tree
 
       - name: Require an OTA-compatible change
         env:
@@ -90,6 +99,22 @@ jobs:
 
       - name: Verify production update
         run: pnpm run verify && pnpm run release:check
+
+      - name: Gate on the published v3 backend contract
+        shell: bash
+        env:
+          API_URL: https://nexus-ai-v1.onrender.com
+          EXPECTED_VERSION: 3.0.0
+        run: |
+          STATUS_JSON="$(curl --fail --silent --show-error --retry 3 --retry-all-errors --connect-timeout 10 --max-time 90 "$API_URL/api/status")"
+          STATUS_JSON="$STATUS_JSON" EXPECTED_VERSION="$EXPECTED_VERSION" node -e '
+            const status = JSON.parse(process.env.STATUS_JSON);
+            const required = ["capability-routing", "validated-streaming"];
+            if (status.apiVersion !== process.env.EXPECTED_VERSION) throw new Error(`Backend version ${status.apiVersion ?? "missing"} is not ${process.env.EXPECTED_VERSION}.`);
+            if (status.service !== "nexus-ai-v3") throw new Error("Unexpected backend service identity.");
+            if (status.configured !== true || status.assistantAvailable !== true) throw new Error("Backend assistant is not release-ready.");
+            if (!required.every((capability) => status.capabilities?.includes(capability))) throw new Error("Backend capability contract is incomplete.");
+          '
 
       - name: Validate EAS token
         env:

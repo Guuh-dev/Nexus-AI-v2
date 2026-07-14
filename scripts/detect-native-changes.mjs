@@ -20,16 +20,22 @@ function writeOutput(key, value) {
   fs.appendFileSync(output, `${key}=${String(value)}\n`);
 }
 
-const [baseRef = "HEAD^", headRef = "HEAD"] = process.argv.slice(2);
+const [baseRef = "HEAD^", headRef = "HEAD", diffMode = "merge-base"] = process.argv.slice(2);
 let files;
 let basePackage = null;
 let headPackage = null;
 
 try {
+  if (diffMode !== "merge-base" && diffMode !== "tree") {
+    throw new Error(`Unsupported diff mode: ${diffMode}`);
+  }
   if (process.env.NEXUS_CHANGED_FILES) {
     files = process.env.NEXUS_CHANGED_FILES.split(/\r?\n/);
   } else {
-    files = runGit(["diff", "--name-only", `${baseRef}...${headRef}`]).split(/\r?\n/);
+    const diffRange = diffMode === "tree"
+      ? `${baseRef}..${headRef}`
+      : `${baseRef}...${headRef}`;
+    files = runGit(["diff", "--name-only", diffRange]).split(/\r?\n/);
     basePackage = readPackageAt(baseRef);
     headPackage = readPackageAt(headRef);
   }
@@ -41,7 +47,7 @@ try {
   writeOutput("changed_files", JSON.stringify(result.files));
 
   // eslint-disable-next-line no-console -- machine-readable workflow output
-  console.log(JSON.stringify({ baseRef, headRef, ...result }, null, 2));
+  console.log(JSON.stringify({ baseRef, headRef, diffMode, ...result }, null, 2));
 } catch (error) {
   // A detector must fail closed. If Git history is incomplete, require a new APK
   // rather than accidentally publishing an incompatible OTA update.

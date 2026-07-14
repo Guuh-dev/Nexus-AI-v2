@@ -1,7 +1,7 @@
+import { randomUUID } from "expo-crypto";
+
 export function createId(prefix = "nexus"): string {
-  const randomId = globalThis.crypto?.randomUUID?.() ??
-    `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-  return `${prefix}-${randomId}`;
+  return `${prefix}-${randomUUID()}`;
 }
 
 export function stableHash(value: string): number {

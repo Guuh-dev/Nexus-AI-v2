@@ -8,7 +8,7 @@ import {
   View,
   type LayoutChangeEvent,
 } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   BrainChatList,
   type BrainChatListHandle,
@@ -34,6 +34,7 @@ export { RouteErrorBoundary as ErrorBoundary };
 type ViewMode = "home" | "chat" | "memory" | "roadmaps";
 
 export default function BrainScreen() {
+  const params = useLocalSearchParams<{ view?: string | string[] }>();
   const {
     data,
     colors,
@@ -49,18 +50,20 @@ export default function BrainScreen() {
     deleteMemory,
     toggleMemoryPinned,
     applyAssistantAction,
-    toggleRoadmapLesson,
     setActiveRoadmap,
     cancelAssistant,
   } = useNexus();
   const [kind, setKind] = useState<ChatKind>("brain");
   const [mode, setMode] = useState<ViewMode>("home");
   const [message, setMessage] = useState("");
+  const [failedDraft, setFailedDraft] = useState("");
+  const [metaThreadId, setMetaThreadId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [roadmapTopic, setRoadmapTopic] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<ChatThread | null>(null);
   const [renameTarget, setRenameTarget] = useState<ChatThread | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [threadMutation, setThreadMutation] = useState<"rename" | "delete" | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const chatListRef = useRef<BrainChatListHandle>(null);
   const chatPositions = useRef(new Map<string, ChatScrollPosition>());
@@ -75,6 +78,8 @@ export default function BrainScreen() {
     (thread) => thread.id === activeId && thread.kind === kind,
   );
   const activeThreadId = active?.id;
+  const activeThreadIdRef = useRef(activeThreadId);
+  activeThreadIdRef.current = activeThreadId;
   const threads = useMemo(
     () =>
       data.brain.threads
@@ -92,32 +97,61 @@ export default function BrainScreen() {
   );
 
   const changeKind = (next: ChatKind) => {
+    activeThreadIdRef.current = undefined;
     setKind(next);
     setMode("home");
     setMessage("");
+    setMetaThreadId(null);
   };
   const openThread = (thread: ChatThread) => {
+    if (thread.id !== activeThreadIdRef.current) {
+      setMessage("");
+      setFailedDraft("");
+    }
+    activeThreadIdRef.current = thread.id;
     selectThread(thread.kind, thread.id);
     setMode("chat");
+    setMetaThreadId(null);
   };
   const newThread = () => {
     const id = createThread(kind);
+    activeThreadIdRef.current = id;
+    setMessage("");
+    setFailedDraft("");
     selectThread(kind, id);
     setMode("chat");
+    setMetaThreadId(null);
   };
   const send = () => {
     const clean = message.trim();
     if (!active || !clean || assistantBusy) return;
     setMessage("");
+    setFailedDraft("");
+    setMetaThreadId(null);
     chatListRef.current?.scrollToEnd(!data.preferences.reducedMotion);
-    void sendChatMessage(active.id, clean);
+    void sendChatMessage(active.id, clean)
+      .then(() => setMetaThreadId(active.id))
+      .catch(() => {
+        if (activeThreadIdRef.current === active.id) {
+          setMessage((current) => current.trim() || clean);
+          setFailedDraft(clean);
+        }
+      });
   };
 
   const sendQuickPrompt = useCallback(
     (prompt: string) => {
       if (!activeThreadId || assistantBusy) return;
+      setMetaThreadId(null);
       chatListRef.current?.scrollToEnd(!data.preferences.reducedMotion);
-      void sendChatMessage(activeThreadId, prompt);
+      void sendChatMessage(activeThreadId, prompt)
+        .then(() => setMetaThreadId(activeThreadId))
+        .catch(() => {
+          if (activeThreadIdRef.current === activeThreadId) {
+            setMessage((current) => current.trim() || prompt);
+            setFailedDraft(prompt);
+          }
+        });
     },
     [
       activeThreadId,
@@ -135,12 +169,21 @@ export default function BrainScreen() {
   );
 
   const assistantStageLabel = {
-    idle: kind === "brain" ? "BRAIN ONLINE" : "PROFESSOR ONLINE",
+    idle: kind === "brain" ? "BRAIN PRONTO" : "PROFESSOR PRONTO",
     connecting: "CONECTANDO",
     generating: "GERANDO",
     finalizing: "FINALIZANDO",
-    local: "MODO LOCAL",
+    local: "INDISPONÍVEL",
   }[assistantStage];
+
+  useEffect(() => {
+    const raw = Array.isArray(params.view) ? params.view[0] : params.view;
+    if (!raw) return;
+    if (raw === "roadmaps") setMode("roadmaps");
+    else if (raw === "home") setMode("home");
+    else if (raw === "chat") setMode(activeThreadIdRef.current ? "chat" : "home");
+    router.setParams({ view: undefined });
+  }, [params.view]);
 
   useEffect(() => {
     if (mode !== "chat" || Platform.OS !== "android") return undefined;
@@ -224,16 +267,10 @@ export default function BrainScreen() {
                 color={
                   assistantBusy
                     ? colors.warning
-                    : lastAssistantMeta?.source === "local"
-                      ? colors.warning
-                      : colors.success
+                    : colors.success
                 }
               >
-                {assistantBusy
-                  ? assistantStageLabel
-                  : lastAssistantMeta?.source === "local"
-                    ? "LOCAL ATIVO"
-                    : assistantStageLabel}
+                {assistantStageLabel}
               </NexusText>
             </View>
           </View>
@@ -245,7 +282,9 @@ export default function BrainScreen() {
             kind={kind}
             assistantBusy={assistantBusy}
             assistantStageLabel={assistantStageLabel}
-            lastAssistantMeta={lastAssistantMeta}
+            lastAssistantMeta={
+              metaThreadId === activeThreadId ? lastAssistantMeta : null
+            }
             reducedMotion={data.preferences.reducedMotion}
             positions={chatPositions.current}
             onQuickPrompt={sendQuickPrompt}
@@ -270,7 +309,10 @@ export default function BrainScreen() {
                   : "Converse com seu copiloto"
               }
               value={message}
-              onChangeText={setMessage}
+              onChangeText={(value) => {
+                setMessage(value);
+                if (value.trim() !== failedDraft) setFailedDraft("");
+              }}
               multiline
               maxLength={4000}
               style={styles.composerInput}
@@ -281,7 +323,13 @@ export default function BrainScreen() {
               }
             />
             <NexusButton
-              label={assistantBusy ? "Aguarde" : "Enviar"}
+              label={
+                assistantBusy
+                  ? "Aguarde"
+                  : failedDraft
+                    ? "Tentar novamente"
+                    : "Enviar"
+              }
               icon="↑"
               onPress={send}
               disabled={assistantBusy || !message.trim()}
@@ -380,13 +428,13 @@ export default function BrainScreen() {
                       <NexusButton
                         label={memory.pinned ? "Desafixar" : "Fixar"}
                         variant="ghost"
-                        onPress={() => toggleMemoryPinned(memory.id)}
+                        onPress={() => { void toggleMemoryPinned(memory.id); }}
                         style={styles.flex}
                       />
                       <NexusButton
                         label="Esquecer"
                         variant="ghost"
-                        onPress={() => deleteMemory(memory.id)}
+                        onPress={() => { void deleteMemory(memory.id); }}
                         style={styles.flex}
                       />
                     </View>
@@ -471,10 +519,7 @@ export default function BrainScreen() {
                 key={roadmap.id}
                 roadmap={roadmap}
                 active={data.learning.activeRoadmapId === roadmap.id}
-                onSetActive={() => setActiveRoadmap(roadmap.id)}
-                onToggleLesson={(lessonId) =>
-                  toggleRoadmapLesson(roadmap.id, lessonId)
-                }
+                onSetActive={() => { void setActiveRoadmap(roadmap.id); }}
               />
             ))}
           </View>
@@ -599,7 +644,7 @@ export default function BrainScreen() {
                         accessibilityLabel="Arquivar conversa"
                         onPress={(event) => {
                           event.stopPropagation();
-                          archiveThread(thread.id);
+                          void archiveThread(thread.id);
                         }}
                       >
                         <NexusText secondary>⌁</NexusText>
@@ -639,10 +684,16 @@ export default function BrainScreen() {
         message="As mensagens serão removidas. Memórias extraídas continuarão disponíveis até você apagá-las na área Memórias."
         confirmLabel="Excluir"
         destructive
+        loading={threadMutation === "delete"}
         onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => {
-          if (deleteTarget) deleteThread(deleteTarget.id);
-          setDeleteTarget(null);
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          setThreadMutation("delete");
+          try {
+            if (await deleteThread(deleteTarget.id)) setDeleteTarget(null);
+          } finally {
+            setThreadMutation(null);
+          }
         }}
       />
       <ConfirmDialog
@@ -650,11 +701,16 @@ export default function BrainScreen() {
         title="Renomear conversa"
         message="Use um nome curto para encontrar este assunto depois."
         confirmLabel="Salvar"
+        loading={threadMutation === "rename"}
         onCancel={() => setRenameTarget(null)}
-        onConfirm={() => {
-          if (renameTarget && renameValue.trim())
-            renameThread(renameTarget.id, renameValue);
-          setRenameTarget(null);
+        onConfirm={async () => {
+          if (!renameTarget || !renameValue.trim()) return;
+          setThreadMutation("rename");
+          try {
+            if (await renameThread(renameTarget.id, renameValue)) setRenameTarget(null);
+          } finally {
+            setThreadMutation(null);
+          }
         }}
       >
         <Field

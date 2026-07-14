@@ -17,22 +17,30 @@ const BODY: Pixel[] = [
   [3,10,"shade"],[4,10,"body"],[5,10,"body"],[6,10,"body"],[7,10,"body"],[8,10,"shade"],
 ];
 
-const SKIN_COLORS: Record<MascotSkin, string> = { classic: "", shadow: "#71717A", galaxy: "#7C3AED", emerald: "#10B981", gold: "#F59E0B", ice: "#38BDF8", rose: "#EC4899", professor: "#8B5CF6" };
-
 export function PixelMascot({ state = "idle", size = 48, skin, accessory }: { state?: MascotState; size?: number; skin?: MascotSkin; accessory?: string }) {
   const { colors, data } = useNexus();
   const scale = useRef(new Animated.Value(1)).current;
   const pixel = size / 12;
   const selectedSkin = skin ?? data.preferences.mascot.skin;
   const selectedAccessory = accessory === undefined ? data.preferences.mascot.equippedAccessory : accessory;
-  const skinColor = SKIN_COLORS[selectedSkin] || colors.primary;
+  const skinColor: Record<MascotSkin, string> = {
+    classic: colors.primary,
+    shadow: colors.textSecondary,
+    galaxy: colors.primary,
+    emerald: colors.success,
+    gold: colors.warning,
+    ice: colors.primarySoft,
+    rose: colors.danger,
+    professor: colors.primary,
+  };
+  const selectedSkinColor = skinColor[selectedSkin];
   const palette = useMemo(() => ({
-    body: state === "warning" ? colors.warning : state === "sleeping" ? colors.textSecondary : skinColor,
-    soft: state === "sleeping" ? colors.borderStrong : selectedSkin === "shadow" ? "#A1A1AA" : colors.primarySoft,
+    body: state === "warning" ? colors.warning : state === "sleeping" ? colors.textSecondary : selectedSkinColor,
+    soft: state === "sleeping" ? colors.borderStrong : selectedSkin === "shadow" ? colors.textSecondary : colors.primarySoft,
     eye: state === "sleeping" ? colors.textSecondary : state === "celebrating" ? colors.success : colors.text,
     accent: state === "celebrating" ? colors.success : colors.warning,
-    shade: `${skinColor}A8`,
-  }), [colors, selectedSkin, skinColor, state]);
+    shade: `${selectedSkinColor}A8`,
+  }), [colors, selectedSkin, selectedSkinColor, state]);
 
   useEffect(() => {
     if (data.preferences.reducedMotion || state === "idle" || state === "sleeping") return;
@@ -61,7 +69,7 @@ export function PixelMascot({ state = "idle", size = 48, skin, accessory }: { st
         {block(5.15, 3.25, 1.55, .25, colors.text, "bridge")}
       </> : null}
       {selectedAccessory === "crown" ? <>
-        {block(3, .1, 1, 1.6, colors.warning, "crown-a")}{block(5.3, -.35, 1.2, 2, colors.warning, "crown-b")}{block(8, .1, 1, 1.6, colors.warning, "crown-c")}{block(3, 1.2, 6, .75, "#FDE68A", "crown-base")}
+        {block(3, .1, 1, 1.6, colors.warning, "crown-a")}{block(5.3, -.35, 1.2, 2, colors.warning, "crown-b")}{block(8, .1, 1, 1.6, colors.warning, "crown-c")}{block(3, 1.2, 6, .75, colors.primarySoft, "crown-base")}
       </> : null}
       {selectedAccessory === "headphones" ? <>
         <View style={{ position: "absolute", left: 2.1 * pixel, top: 1.5 * pixel, width: 7.8 * pixel, height: 4.1 * pixel, borderTopWidth: Math.max(2, pixel * .6), borderColor: colors.primarySoft, borderRadius: 999 }} />
@@ -71,11 +79,11 @@ export function PixelMascot({ state = "idle", size = 48, skin, accessory }: { st
       {selectedAccessory === "scarf" ? <>
         {block(3, 5.15, 6.1, 1.15, colors.danger, "scarf-neck")}
         {block(7.5, 6, 1.4, 3.2, colors.danger, "scarf-tail")}
-        {block(8.8, 8.3, 1.3, .8, "#FCA5A5", "scarf-tip")}
+        {block(8.8, 8.3, 1.3, .8, colors.primarySoft, "scarf-tip")}
       </> : null}
       {selectedAccessory === "backpack" ? <>
         {block(8.7, 5.6, 2.1, 3.8, colors.warning, "backpack-body")}
-        {block(9.1, 6.2, 1.3, .5, "#FDE68A", "backpack-pocket")}
+        {block(9.1, 6.2, 1.3, .5, colors.primarySoft, "backpack-pocket")}
         {block(8.25, 5.8, .45, 2.7, colors.textSecondary, "backpack-strap")}
       </> : null}
       {selectedAccessory === "laptop" ? <>
@@ -113,11 +121,11 @@ export function PixelMascot({ state = "idle", size = 48, skin, accessory }: { st
       {selectedAccessory === "medal" ? <>
         {block(5.25, 5.5, .45, 2.2, colors.primarySoft, "medal-ribbon-l")}
         {block(6.35, 5.5, .45, 2.2, colors.primarySoft, "medal-ribbon-r")}
-        <View style={{ position: "absolute", left: 4.95 * pixel, top: 7.2 * pixel, width: 2.2 * pixel, height: 2.2 * pixel, borderRadius: 999, backgroundColor: colors.warning, borderWidth: Math.max(1, pixel * .18), borderColor: "#FDE68A" }} />
+        <View style={{ position: "absolute", left: 4.95 * pixel, top: 7.2 * pixel, width: 2.2 * pixel, height: 2.2 * pixel, borderRadius: 999, backgroundColor: colors.warning, borderWidth: Math.max(1, pixel * .18), borderColor: colors.primarySoft }} />
       </> : null}
       {selectedAccessory === "cape" ? <>
         <View style={{ position: "absolute", left: 8.2 * pixel, top: 5.2 * pixel, width: 3.2 * pixel, height: 5.3 * pixel, backgroundColor: colors.danger, transform: [{ skewY: "-8deg" }] }} />
-        {block(7.7, 5.1, 1.6, .65, "#FCA5A5", "cape-clasp")}
+        {block(7.7, 5.1, 1.6, .65, colors.primarySoft, "cape-clasp")}
       </> : null}
     </Animated.View>
   );

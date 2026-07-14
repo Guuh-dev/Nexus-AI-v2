@@ -1,4 +1,4 @@
-import React, { Component, useState, type ErrorInfo, type PropsWithChildren } from "react";
+import { Component, useState, type ErrorInfo, type PropsWithChildren } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { router, type ErrorBoundaryProps } from "expo-router";
 import { NexusButton } from "@/components/ui/NexusButton";
@@ -41,8 +41,9 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
 function ErrorFallback({ error, onRetry, onHome, onClear }: { error: Error; onRetry: () => void; onHome: () => void; onClear: () => void }) {
   const [details, setDetails] = useState(false);
+  const { colors } = useNexus();
   return (
-    <View style={styles.fallback}>
+    <View style={[styles.fallback, { backgroundColor: colors.background }]}>
       <PixelMascot state="warning" size={64} />
       <NexusText variant="display" style={styles.center}>Algo deu errado</NexusText>
       <NexusText secondary style={styles.center}>Não foi possível carregar esta tela.</NexusText>
@@ -57,7 +58,7 @@ function ErrorFallback({ error, onRetry, onHome, onClear }: { error: Error; onRe
             <NexusText variant="caption">{details ? "Ocultar detalhes técnicos" : "Mostrar detalhes técnicos"}</NexusText>
           </Pressable>
           {details ? (
-            <ScrollView style={styles.details}>
+            <ScrollView style={[styles.details, { backgroundColor: colors.surface, borderColor: colors.border }]}>
               <NexusText variant="caption" secondary selectable>{`${error.name}: ${error.message}\n${error.stack ?? ""}`}</NexusText>
             </ScrollView>
           ) : null}
@@ -78,9 +79,9 @@ export function RouteErrorBoundary({ error, retry }: ErrorBoundaryProps) {
 }
 
 const styles = StyleSheet.create({
-  fallback: { flex: 1, minHeight: "100%", backgroundColor: "#050505", alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
+  fallback: { flex: 1, minHeight: "100%", alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
   center: { textAlign: "center" },
   actions: { width: "100%", maxWidth: 420, gap: 10, marginTop: 16 },
   detailsWrap: { width: "100%", maxWidth: 620, marginTop: 20, gap: 10 },
-  details: { maxHeight: 180, padding: 12, backgroundColor: "#111114", borderRadius: 12 },
+  details: { maxHeight: 180, padding: 12, borderWidth: 1, borderRadius: 12 },
 });

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Nexus AI",
     "slug": "nexus-ai",
-    "version": "2.4.0",
+    "version": "3.0.0",
     "orientation": "portrait",
     "scheme": "nexusai",
     "userInterfaceStyle": "automatic",

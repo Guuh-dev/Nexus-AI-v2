@@ -1,16 +1,9 @@
 import { PRIORITY_XP } from "@/constants/defaults";
 import { assistantClientResponseSchema } from "@/schemas/assistant.schema";
-import { professorIntakeSchema } from "@/schemas/expansion.schema";
-import {
-  createStarterRoadmap,
-  nextRoadmapLesson,
-} from "@/features/learning/roadmap";
-import { getLessonGuidance } from "@/features/learning/lesson-guidance";
-import { getTaskGuidance } from "@/features/planning/task-guidance";
-import { createEvidenceBasedWeeklyReview, sanitizeAiWeeklyReview, buildWeeklyEvidence, weekFactsForAi } from "@/features/progress/weekly-review";
+import { nextRoadmapLesson } from "@/features/learning/roadmap";
+import { createEvidenceBasedWeeklyReview } from "@/features/progress/weekly-review";
 import type {
   AppData,
-  AssistantMeta,
   AssistantRequest,
   AssistantResponse,
   AssistantStage,
@@ -24,7 +17,7 @@ import { createId } from "@/utils/ids";
 import { sanitizeText } from "@/utils/text";
 import { fetchNexusApi, NexusApiError } from "@/services/api-config";
 
-export const ASSISTANT_TIMEOUT_MS = 35_000;
+export const ASSISTANT_TIMEOUT_MS = 45_000;
 
 type AssistantRunOptions = {
   signal?: AbortSignal;
@@ -33,7 +26,7 @@ type AssistantRunOptions = {
   onDelta?: (delta: string) => void;
 };
 
-class AssistantRemoteError extends Error {
+export class AssistantRemoteError extends Error {
   constructor(
     public readonly code: string,
     message: string,
@@ -47,6 +40,194 @@ class AssistantRemoteError extends Error {
 
 function arrayValue(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
+}
+
+function boundedNumber(
+  value: unknown,
+  minimum: number,
+  maximum: number,
+): number | null {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.min(maximum, Math.max(minimum, value))
+    : null;
+}
+
+function compactWeeklyEvidence(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const evidence = value as Record<string, unknown>;
+  const nonNegativeKeys = [
+    "daysRecorded",
+    "plannedTasks",
+    "completedTasks",
+    "missionsCompleted",
+    "missionsPlanned",
+    "focusMinutes",
+    "xpEarned",
+    "activeDays",
+    "postponedOrCarryOver",
+    "roadmapLessonsCompleted",
+  ] as const;
+  const compact: Record<string, unknown> = {
+    weekStart: sanitizeText(
+      typeof evidence.weekStart === "string" ? evidence.weekStart : "",
+      20,
+    ),
+    weekEnd: sanitizeText(
+      typeof evidence.weekEnd === "string" ? evidence.weekEnd : "",
+      20,
+    ),
+    completionPercentage: boundedNumber(
+      evidence.completionPercentage,
+      0,
+      100,
+    ),
+    previousCompletionPercentage:
+      evidence.previousCompletionPercentage === null
+        ? null
+        : boundedNumber(evidence.previousCompletionPercentage, 0, 100),
+    completionDelta:
+      evidence.completionDelta === null
+        ? null
+        : boundedNumber(evidence.completionDelta, -100, 100),
+    score:
+      evidence.score === null ? null : boundedNumber(evidence.score, 0, 100),
+    confidence:
+      evidence.confidence === "insufficient" ||
+      evidence.confidence === "low" ||
+      evidence.confidence === "medium" ||
+      evidence.confidence === "high"
+        ? evidence.confidence
+        : "insufficient",
+    categories: arrayValue(evidence.categories)
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => sanitizeText(item, 60))
+      .filter(Boolean)
+      .slice(0, 8),
+    facts: arrayValue(evidence.facts)
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => sanitizeText(item, 240))
+      .filter(Boolean)
+      .slice(0, 8),
+  };
+  for (const key of nonNegativeKeys) {
+    compact[key] = boundedNumber(evidence[key], 0, 1_000_000);
+  }
+  return compact;
+}
+
+function compactExperience(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const experience = value as Record<string, unknown>;
+  const assistantVerbosity = experience.assistantVerbosity;
+  const atlasPersonality = experience.atlasPersonality;
+  const companionMood = experience.companionMood;
+  return {
+    ...(assistantVerbosity === "compact" ||
+    assistantVerbosity === "balanced" ||
+    assistantVerbosity === "detailed"
+      ? { assistantVerbosity }
+      : {}),
+    ...(atlasPersonality === "teacher" ||
+    atlasPersonality === "mentor" ||
+    atlasPersonality === "coach" ||
+    atlasPersonality === "strict" ||
+    atlasPersonality === "friendly"
+      ? { atlasPersonality }
+      : {}),
+    ...(companionMood === "happy" ||
+    companionMood === "playful" ||
+    companionMood === "motivational" ||
+    companionMood === "serious" ||
+    companionMood === "strict" ||
+    companionMood === "calm" ||
+    companionMood === "quiet"
+      ? { companionMood }
+      : {}),
+  };
+}
+
+function compactRoadmapEvidenceReview(
+  value: unknown,
+): Record<string, unknown> | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const review = value as Record<string, unknown>;
+  const lesson = review.lesson &&
+    typeof review.lesson === "object" &&
+    !Array.isArray(review.lesson)
+    ? review.lesson as Record<string, unknown>
+    : {};
+  const roadmap = review.roadmap &&
+    typeof review.roadmap === "object" &&
+    !Array.isArray(review.roadmap)
+    ? review.roadmap as Record<string, unknown>
+    : {};
+  const phase = review.phase &&
+    typeof review.phase === "object" &&
+    !Array.isArray(review.phase)
+    ? review.phase as Record<string, unknown>
+    : {};
+  const submission = sanitizeText(
+    typeof review.submission === "string" ? review.submission : "",
+    4000,
+  );
+  if (!submission) return undefined;
+  return {
+    roadmap: {
+      topic: sanitizeText(
+        typeof roadmap.topic === "string" ? roadmap.topic : "",
+        160,
+      ),
+      outcome: sanitizeText(
+        typeof roadmap.outcome === "string" ? roadmap.outcome : "",
+        600,
+      ),
+      currentLevel: roadmap.currentLevel,
+      intent: roadmap.intent,
+    },
+    phase: {
+      title: sanitizeText(
+        typeof phase.title === "string" ? phase.title : "",
+        160,
+      ),
+      objective: sanitizeText(
+        typeof phase.objective === "string" ? phase.objective : "",
+        500,
+      ),
+    },
+    lesson: {
+      title: sanitizeText(
+        typeof lesson.title === "string" ? lesson.title : "",
+        160,
+      ),
+      objective: sanitizeText(
+        typeof lesson.objective === "string" ? lesson.objective : "",
+        400,
+      ),
+      steps: arrayValue(lesson.steps)
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => sanitizeText(item, 240))
+        .filter(Boolean)
+        .slice(0, 5),
+      deliverable: sanitizeText(
+        typeof lesson.deliverable === "string" ? lesson.deliverable : "",
+        400,
+      ),
+      successCriteria: sanitizeText(
+        typeof lesson.successCriteria === "string"
+          ? lesson.successCriteria
+          : "",
+        400,
+      ),
+      estimatedMinutes: boundedNumber(lesson.estimatedMinutes, 5, 180),
+    },
+    submission,
+    ...(typeof review.priorFeedback === "string"
+      ? { priorFeedback: sanitizeText(review.priorFeedback, 2000) }
+      : {}),
+    ...(typeof review.priorAdjustment === "string"
+      ? { priorAdjustment: sanitizeText(review.priorAdjustment, 1000) }
+      : {}),
+  };
 }
 
 export function compactAssistantContext(
@@ -69,6 +250,20 @@ export function compactAssistantContext(
     }));
 
   const conversationLimit = mode === "roadmap" ? 4 : mode === "capture" ? 2 : 8;
+  const weeklyEvidence = mode === "weekly_review"
+    ? compactWeeklyEvidence(context.weeklyEvidence)
+    : undefined;
+  const observableFacts = mode === "weekly_review"
+    ? arrayValue(context.observableFacts)
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => sanitizeText(item, 240))
+        .filter(Boolean)
+        .slice(0, 7)
+    : [];
+  const experience = compactExperience(context.experience);
+  const roadmapEvidenceReview = mode === "evidence_review"
+    ? compactRoadmapEvidenceReview(context.roadmapEvidenceReview)
+    : undefined;
   const compact = {
     kind: context.kind,
     today: context.today,
@@ -93,14 +288,16 @@ export function compactAssistantContext(
       0,
       mode === "professor" || mode === "roadmap" ? 3 : 1,
     ),
-    operations: arrayValue(context.operations).slice(0, 3),
-    habits: arrayValue(context.habits).slice(0, 8),
     ...(typeof context.conversationSummary === "string"
       ? { conversationSummary: sanitizeText(context.conversationSummary, 1600) }
       : {}),
+    ...(experience ? { experience } : {}),
     ...(mode === "roadmap" && context.professorIntake
       ? { professorIntake: context.professorIntake }
       : {}),
+    ...(roadmapEvidenceReview ? { roadmapEvidenceReview } : {}),
+    ...(weeklyEvidence ? { weeklyEvidence } : {}),
+    ...(observableFacts.length ? { observableFacts } : {}),
   };
 
   // Last safety net: keep client payload comfortably below the API body limit.
@@ -112,9 +309,13 @@ export function compactAssistantContext(
     progress: compact.progress,
     memories: compactMemories.slice(-6),
     conversation: compact.conversation.slice(-6),
+    ...(experience ? { experience } : {}),
     ...(mode === "roadmap" && context.professorIntake
       ? { professorIntake: context.professorIntake }
       : {}),
+    ...(roadmapEvidenceReview ? { roadmapEvidenceReview } : {}),
+    ...(weeklyEvidence ? { weeklyEvidence } : {}),
+    ...(observableFacts.length ? { observableFacts } : {}),
   };
 }
 
@@ -122,6 +323,18 @@ function safeTask(task: Task) {
   return {
     id: task.id,
     title: sanitizeText(task.title, 120),
+    ...(task.context
+      ? { context: sanitizeText(task.context, 280) }
+      : {}),
+    ...(task.firstStep
+      ? { firstStep: sanitizeText(task.firstStep, 240) }
+      : {}),
+    ...(task.expectedResult
+      ? { expectedResult: sanitizeText(task.expectedResult, 280) }
+      : {}),
+    ...(task.doneWhen
+      ? { doneWhen: sanitizeText(task.doneWhen, 280) }
+      : {}),
     category: task.category,
     priority: task.priority,
     minutes: task.estimatedMinutes,
@@ -160,6 +373,15 @@ export function buildAssistantContext(
     (memory, index, all) =>
       all.findIndex((candidate) => candidate.id === memory.id) === index,
   );
+  const activeRoadmapId = data.learning.activeRoadmapId;
+  const roadmapCandidates = data.learning.roadmaps
+    .filter((roadmap) => roadmap.status === "active")
+    .sort((first, second) => {
+      if (first.id === activeRoadmapId) return -1;
+      if (second.id === activeRoadmapId) return 1;
+      return second.updatedAt.localeCompare(first.updatedAt);
+    })
+    .slice(0, 3);
   return {
     kind,
     today: data.activePlan
@@ -191,10 +413,11 @@ export function buildAssistantContext(
         role,
         content: sanitizeText(content, 1200),
       })),
-    roadmaps: data.learning.roadmaps
-      .filter((roadmap) => roadmap.status === "active")
-      .slice(0, 3)
-      .map((roadmap) => ({
+    roadmaps: roadmapCandidates.map((roadmap) => {
+      const nextLesson = nextRoadmapLesson(roadmap);
+      return {
+        id: roadmap.id,
+        active: roadmap.id === activeRoadmapId,
         topic: roadmap.topic,
         outcome: roadmap.outcome,
         ...(roadmap.intake
@@ -222,16 +445,47 @@ export function buildAssistantContext(
           completed: phase.lessons.filter((lesson) => lesson.completed).length,
           total: phase.lessons.length,
         })),
-      })),
-    operations: data.operations
-      .filter((operation) => operation.status === "active")
-      .slice(0, 3),
-    habits: data.habits.slice(0, 8).map((habit) => ({
-      title: habit.title,
-      target: habit.targetPerWeek,
-      streak: habit.currentStreak,
-      completedDates: habit.completedDates.slice(-7),
-    })),
+        ...(nextLesson
+          ? {
+              nextLesson: {
+                title: sanitizeText(nextLesson.title, 160),
+                objective: sanitizeText(
+                  nextLesson.objective ?? nextLesson.description,
+                  400,
+                ),
+                steps: (nextLesson.steps ?? [])
+                  .map((step) => sanitizeText(step, 240))
+                  .filter(Boolean)
+                  .slice(0, 5),
+                deliverable: sanitizeText(
+                  nextLesson.deliverable ?? "",
+                  400,
+                ),
+                successCriteria: sanitizeText(
+                  nextLesson.successCriteria ?? "",
+                  400,
+                ),
+                estimatedMinutes: nextLesson.estimatedMinutes,
+                ...(nextLesson.evidence
+                  ? {
+                      evidence: {
+                        status: nextLesson.evidence.status,
+                        feedback: sanitizeText(
+                          nextLesson.evidence.feedback ?? "",
+                          500,
+                        ),
+                        nextAdjustment: sanitizeText(
+                          nextLesson.evidence.nextAdjustment ?? "",
+                          500,
+                        ),
+                      },
+                    }
+                  : {}),
+              },
+            }
+          : {}),
+      };
+    }),
   };
 }
 
@@ -265,13 +519,19 @@ function localCapture(message: string, data: AppData): AssistantResponse {
   const scheduledDate = normalized.includes("amanhã")
     ? localDateKey(tomorrow, data.profile?.timezone)
     : undefined;
+  const title = sanitizeText(
+    message.replace(/^(tenho que|preciso|lembrar de)\s+/i, ""),
+    120,
+  );
   return {
     message: "Organizei sua captura. Revise antes de adicionar ao plano.",
     capture: {
-      title: sanitizeText(
-        message.replace(/^(tenho que|preciso|lembrar de)\s+/i, ""),
-        120,
-      ),
+      title,
+      description: sanitizeText(message, 300),
+      context: "Captura organizada localmente a partir da anotação; confirme o contexto antes de salvar.",
+      firstStep: `Abra o recurso necessário e inicie “${title}”.`,
+      expectedResult: `Uma entrega observável relacionada a “${title}”.`,
+      doneWhen: "A entrega esperada foi conferida e registrada.",
       category,
       priority,
       estimatedMinutes,
@@ -285,97 +545,6 @@ function localCapture(message: string, data: AppData): AssistantResponse {
 
 export function createLocalWeeklyReview(data: AppData): WeeklyReview {
   return createEvidenceBasedWeeklyReview(data);
-}
-
-
-function localBrainMessage(request: AssistantRequest, data: AppData): string {
-  const goal = sanitizeText(
-    data.profile?.mainGoal ?? "sua missão principal",
-    120,
-  );
-  const message = request.message.toLocaleLowerCase("pt-BR");
-  if (/agora|próxim|começ|fazer/.test(message)) {
-    const nextTask = data.activePlan?.tasks.find((task) => !task.completed);
-    if (nextTask) {
-      const guidance = getTaskGuidance(nextTask);
-      return `Estou em modo local. Seu melhor próximo passo é “${nextTask.title}”. Faça agora: ${guidance.steps
-        .slice(0, 3)
-        .map((step, index) => `${index + 1}) ${step}`)
-        .join(" ")} Resultado esperado: ${guidance.deliverable}`;
-    }
-    return `Estou em modo local. Escolha uma ação de 15 minutos que mova ${goal} para frente e termine com uma entrega visível, não apenas tempo gasto.`;
-  }
-  if (/trav|difícil|desanim|procrast/.test(message)) {
-    return `Estou em modo local. Reduza o problema para um bloco de 10 minutos: abra o material, execute uma única ação e pare somente depois de registrar o que avançou.`;
-  }
-  return `Estou em modo local, mas seu histórico continua seguro. Para avançar em ${goal}, transforme sua pergunta em uma ação pequena, com duração e resultado observável.`;
-}
-
-function localFallback(
-  request: AssistantRequest,
-  data: AppData,
-  meta: AssistantMeta,
-): AssistantResponse {
-  if (request.mode === "capture")
-    return { ...localCapture(request.message, data), meta };
-  if (request.mode === "roadmap") {
-    const intakeResult = professorIntakeSchema.safeParse(
-      request.context.professorIntake,
-    );
-    const intake = intakeResult.success ? intakeResult.data : undefined;
-    const roadmap = createStarterRoadmap(
-      intake?.topic ?? request.message,
-      request.profile,
-      intake,
-    );
-    return {
-      message: `Preparei uma trilha local inicial para ${roadmap.topic}. Assim que a conexão remota voltar, o Professor Atlas poderá refiná-la com você.`,
-      roadmap,
-      warning: "Roadmap local ativado.",
-      meta,
-    };
-  }
-  if (request.mode === "professor") {
-    const activeRoadmap = data.learning.roadmaps.find(
-      (roadmap) =>
-        roadmap.id === data.learning.activeRoadmapId &&
-        roadmap.status === "active",
-    );
-    const lesson = activeRoadmap ? nextRoadmapLesson(activeRoadmap) : undefined;
-    const phase = activeRoadmap?.phases.find((item) =>
-      item.lessons.some((candidate) => candidate.id === lesson?.id),
-    );
-    const nextStep =
-      activeRoadmap && phase && lesson
-        ? (() => {
-            const guidance = getLessonGuidance(activeRoadmap, phase, lesson);
-            return `Lição: “${lesson.title}”. Objetivo: ${guidance.objective} Passos: ${guidance.steps
-              .slice(0, 4)
-              .map((step, index) => `${index + 1}) ${step}`)
-              .join(
-                " ",
-              )} Entrega: ${guidance.deliverable} Conclua quando: ${guidance.successCriteria}`;
-          })()
-        : "Escolha uma habilidade concreta, descreva o que já sabe e produza uma pequena prova de domínio hoje.";
-    return {
-      message: `Atlas está em modo local. ${nextStep}`,
-      warning: "Professor Atlas em modo local. Nenhum roadmap novo foi criado.",
-      meta,
-    };
-  }
-  if (request.mode === "weekly_review") {
-    return {
-      message: "Sua revisão foi calculada com os dados locais.",
-      weeklyReview: createLocalWeeklyReview(data),
-      warning: "Revisão local ativada.",
-      meta,
-    };
-  }
-  return {
-    message: localBrainMessage(request, data),
-    warning: "Nexus Brain em modo local.",
-    meta,
-  };
 }
 
 function extractRemoteError(
@@ -565,27 +734,45 @@ function errorCode(error: unknown): string {
   return "unreachable";
 }
 
-function warningFor(error: unknown): string {
+function actionableMessage(error: unknown): string {
   if (error instanceof AssistantRemoteError) {
     if (error.code === "missing_key")
-      return "O backend está online, mas a chave do OpenRouter não foi configurada no Render.";
+      return "A IA ainda não foi configurada no servidor. Tente novamente mais tarde.";
     if (error.code === "unauthorized")
-      return "A chave do OpenRouter foi recusada. Atualize o secret no Render.";
+      return "A IA precisa ser reconfigurada no servidor. Tente novamente mais tarde.";
     if (error.code === "rate_limit")
-      return "Os modelos gratuitos estão ocupados. Usei o modo local nesta tentativa.";
+      return "A IA está ocupada agora. Aguarde alguns instantes e tente novamente.";
     if (error.code === "payment_required")
-      return "A cota remota terminou. O modo local continua disponível.";
-    if (error.code === "provider_unavailable")
-      return "O provedor remoto não respondeu. O modo local assumiu esta tentativa.";
+      return "A IA está temporariamente sem cota. Tente novamente mais tarde.";
+    if (error.code === "provider_unavailable" || error.code === "provider_busy")
+      return "A IA está temporariamente indisponível. Tente novamente.";
     if (error.code === "timeout")
-      return "A IA demorou demais. Ativei o modo local sem prender a tela.";
+      return "A IA demorou mais que o esperado. Tente novamente.";
+    if (error.code === "offline")
+      return "Você está sem conexão. Reconecte-se e tente novamente.";
     if (error.status === 404 || error.status === 405)
-      return "O APK encontrou um backend antigo. Publique a versão atual no Render.";
+      return "O aplicativo encontrou um backend incompatível. Tente novamente após a atualização do serviço.";
   }
   if (error instanceof NexusApiError && error.code === "incompatible") {
-    return "O APK está conectado a um backend antigo. Publique a versão atual no Render para reativar a IA.";
+    return "O aplicativo encontrou um backend incompatível. Tente novamente após a atualização do serviço.";
   }
-  return "Não foi possível alcançar a inteligência remota. O modo local assumiu sem perder seus dados.";
+  return "A IA está temporariamente indisponível. Tente novamente.";
+}
+
+function shouldRetryBackend(error: unknown): boolean {
+  if (error instanceof NexusApiError) return error.code === "unreachable";
+  if (!(error instanceof AssistantRemoteError)) return false;
+  return (
+    error.code === "provider_busy" ||
+    error.status === 502 ||
+    error.status === 503 ||
+    error.status === 504
+  );
+}
+
+async function waitForBackend(signal: AbortSignal): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 450));
+  if (signal.aborted) throw new Error("cancelled");
 }
 
 export async function askNexus(
@@ -624,14 +811,24 @@ export async function askNexus(
   };
   const startedAt = Date.now();
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
-    options.onStage?.("local");
-    return localFallback(request, input.data, {
-      source: "local",
-      latencyMs: 0,
-      attempts: 0,
-      errorCode: "offline",
-      requestId: request.requestId,
-    });
+    if (request.mode === "capture") {
+      options.onStage?.("local");
+      return {
+        ...localCapture(request.message, input.data),
+        warning: "Captura interpretada offline. Revise antes de salvar.",
+        meta: {
+          source: "local",
+          latencyMs: 0,
+          attempts: 0,
+          errorCode: "offline",
+          requestId: request.requestId,
+        },
+      };
+    }
+    throw new AssistantRemoteError(
+      "offline",
+      "Você está sem conexão. Reconecte-se e tente novamente.",
+    );
   }
 
   const controller = new AbortController();
@@ -645,25 +842,75 @@ export async function askNexus(
   options.onStage?.("connecting");
   try {
     const canStream = Boolean(options.onDelta) && (request.mode === "brain" || request.mode === "professor");
-    const result = canStream
-      ? await remoteStream(request, controller.signal, options.onDelta!)
-      : await remote(request, controller.signal);
-    options.onStage?.("finalizing");
-    return result;
+    let lastError: unknown;
+    let receivedDelta = false;
+    for (let backendAttempt = 0; backendAttempt < 2; backendAttempt += 1) {
+      try {
+        const result = canStream
+          ? await remoteStream(request, controller.signal, (delta) => {
+              receivedDelta = true;
+              options.onDelta?.(delta);
+            })
+          : await remote(request, controller.signal);
+        options.onStage?.("finalizing");
+        return {
+          ...result,
+          ...(result.meta
+            ? {
+                meta: {
+                  ...result.meta,
+                  attempts: Math.min(
+                    8,
+                    result.meta.attempts + backendAttempt,
+                  ),
+                },
+              }
+            : {}),
+        };
+      } catch (error) {
+        lastError = error;
+        if (
+          backendAttempt === 1 ||
+          receivedDelta ||
+          controller.signal.aborted ||
+          !shouldRetryBackend(error)
+        ) {
+          break;
+        }
+        options.onStage?.("connecting");
+        await waitForBackend(controller.signal);
+      }
+    }
+    throw lastError ?? new AssistantRemoteError(
+      "provider_unavailable",
+      "A IA está temporariamente indisponível.",
+    );
   } catch (error) {
     if (options.signal?.aborted) throw new Error("cancelled");
-    options.onStage?.("local");
     const endpoint =
       error instanceof AssistantRemoteError ? error.endpoint : undefined;
-    const fallback = localFallback(request, input.data, {
-      source: "local",
-      latencyMs: Date.now() - startedAt,
-      attempts: 1,
-      errorCode: controller.signal.aborted ? "timeout" : errorCode(error),
-      ...(endpoint ? { endpoint } : {}),
-      requestId: request.requestId,
-    });
-    return { ...fallback, warning: warningFor(error) };
+    const code = controller.signal.aborted ? "timeout" : errorCode(error);
+    if (request.mode === "capture") {
+      options.onStage?.("local");
+      return {
+        ...localCapture(request.message, input.data),
+        warning: "Captura interpretada localmente porque a IA falhou. Revise antes de salvar.",
+        meta: {
+          source: "local",
+          latencyMs: Date.now() - startedAt,
+          attempts: 1,
+          errorCode: code,
+          ...(endpoint ? { endpoint } : {}),
+          requestId: request.requestId,
+        },
+      };
+    }
+    throw new AssistantRemoteError(
+      code,
+      actionableMessage(error),
+      error instanceof AssistantRemoteError ? error.status : undefined,
+      endpoint,
+    );
   } finally {
     clearTimeout(timeout);
     clearTimeout(generatingTimer);

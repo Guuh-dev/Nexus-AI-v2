@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.0.0 — Core Reborn
+
+- Reduzida a navegação principal a Hoje, Brain, Foco, Progresso e Perfil; módulos incompletos saíram da superfície sem apagar dados legados.
+- Reconstruído o roteamento de IA por capacidades, com allowlist conversacional, validação do modelo resolvido, retry temporário e erro remoto honesto.
+- Refeito o Brain para manter rascunhos, oferecer tentativa explícita e impedir que respostas de classificadores ou conteúdo interno cheguem à conversa.
+- Separadas intenções técnicas, aplicadas e comerciais nos roadmaps; criação, ativação, arquivamento e exclusão agora persistem de forma segura.
+- Planejamento, tarefas e revisão semanal passaram a exigir ações, resultados e evidências observáveis.
+- Consolidado o design em seis temas completos: Nexus Dark, AMOLED, Glass, Light, Pixel e Minimal.
+- Reconstruído o Widget Studio em cinco famílias nativas, todas derivadas do mesmo `WidgetRenderSpec` usado pelo preview.
+- Removidos do widget os controles de Professor/aprendizado que não possuíam renderização v3; os campos antigos continuam preservados apenas para migração, e os layouts agora respeitam o menor tamanho anunciado ao launcher.
+- Atualizado o storage para v6 com backup pré-migração, recuperação item a item, conversão de preferências e proteção contra downgrade.
+- OTA de produção agora exige o contrato v3 publicado por `GET /api/status` antes de enviar qualquer bundle, sem consumir o probe remoto sujeito a cooldown.
+- Ampliado o CI com Expo Doctor, prebuild Android limpo, compilação Gradle e audit de dependências em nível alto.
+
+> Esta versão altera Kotlin, XML, configuração nativa, storage e runtime. Ela exige um novo APK-base 3.0.0 e não pode ser publicada apenas por OTA.
+
 ## 2.4.0 — Systemic Mission OS RC
 
 - Correção global de teclado para formulários, entrevista Atlas, onboarding, modais e campos multiline usando uma abstração compartilhada de Screen/Field keyboard-aware.

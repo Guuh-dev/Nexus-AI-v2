@@ -83,13 +83,14 @@ describe("Nexus 2 expansion", () => {
     data.preferences.mascot.skin = "galaxy";
     const payload = createWidgetPayload(data);
     expect(payload?.mainMission).toBe("Missão protegida");
-    expect(payload?.tasks[0]?.title).toBe("Tarefa privada");
+    expect(payload?.tasks).toEqual([]);
     expect(payload?.appearance?.skin).toBe("galaxy");
-    expect(payload?.appearance?.showProfessor).toBe(false);
-    expect(payload?.level).toBe(1);
+    expect(payload?.appearance).not.toHaveProperty("showProfessor");
+    expect(payload).not.toHaveProperty("learning");
+    expect(payload?.level).toBe(0);
   });
 
-  it("connects the next Professor lesson to the offline plan and widget", () => {
+  it("connects the next Professor lesson to the offline plan without a hidden widget channel", () => {
     const data = makeAppData();
     const intake = professorIntakeSchema.parse({
       topic: "Inglês para freelance", knowledgeLevel: "basico", knownConcepts: "Leitura básica", previousAttempts: "Aplicativos",
@@ -108,8 +109,9 @@ describe("Nexus 2 expansion", () => {
     });
     expect(data.activePlan.tasks.some((task) => task.title === lesson.title && task.description?.includes("Professor Atlas"))).toBe(true);
     const payload = createWidgetPayload(data);
-    expect(payload?.learning?.nextLesson).toBe(lesson.title);
-    expect(payload?.appearance?.showProfessor).toBe(true);
+    expect(payload).not.toHaveProperty("learning");
+    expect(payload?.appearance).not.toHaveProperty("showProfessor");
+    expect(payload?.appearance).not.toHaveProperty("showLearning");
   });
 
   it("rejects malformed assistant responses on the client", () => {

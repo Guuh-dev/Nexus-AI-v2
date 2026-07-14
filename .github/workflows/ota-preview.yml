@@ -59,7 +59,7 @@ jobs:
         env:
           BASE_REF: ${{ steps.base.outputs.ref }}
           HEAD_REF: ${{ github.sha }}
-        run: node scripts/detect-native-changes.mjs "$BASE_REF" "$HEAD_REF"
+        run: node scripts/detect-native-changes.mjs "$BASE_REF" "$HEAD_REF" tree
 
       - name: Explain native build requirement
         if: steps.base.outputs.found == 'true' && steps.scope.outputs.native_changed == 'true'

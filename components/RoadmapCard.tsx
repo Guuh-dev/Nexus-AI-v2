@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { Card } from "@/components/ui/Card";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Field } from "@/components/ui/Field";
 import { NexusButton } from "@/components/ui/NexusButton";
 import { NexusText } from "@/components/ui/NexusText";
 import { ProgressBar } from "@/components/ui/ProgressBar";
@@ -13,16 +15,31 @@ export function RoadmapCard({
   roadmap,
   active,
   onSetActive,
-  onToggleLesson,
 }: {
   roadmap: LearningRoadmap;
   active: boolean;
   onSetActive: () => void;
-  onToggleLesson: (lessonId: string) => void;
 }) {
-  const { colors } = useNexus();
+  const {
+    colors,
+    renameRoadmap,
+    archiveRoadmap,
+    deleteRoadmap,
+    regenerateRoadmap,
+  } = useNexus();
   const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null);
+  const [showActions, setShowActions] = useState(false);
+  const [dialog, setDialog] = useState<"rename" | "regenerate" | "delete" | null>(null);
+  const [titleDraft, setTitleDraft] = useState(roadmap.topic);
+  const [mutationBusy, setMutationBusy] = useState(false);
   const progress = roadmapProgress(roadmap);
+  const statusLabel = roadmap.status === "archived"
+    ? "ARQUIVADO"
+    : roadmap.status === "completed"
+      ? "CONCLUÍDO"
+      : roadmap.status === "paused"
+        ? "PAUSADO"
+        : "EM ANDAMENTO";
 
   return (
     <Card
@@ -37,7 +54,7 @@ export function RoadmapCard({
             variant="mono"
             color={active ? colors.primarySoft : colors.textSecondary}
           >
-            {active ? "ROADMAP ATIVO" : roadmap.status.toUpperCase()}
+            {active ? "ROADMAP ATIVO" : statusLabel}
           </NexusText>
           <NexusText variant="title">{roadmap.topic}</NexusText>
         </View>
@@ -52,7 +69,25 @@ export function RoadmapCard({
         min/semana
       </NexusText>
 
-      {roadmap.phases.map((phase) => (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${showActions ? "Ocultar" : "Mostrar"} gerenciamento de ${roadmap.topic}`}
+        onPress={() => setShowActions((value) => !value)}
+        style={[styles.manageToggle, { borderColor: colors.border }]}
+      >
+        <NexusText variant="caption" secondary>{showActions ? "Fechar gerenciamento ↑" : "Gerenciar roadmap ···"}</NexusText>
+      </Pressable>
+
+      {showActions ? (
+        <View style={styles.actions}>
+          <NexusButton label="Renomear" variant="ghost" onPress={() => { setTitleDraft(roadmap.topic); setDialog("rename"); }} style={styles.action} />
+          {roadmap.status !== "archived" ? <NexusButton label="Arquivar" variant="ghost" onPress={() => { void archiveRoadmap(roadmap.id); }} style={styles.action} /> : null}
+          <NexusButton label="Regenerar" variant="ghost" onPress={() => setDialog("regenerate")} style={styles.action} />
+          <NexusButton label="Excluir" variant="danger" onPress={() => setDialog("delete")} style={styles.action} />
+        </View>
+      ) : null}
+
+      {roadmap.status !== "archived" ? roadmap.phases.map((phase) => (
         <View key={phase.id} style={styles.phase}>
           <NexusText variant="subtitle">
             {phase.order + 1}. {phase.title}
@@ -72,11 +107,12 @@ export function RoadmapCard({
                   current === lesson.id ? null : lesson.id,
                 )
               }
-              onComplete={() => onToggleLesson(lesson.id)}
             />
           ))}
         </View>
-      ))}
+      )) : (
+        <NexusText variant="caption" secondary>O conteúdo e o progresso continuam salvos. Torne este roadmap principal para retomá-lo.</NexusText>
+      )}
 
       {!active ? (
         <NexusButton
@@ -86,6 +122,54 @@ export function RoadmapCard({
           fullWidth
         />
       ) : null}
+
+      <ConfirmDialog
+        visible={dialog === "rename"}
+        title="Renomear roadmap"
+        message="O progresso e as lições serão preservados."
+        confirmLabel="Salvar nome"
+        loading={mutationBusy}
+        onCancel={() => setDialog(null)}
+        onConfirm={async () => {
+          if (!titleDraft.trim()) return;
+          setMutationBusy(true);
+          try {
+            if (await renameRoadmap(roadmap.id, titleDraft)) setDialog(null);
+          } finally {
+            setMutationBusy(false);
+          }
+        }}
+      >
+        <Field label="Novo nome" value={titleDraft} onChangeText={setTitleDraft} maxLength={160} />
+      </ConfirmDialog>
+      <ConfirmDialog
+        visible={dialog === "regenerate"}
+        title="Regenerar esta trilha?"
+        message="A IA criará novas fases e lições. O roadmap atual só será substituído se a nova versão passar na validação."
+        confirmLabel="Regenerar"
+        onCancel={() => setDialog(null)}
+        onConfirm={() => {
+          setDialog(null);
+          void regenerateRoadmap(roadmap.id);
+        }}
+      />
+      <ConfirmDialog
+        visible={dialog === "delete"}
+        title="Excluir roadmap?"
+        message="As lições deste roadmap serão removidas. O histórico geral, tarefas, XP e conversas não serão apagados."
+        confirmLabel="Excluir"
+        destructive
+        loading={mutationBusy}
+        onCancel={() => setDialog(null)}
+        onConfirm={async () => {
+          setMutationBusy(true);
+          try {
+            if (await deleteRoadmap(roadmap.id)) setDialog(null);
+          } finally {
+            setMutationBusy(false);
+          }
+        }}
+      />
     </Card>
   );
 }
@@ -96,17 +180,31 @@ function LessonCard({
   lesson,
   expanded,
   onToggleExpanded,
-  onComplete,
 }: {
   roadmap: LearningRoadmap;
   phase: RoadmapPhase;
   lesson: RoadmapLesson;
   expanded: boolean;
   onToggleExpanded: () => void;
-  onComplete: () => void;
 }) {
-  const { colors } = useNexus();
+  const { colors, assistantBusy, submitRoadmapEvidence } = useNexus();
   const guidance = getLessonGuidance(roadmap, phase, lesson);
+  const [submission, setSubmission] = useState(
+    lesson.evidence?.submission ?? "",
+  );
+  const [submitting, setSubmitting] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const evidenceStatus = lesson.completed
+    ? "VALIDADA"
+    : lesson.evidence?.status === "needs_revision"
+      ? "AJUSTE PEDIDO"
+      : lesson.evidence?.status === "submitted"
+        ? "AGUARDANDO CORREÇÃO"
+        : "ENTREGA PENDENTE";
+  const canSubmit = submission.trim().length >= 2 &&
+    !lesson.completed &&
+    !submitting &&
+    !assistantBusy;
 
   return (
     <View
@@ -118,25 +216,25 @@ function LessonCard({
       ]}
     >
       <View style={styles.lessonHeader}>
-        <Pressable
-          accessibilityRole="checkbox"
-          accessibilityState={{ checked: lesson.completed }}
-          accessibilityLabel={`${lesson.completed ? "Reabrir" : "Concluir"} ${lesson.title}`}
-          onPress={onComplete}
+        <View
+          accessible
+          accessibilityLabel={`${lesson.title}: ${evidenceStatus.toLocaleLowerCase("pt-BR")}`}
           style={[
-            styles.checkbox,
+            styles.statusMark,
             {
               borderColor: lesson.completed
                 ? colors.success
                 : colors.primarySoft,
               backgroundColor: lesson.completed
                 ? colors.success
-                : "transparent",
+                : `${colors.primary}16`,
             },
           ]}
         >
-          {lesson.completed ? <NexusText color="#07120B">✓</NexusText> : null}
-        </Pressable>
+          <NexusText color={lesson.completed ? colors.onSuccess : colors.primarySoft}>
+            {lesson.completed ? "✓" : "◆"}
+          </NexusText>
+        </View>
         <View style={styles.flex}>
           <NexusText
             variant="subtitle"
@@ -153,6 +251,12 @@ function LessonCard({
           </NexusText>
           <NexusText variant="caption" color={colors.primarySoft}>
             {lesson.estimatedMinutes} min
+          </NexusText>
+          <NexusText
+            variant="mono"
+            color={lesson.completed ? colors.success : lesson.evidence?.status === "needs_revision" ? colors.warning : colors.textSecondary}
+          >
+            {evidenceStatus}
           </NexusText>
         </View>
       </View>
@@ -225,6 +329,90 @@ function LessonCard({
           </View>
         </View>
       ) : null}
+
+      {lesson.evidence?.feedback ? (
+        <View
+          style={[
+            styles.feedbackBox,
+            {
+              borderColor: lesson.completed
+                ? `${colors.success}55`
+                : `${colors.warning}55`,
+              backgroundColor: lesson.completed
+                ? `${colors.success}0D`
+                : `${colors.warning}0D`,
+            },
+          ]}
+        >
+          <NexusText
+            variant="mono"
+            color={lesson.completed ? colors.success : colors.warning}
+          >
+            {lesson.completed ? "CORREÇÃO DO ATLAS" : "O QUE AJUSTAR"}
+          </NexusText>
+          <NexusText variant="caption">{lesson.evidence.feedback}</NexusText>
+          {lesson.evidence.nextAdjustment && !lesson.completed ? (
+            <>
+              <NexusText variant="mono" color={colors.primarySoft}>
+                PRÓXIMA TENTATIVA
+              </NexusText>
+              <NexusText variant="caption">
+                {lesson.evidence.nextAdjustment}
+              </NexusText>
+            </>
+          ) : null}
+        </View>
+      ) : null}
+
+      {!lesson.completed ? (
+        <View style={styles.submissionArea}>
+          <Field
+            label={lesson.evidence?.status === "needs_revision"
+              ? "Evidência corrigida"
+              : "Evidência da entrega"}
+            hint="Descreva o resultado e inclua o que permite conferir o critério: saída, teste, link, trecho ou resposta."
+            error={submissionError ?? undefined}
+            value={submission}
+            onChangeText={(value) => {
+              setSubmission(value);
+              if (submissionError) setSubmissionError(null);
+            }}
+            multiline
+            maxLength={4000}
+            editable={!submitting}
+            placeholder="Ex.: implementei…, o teste retornou…, link/resultado…"
+          />
+          <NexusButton
+            label={lesson.evidence?.status === "needs_revision"
+              ? "Enviar ajuste ao Atlas"
+              : lesson.evidence?.status === "submitted"
+                ? "Tentar correção novamente"
+                : "Enviar para correção"}
+            onPress={() => {
+              setSubmitting(true);
+              setSubmissionError(null);
+              void submitRoadmapEvidence(
+                roadmap.id,
+                lesson.id,
+                submission,
+              ).then((result) => {
+                if (result === "not_saved") {
+                  setSubmissionError(
+                    "A entrega não pôde ser salva. Seu texto continua aqui; tente novamente.",
+                  );
+                } else if (result === "saved_pending") {
+                  setSubmissionError(
+                    "A entrega está salva, mas a correção não terminou. Tente novamente.",
+                  );
+                }
+              }).finally(() => setSubmitting(false));
+            }}
+            disabled={!canSubmit}
+            loading={submitting}
+            fullWidth
+          />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -239,9 +427,12 @@ const styles = StyleSheet.create({
   },
   flex: { flex: 1 },
   phase: { gap: 9, marginTop: 9 },
+  manageToggle: { minHeight: 40, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", paddingHorizontal: 12 },
+  actions: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  action: { flexGrow: 1, minWidth: 104 },
   lesson: { borderWidth: 1, borderRadius: 16, padding: 12, gap: 10 },
   lessonHeader: { flexDirection: "row", alignItems: "flex-start", gap: 11 },
-  checkbox: {
+  statusMark: {
     width: 27,
     height: 27,
     borderRadius: 9,
@@ -273,4 +464,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   resultBox: { borderWidth: 1, borderRadius: 13, padding: 11, gap: 5 },
+  feedbackBox: { borderWidth: 1, borderRadius: 13, padding: 11, gap: 7 },
+  submissionArea: { gap: 10 },
 });

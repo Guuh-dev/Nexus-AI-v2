@@ -1,60 +1,59 @@
-# Fluxo de atualização — Nexus AI 2.2
+# Fluxo de atualização — Nexus AI 3.0
 
-## Regra principal
+## Regra de compatibilidade
 
-A versão 2.3.0 inaugura um novo runtime porque adiciona providers Kotlin, layouts XML e recursos nativos. Portanto, **primeiro gere e instale o APK 2.3.0**. Depois disso, mudanças compatíveis 2.3.x podem chegar por OTA.
+O runtime é a versão do app. Primeiro publique e instale o APK-base v3.0.0. Depois, somente mudanças compatíveis com esse runtime podem seguir por OTA no mesmo canal.
 
-### Pode ser OTA
+Exigem APK novo:
 
-- telas, componentes e navegação em JavaScript/TypeScript;
-- prompts, streaming, regras locais, textos, estilos e temas;
-- ajustes do Brain, Atlas, Companion e Money Mission que não alterem módulos nativos;
-- presets/preview do Widget Studio que utilizem capacidades já instaladas;
-- assets comuns compatíveis com runtime 2.3.0.
+- `app.json`, `eas.json`, versão ou política de runtime;
+- dependências, plugins Expo e módulos React Native;
+- Kotlin, Java, Manifest, Gradle, XML, drawables, ícone ou splash;
+- qualquer arquivo em `modules/`, `plugins/`, `android/` ou `ios/`.
 
-### Exige APK novo
+Podem ser OTA quando o classificador não encontra mudança nativa:
 
-- `app.json`, `eas.json`, app version ou runtime;
-- dependências/plugins Expo ou React Native;
-- Kotlin, XML, widget provider, permissões, ícone ou splash;
-- mudanças em `modules/`, `plugins/`, `android/` ou `ios/`.
+- telas, componentes e regras TypeScript/JavaScript;
+- textos, prompts e estilos que usam capacidades já instaladas;
+- correções do preview ou do Studio que não alteram o contrato nativo.
 
-O **Nexus Native Change Detector** classifica cada pull request. Em caso de erro ou dúvida, exige APK por segurança.
+O detector falha fechado: erro de histórico ou classificação bloqueia OTA e exige análise para novo APK.
+
+## Baseline e comparação
+
+A tag `v<versão>` e seu APK publicado representam o runtime instalado. Os workflows OTA comparam diretamente a árvore dessa tag com a árvore do commit candidato (`base..head`). Não usam merge-base para esconder mudanças presentes em uma árvore e ausentes na outra.
+
+O baseline deve ser ancestral do commit candidato. Se a tag não existir ou a GitHub Release não tiver APK, nenhuma OTA é publicada.
 
 ## Canais
 
-- `preview`: teste privado em builds ligados ao canal Preview.
-- `production`: atualização estável para o APK Release.
+- `preview`: validação privada das mudanças compatíveis;
+- `production`: atualização estável dos APKs ligados ao canal Production.
 
-O Perfil mostra versão nativa, runtime, canal e update ativo. O usuário pode verificar, baixar e reiniciar de forma controlada.
+OTA de produção só pode ser disparada a partir de `main`, exige a confirmação literal `PRODUCTION`, executa verificação completa, bloqueia qualquer diferença nativa e exige que o backend publicado responda ao contrato v3 por GET. Esse gate não dispara o probe POST do provedor e, portanto, não depende de sua janela de cooldown.
 
-## Fluxo OTA 2.2.x
+## Release de APK
 
-1. crie branch a partir da `main`;
-2. rode `pnpm run verify`, `pnpm run release:check` e `pnpm run export:web`;
-3. abra PR;
-4. confirme `Native APK required: false`;
-5. faça merge somente com CI e Security verdes;
-6. valide o Preview;
-7. execute **Nexus OTA Production**, informe a mensagem e confirme `PRODUCTION`.
+1. Faça merge do commit de release em `main` com CI, Security e detector verdes.
+2. Aguarde a publicação do backend e confirme `/api/status` v3.
+3. Crie a tag `v3.0.0` no commit contido em `main`.
+4. O workflow valida versão, ancestralidade, testes, release check e compatibilidade Expo.
+5. Antes do build, o workflow exige o contrato exato do backend v3 e um probe real do provedor.
+6. O EAS gera o APK e a GitHub Release recebe o binário e os metadados do build.
 
-## Fluxo nativo
+Uma tag criada fora do histórico de `main`, um backend incompatível ou um probe indisponível interrompe o release antes do build.
 
-1. incremente app version/runtime;
-2. classificador deve indicar mudança nativa;
-3. faça merge após checks;
-4. crie tag semântica;
-5. **Nexus Release** gera e anexa o APK;
-6. faça backup e instale por cima;
-7. remova/recrie widgets quando o launcher mantiver layout antigo.
+## OTA de produção
+
+1. Faça merge da correção em `main`.
+2. Confirme que Preview foi publicado e validado.
+3. Abra **Nexus OTA Production** usando `main`.
+4. Informe a mensagem e confirme `PRODUCTION`.
+5. O workflow compara a árvore com a tag/APK-base e executa `verify` e `release:check`.
+6. Antes de publicar, `GET /api/status` deve confirmar versão, identidade, disponibilidade e capacidades do backend v3.
 
 ## Rollback
 
-Abra **Nexus OTA Rollback**, informe o group ID, mensagem e confirme `ROLLBACK`. Rollback só funciona dentro do mesmo runtime compatível.
+Use **Nexus OTA Rollback** somente dentro do mesmo runtime compatível. Informe o group ID validado, a mensagem e a confirmação solicitada pelo workflow.
 
-Mantenha sempre:
-
-- backup JSON;
-- tag/APK-base estável;
-- group ID da OTA estável;
-- branch de release até todos os checks terminarem.
+Mantenha o backup JSON, a tag e o APK-base estáveis, o group ID da OTA aprovada e o registro do teste em Android físico.

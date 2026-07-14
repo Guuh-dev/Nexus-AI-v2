@@ -10,6 +10,7 @@ import { PixelMascot } from "@/components/PixelMascot";
 import { ProgressRing } from "@/components/ProgressRing";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { categoryDistribution, weeklyStats } from "@/features/progress/stats";
+import { activeChallenges as selectActiveChallenges } from "@/features/progress/challenges";
 import { useNexus } from "@/providers/NexusProvider";
 import { formatShortDate } from "@/utils/dates";
 import { calculateLevel } from "@/utils/levels";
@@ -20,16 +21,26 @@ type ProgressView = "resumo" | "desafios" | "historico";
 const CATEGORY_LABELS = { desenvolvimento: "Desenvolvimento", estudos: "Estudos", dinheiro: "Dinheiro", saude: "Saúde", organizacao: "Organização", pessoal: "Pessoal" } as const;
 
 export default function ProgressScreen() {
-  const { data, colors, assistantBusy, generateWeeklyReview } = useNexus();
+  const { data, colors, assistantBusy, weeklyReviewError, generateWeeklyReview } = useNexus();
   const [view, setView] = useState<ProgressView>("resumo");
   const weekly = weeklyStats(data);
   const level = calculateLevel(data.progress.totalXp);
   const categories = categoryDistribution(data);
   const completedMissions = data.history.filter((day) => day.plan.mainMission.completed).slice(-10).reverse();
   const latestReview = data.weeklyReviews.at(-1);
-  const reviewHasEnoughData = latestReview ? !latestReview.patterns.some((item) => item.includes("Não há dados suficientes")) : false;
+  const reviewFacts = latestReview?.statements
+    ?.filter((statement) => statement.kind === "fact" || statement.kind === "insufficient")
+    .map((statement) => statement.text) ?? latestReview?.highlights ?? [];
+  const reviewHypotheses = latestReview?.statements
+    ?.filter((statement) => statement.kind === "hypothesis")
+    .map((statement) => statement.text) ?? latestReview?.patterns ?? [];
+  const reviewHasEnoughData = latestReview
+    ? latestReview.consistencyScore !== null
+      && latestReview.confidence !== "insufficient"
+      && !latestReview.patterns.some((item) => /dados insuficientes|não há dados suficientes/i.test(item))
+    : false;
   const maxAttribute = Math.max(1, ...Object.values(data.progress.attributes));
-  const activeChallenges = data.progress.challenges.filter((challenge) => new Date(challenge.expiresAt).getTime() >= Date.now() - 86_400_000);
+  const activeChallenges = selectActiveChallenges(data);
 
   return (
     <Screen>
@@ -124,18 +135,25 @@ export default function ProgressScreen() {
               <PixelMascot state={assistantBusy ? "thinking" : "idle"} size={44} />
             </View>
             <NexusButton label={latestReview ? "Atualizar revisão" : "Criar minha revisão"} loading={assistantBusy} onPress={() => void generateWeeklyReview()} fullWidth />
+            {weeklyReviewError ? (
+              <Card style={{ borderColor: colors.danger }}>
+                <NexusText variant="subtitle" color={colors.danger}>Revisão não atualizada</NexusText>
+                <NexusText variant="caption" secondary>{weeklyReviewError}</NexusText>
+              </Card>
+            ) : null}
             {latestReview ? (
               <Card style={styles.review}>
-                <View style={styles.categoryTop}><NexusText variant="mono" color={latestReview.source === "ai" ? colors.success : colors.warning}>{latestReview.source === "ai" ? "ANÁLISE NEXUS" : "ANÁLISE LOCAL"}</NexusText><NexusText variant="title">{reviewHasEnoughData ? `${latestReview.consistencyScore}/100` : "Dados insuficientes"}</NexusText></View>
+                <View style={styles.categoryTop}><NexusText variant="mono" color={latestReview.source === "ai" ? colors.success : colors.warning}>{latestReview.source === "ai" ? "REVISÃO REMOTA" : "RESUMO OFFLINE EXPLÍCITO"}</NexusText><NexusText variant="title">{reviewHasEnoughData ? `${latestReview.consistencyScore}/100` : "Dados insuficientes"}</NexusText></View>
                 <NexusText variant="title">Foco da próxima semana</NexusText>
                 <NexusText>{latestReview.nextWeekFocus}</NexusText>
-                {reviewHasEnoughData ? <ProgressBar progress={latestReview.consistencyScore / 100} color={latestReview.consistencyScore >= 70 ? colors.success : colors.warning} /> : null}
-                <ReviewList title="O que funcionou" items={latestReview.keep} />
-                <ReviewList title="Padrões observados" items={latestReview.patterns} />
+                {reviewHasEnoughData ? <ProgressBar progress={(latestReview.consistencyScore ?? 0) / 100} color={(latestReview.consistencyScore ?? 0) >= 70 ? colors.success : colors.warning} /> : null}
+                <ReviewList title="Fatos observáveis" items={reviewFacts} />
+                {reviewHypotheses.length ? <ReviewList title="Hipóteses da IA" items={reviewHypotheses} /> : null}
+                <ReviewList title="O que manter" items={latestReview.keep} />
                 <ReviewList title="O que cortar" items={latestReview.cut} />
                 <Card style={[styles.challenge, { backgroundColor: `${colors.primary}10` }]}><NexusText variant="mono" color={colors.primarySoft}>DESAFIO DA SEMANA</NexusText><NexusText variant="subtitle">{latestReview.challenge}</NexusText></Card>
               </Card>
-            ) : <Card><NexusText secondary>Gere a primeira revisão quando houver dados suficientes. O fallback local funciona sem IA.</NexusText></Card>}
+            ) : <Card><NexusText secondary>A revisão remota interpreta somente tarefas, foco, missões e roadmaps registrados. Se a IA falhar, nenhum diagnóstico substituto será salvo.</NexusText></Card>}
           </View>
 
           <View style={styles.section}>
@@ -175,7 +193,7 @@ export default function ProgressScreen() {
             <Card style={styles.missionList}>
               {completedMissions.length ? completedMissions.map((day) => (
                 <View key={`${day.date}-${day.plan.requestId}`} style={[styles.missionRow, { borderBottomColor: colors.border }]}>
-                  <View style={[styles.done, { backgroundColor: colors.success }]}><NexusText color="#06120A">✓</NexusText></View>
+                  <View style={[styles.done, { backgroundColor: colors.success }]}><NexusText color={colors.onSuccess}>✓</NexusText></View>
                   <View style={styles.flex}><NexusText variant="subtitle" numberOfLines={1}>{day.plan.mainMission.title}</NexusText><NexusText variant="caption" secondary>{formatShortDate(day.date)} • {day.xpEarned} XP</NexusText></View>
                 </View>
               )) : <NexusText secondary>Nenhuma missão principal arquivada ainda. A primeira está esperando hoje.</NexusText>}

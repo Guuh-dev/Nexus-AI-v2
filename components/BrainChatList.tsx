@@ -195,7 +195,24 @@ export const BrainChatList = forwardRef<BrainChatListHandle, Props>(
               }
             />
           ) : (
-            <NexusText>{item.content}</NexusText>
+            <>
+              <NexusText>{item.content}</NexusText>
+              {item.failed ? (
+                <View style={styles.failedMessage}>
+                  <NexusText variant="caption" color={colors.warning}>
+                    Não foi possível enviar esta mensagem à IA.
+                  </NexusText>
+                  {!assistantBusy ? (
+                    <NexusButton
+                      label="Tentar novamente"
+                      variant="ghost"
+                      compact
+                      onPress={() => onQuickPrompt(item.content)}
+                    />
+                  ) : null}
+                </View>
+              ) : null}
+            </>
           )}
           {item.actions?.map((action) => (
             <Card
@@ -357,6 +374,7 @@ export const BrainChatList = forwardRef<BrainChatListHandle, Props>(
               {
                 backgroundColor: colors.surfaceRaised,
                 borderColor: colors.primary,
+                shadowColor: colors.shadow,
               },
             ]}
           >
@@ -395,6 +413,7 @@ const styles = StyleSheet.create({
   assistantMessage: { alignSelf: "flex-start", borderBottomLeftRadius: 6 },
   actionCard: { marginTop: 4, gap: 8 },
   actionButtons: { flexDirection: "row", gap: 8, marginTop: 5 },
+  failedMessage: { gap: 6, marginTop: 8 },
   footerStack: { gap: 11, paddingTop: 11 },
   thinking: { gap: 12 },
   thinkingRow: { flexDirection: "row", alignItems: "center", gap: 10 },
@@ -417,7 +436,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
     shadowOpacity: 0.25,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

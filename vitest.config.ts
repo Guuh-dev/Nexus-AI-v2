@@ -10,7 +10,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": new URL("./", import.meta.url).pathname
+      "@": new URL("./", import.meta.url).pathname,
+      "expo-crypto": new URL("./tests/mocks/expo-crypto.ts", import.meta.url).pathname,
     }
   }
 });

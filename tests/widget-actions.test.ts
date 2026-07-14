@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyWidgetTaskActions } from "@/features/widget/actions";
+import { applyWidgetTaskActions, widgetTaskActionsSatisfied } from "@/features/widget/actions";
 import { generateLocalPlan } from "@/services/planning.service";
 import { makeAppData, makeProfile } from "@/tests/fixtures";
 
@@ -36,6 +36,8 @@ describe("widget action synchronization", () => {
     expect(once.activePlan?.tasks[0]?.completed).toBe(true);
     expect(twice.activePlan?.tasks[0]?.completed).toBe(true);
     expect(twice.progress.totalXp).toBe(once.progress.totalXp);
+    expect(widgetTaskActionsSatisfied(once, [action])).toBe(true);
+    expect(widgetTaskActionsSatisfied(data, [action])).toBe(false);
   });
 
   it("ignores unknown task ids without changing the state", () => {
@@ -46,5 +48,22 @@ describe("widget action synchronization", () => {
       completed: true,
     }]);
     expect(result).toBe(data);
+  });
+
+  it("acknowledges a double offline tap by the final desired state", () => {
+    const data = stateWithPlan();
+    const task = data.activePlan.tasks[0]!;
+    const actions = [
+      { type: "toggle_task" as const, taskId: task.id, completed: true, createdAt: "2026-07-13T12:00:00.000Z" },
+      { type: "toggle_task" as const, taskId: task.id, completed: false, createdAt: "2026-07-13T12:00:01.000Z" },
+    ];
+
+    const applied = applyWidgetTaskActions(data, actions);
+    const replayed = applyWidgetTaskActions(applied, actions);
+
+    expect(applied.activePlan?.tasks[0]?.completed).toBe(false);
+    expect(applied.progress.totalXp).toBe(data.progress.totalXp);
+    expect(widgetTaskActionsSatisfied(applied, actions)).toBe(true);
+    expect(replayed.progress.totalXp).toBe(applied.progress.totalXp);
   });
 });

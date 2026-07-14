@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import { BACKUP_MAX_BYTES } from "@/constants/defaults";
 
 export async function shareBackupJson(json: string): Promise<void> {
   if (Platform.OS === "web") {
@@ -24,7 +25,7 @@ export async function pickBackupJson(): Promise<string | null> {
   const result = await DocumentPicker.getDocumentAsync({ type: "application/json", copyToCacheDirectory: true, multiple: false });
   if (result.canceled || !result.assets[0]) return null;
   const asset = result.assets[0];
-  if (asset.size && asset.size > 5_000_000) throw new Error("O backup ultrapassa o limite de 5 MB.");
+  if (asset.size && asset.size > BACKUP_MAX_BYTES) throw new Error("O backup ultrapassa o limite de 8 MB.");
   if (Platform.OS === "web" && asset.file) return asset.file.text();
   const FileSystem = await import("expo-file-system/legacy");
   return FileSystem.readAsStringAsync(asset.uri, { encoding: FileSystem.EncodingType.UTF8 });

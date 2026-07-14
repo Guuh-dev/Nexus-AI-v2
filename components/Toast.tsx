@@ -9,11 +9,12 @@ export function Toast() {
     <View pointerEvents="box-none" style={styles.layer}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${toast}. Toque para fechar.`}
+        accessibilityLabel={`Notificação: ${toast}. Toque para fechar.`}
+        accessibilityLiveRegion="polite"
         onPress={dismissToast}
         style={[styles.toast, { backgroundColor: colors.surfaceRaised, borderColor: colors.borderStrong }]}
       >
-        <View style={[styles.dot, { backgroundColor: colors.success }]} />
+        <View style={[styles.dot, { backgroundColor: colors.primarySoft }]} />
         <NexusText variant="caption" style={styles.text}>{toast}</NexusText>
       </Pressable>
     </View>

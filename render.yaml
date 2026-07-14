@@ -12,5 +12,3 @@ services:
         value: 22.14.0
       - key: OPENROUTER_API_KEY
         sync: false
-      - key: OPENROUTER_ALLOW_PAID_FALLBACK
-        value: "false"

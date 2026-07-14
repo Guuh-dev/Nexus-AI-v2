@@ -3,9 +3,11 @@
   android:id="@+id/nexus_widget_root"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
+  android:minWidth="250dp"
+  android:minHeight="250dp"
   android:orientation="vertical"
   android:gravity="center_vertical"
-  android:padding="18dp"
+  android:padding="12dp"
   android:background="@drawable/nexus_widget_background">
 
   <LinearLayout
@@ -17,7 +19,7 @@
       android:id="@+id/nexus_widget_mascot_stage"
       android:layout_width="48dp"
       android:layout_height="42dp"
-      android:layout_marginEnd="7dp"
+      android:layout_marginEnd="6dp"
       android:orientation="horizontal"
       android:gravity="center">
       <ImageView
@@ -38,21 +40,14 @@
       android:text=""
       android:textColor="#F7F7F8"
       android:textSize="11sp"
-      android:textStyle="bold" />
-    <ImageView
-      android:id="@+id/nexus_widget_professor"
-      android:layout_width="24dp"
-      android:layout_height="24dp"
-      android:layout_marginEnd="7dp"
-      android:contentDescription="@string/nexus_widget_professor_description"
-      android:src="@drawable/ic_nexus_atlas"
+      android:textStyle="bold"
       android:visibility="gone" />
     <TextView
       android:id="@+id/nexus_widget_brand"
       android:layout_width="0dp"
       android:layout_height="wrap_content"
       android:layout_weight="1"
-      android:text="NEXUS ONLINE"
+      android:text="NEXUS COMMAND"
       android:textColor="#A78BFA"
       android:textSize="10sp"
       android:textStyle="bold"
@@ -64,7 +59,8 @@
       android:text="♨ 0"
       android:textColor="#FBBF24"
       android:textSize="12sp"
-      android:textStyle="bold" />
+      android:textStyle="bold"
+      android:visibility="gone" />
     <TextView
       android:id="@+id/nexus_widget_page"
       android:layout_width="34dp"
@@ -83,89 +79,69 @@
     android:id="@+id/nexus_widget_mission"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="7dp"
+    android:layout_marginTop="4dp"
     android:ellipsize="end"
     android:maxLines="1"
     android:text="Missão de hoje"
     android:textColor="#F7F7F8"
-    android:textSize="15sp"
+    android:textSize="16sp"
     android:textStyle="bold" />
 
   <TextView
     android:id="@+id/nexus_widget_feature_title"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="7dp"
+    android:layout_marginTop="4dp"
     android:ellipsize="end"
     android:maxLines="1"
-    android:text="FAÇA AGORA"
+    android:text="COMPANION • HAPPY"
     android:textColor="#A78BFA"
     android:textSize="10sp"
     android:textStyle="bold"
-    android:letterSpacing="0.08"
-    android:visibility="gone" />
+    android:letterSpacing="0.08" />
 
   <TextView
     android:id="@+id/nexus_widget_feature_body"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="3dp"
+    android:layout_marginTop="2dp"
     android:ellipsize="end"
-    android:maxLines="3"
-    android:text="Próxima ação"
+    android:maxLines="2"
+    android:text="Nexus ativo."
     android:textColor="#F7F7F8"
-    android:textSize="13sp"
-    android:lineSpacingExtra="1dp"
-    android:visibility="gone" />
-
-  <TextView
-    android:id="@+id/nexus_widget_learning"
-    android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:layout_marginTop="5dp"
-    android:ellipsize="end"
-    android:maxLines="1"
-    android:text="ATLAS • Próxima evolução"
-    android:textColor="#A78BFA"
-    android:textSize="10sp"
-    android:textStyle="bold"
-    android:visibility="gone" />
+    android:textSize="11sp"
+    android:lineSpacingExtra="1dp" />
 
   <LinearLayout android:id="@+id/nexus_widget_task_1" style="@style/NexusWidgetTaskRow">
     <TextView android:id="@+id/nexus_widget_check_1" style="@style/NexusWidgetCheck" />
-    <TextView android:id="@+id/nexus_widget_task_title_1" style="@style/NexusWidgetTaskTitle" />
+    <TextView android:id="@+id/nexus_widget_task_title_1" style="@style/NexusWidgetTaskTitle" android:text="Definir a próxima ação" />
   </LinearLayout>
   <LinearLayout android:id="@+id/nexus_widget_task_2" style="@style/NexusWidgetTaskRow">
     <TextView android:id="@+id/nexus_widget_check_2" style="@style/NexusWidgetCheck" />
-    <TextView android:id="@+id/nexus_widget_task_title_2" style="@style/NexusWidgetTaskTitle" />
+    <TextView android:id="@+id/nexus_widget_task_title_2" style="@style/NexusWidgetTaskTitle" android:text="Executar o bloco principal" />
   </LinearLayout>
   <LinearLayout android:id="@+id/nexus_widget_task_3" style="@style/NexusWidgetTaskRow">
     <TextView android:id="@+id/nexus_widget_check_3" style="@style/NexusWidgetCheck" />
-    <TextView android:id="@+id/nexus_widget_task_title_3" style="@style/NexusWidgetTaskTitle" />
+    <TextView android:id="@+id/nexus_widget_task_title_3" style="@style/NexusWidgetTaskTitle" android:text="Revisar o progresso" />
   </LinearLayout>
   <LinearLayout android:id="@+id/nexus_widget_task_4" style="@style/NexusWidgetTaskRow">
     <TextView android:id="@+id/nexus_widget_check_4" style="@style/NexusWidgetCheck" />
-    <TextView android:id="@+id/nexus_widget_task_title_4" style="@style/NexusWidgetTaskTitle" />
-  </LinearLayout>
-  <LinearLayout android:id="@+id/nexus_widget_task_5" style="@style/NexusWidgetTaskRow">
-    <TextView android:id="@+id/nexus_widget_check_5" style="@style/NexusWidgetCheck" />
-    <TextView android:id="@+id/nexus_widget_task_title_5" style="@style/NexusWidgetTaskTitle" />
+    <TextView android:id="@+id/nexus_widget_task_title_4" style="@style/NexusWidgetTaskTitle" android:text="Fechar o ciclo de hoje" />
   </LinearLayout>
 
   <TextView
     android:id="@+id/nexus_widget_metrics"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="5dp"
-    android:text="Nível 1 • 0 XP"
+    android:layout_marginTop="3dp"
+    android:text="25m foco • 2/5 tarefas"
     android:textColor="#A1A1AA"
-    android:textSize="10sp"
-    android:visibility="gone" />
+    android:textSize="10sp" />
 
   <LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginTop="6dp"
+    android:layout_marginTop="3dp"
     android:orientation="horizontal"
     android:gravity="center_vertical">
     <ProgressBar
@@ -175,13 +151,14 @@
       android:layout_height="5dp"
       android:layout_weight="1"
       android:progressTint="#8B5CF6"
-      android:progressBackgroundTint="#34343F" />
+      android:progressBackgroundTint="#34343F"
+      android:visibility="gone" />
     <TextView
       android:id="@+id/nexus_widget_progress_text"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content"
       android:layout_marginStart="10dp"
-      android:text="0/0 concluídas"
+      android:text="●●●○○○○○  2/5"
       android:textColor="#A1A1AA"
       android:textSize="10sp" />
   </LinearLayout>
@@ -198,4 +175,11 @@
     android:textStyle="bold"
     android:background="@drawable/nexus_widget_action"
     android:visibility="gone" />
+
+  <LinearLayout android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" android:orientation="vertical">
+    <LinearLayout android:id="@+id/nexus_widget_task_5" style="@style/NexusWidgetTaskRow">
+      <TextView android:id="@+id/nexus_widget_check_5" style="@style/NexusWidgetCheck" />
+      <TextView android:id="@+id/nexus_widget_task_title_5" style="@style/NexusWidgetTaskTitle" />
+    </LinearLayout>
+  </LinearLayout>
 </LinearLayout>

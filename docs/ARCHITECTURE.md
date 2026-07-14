@@ -1,88 +1,100 @@
-# Arquitetura do Nexus AI 2.2
+# Arquitetura do Nexus AI 3.0
 
-## Visão geral
+## Núcleo do produto
+
+Core Reborn organiza o app em cinco experiências: Hoje, Brain, Foco, Progresso e Perfil. Professor Atlas e roadmaps vivem dentro do Brain; aparência e Widget Studio partem do Perfil. Essa composição reduz navegação duplicada sem remover os dados históricos.
 
 ```mermaid
 flowchart TD
-  UI[Expo Router UI] --> Store[NexusProvider]
-  Store --> Repo[Local Repository]
-  Repo --> Storage[AsyncStorage / Web storage v5]
-  Store --> Client[Assistant client]
-  Client --> API[Expo API route]
-  API --> Router[OpenRouter SDK]
-  Router --> Stream[SSE text stream]
-  Router --> Structured[JSON + Zod]
-  Stream --> Store
-  Structured --> Store
-  Store --> Companion[Deterministic Companion engine]
-  Store --> Finance[Money Mission]
-  Store --> Bridge[WidgetDataService]
-  Bridge --> Native[Android RemoteViews]
-  Native --> Queue[Nonce-protected action queue]
-  Queue --> Store
+  UI[Expo Router · cinco abas] --> Provider[NexusProvider]
+  Provider --> Storage[Repository local · storage v6]
+  Provider --> Planning[Planejamento e tarefas]
+  Provider --> Review[Progresso e revisão]
+  Provider --> Widget[WidgetDataService]
+  Provider --> Client[Assistant client]
+  Client --> Routes[Expo API routes]
+  Routes --> Policy[Registro de capacidades]
+  Policy --> OpenRouter[OpenRouter server-side]
+  Widget --> Native[Android RemoteViews]
 ```
+
+## Camadas
+
+- `app/`: telas, layout e rotas HTTP. As rotas não acessam secrets pelo cliente.
+- `providers/`: estado em memória, mutações atômicas, persistência e sincronização nativa.
+- `features/`: regras determinísticas de tarefas, planejamento, roadmaps, revisão, Companion e widgets.
+- `services/`: fronteiras de storage, rede, status, updates e módulo Android.
+- `schemas/`: validação Zod para estado persistido e dados remotos.
+- `constants/`: defaults, versão e política de modelos.
+- `modules/nexus-widget/`: Kotlin, XML e configuração Expo do widget Android.
+
+A UI não deve duplicar regras presentes em `features/` ou `services/`. O backend nunca confia em um identificador de modelo fornecido pelo cliente.
 
 ## Limites de confiança
 
-1. Interface, AsyncStorage, backup importado e widget actions são entradas não confiáveis.
-2. Todo JSON persistido ou recebido por API passa por schema e limites de complexidade.
-3. A chave OpenRouter só existe no servidor.
-4. Respostas estruturadas da IA passam por extração, parse, Zod e normalização.
-5. O widget recebe apenas um payload compacto.
-6. Ações propostas por Brain/Atlas exigem confirmação antes de alterar dados.
-7. Intents do widget que modificam estado usam nonce e consumo idempotente.
+Entradas não confiáveis:
 
-## Assistente
+1. formulários e parâmetros de rota;
+2. JSON do AsyncStorage ou de backup;
+3. respostas do provedor de IA;
+4. identificadores retornados por roteadores dinâmicos;
+5. ações e configurações vindas do widget Android;
+6. variáveis de ambiente e URLs públicas.
 
-Existem dois caminhos:
+Cada fronteira aplica limite de tamanho, forma, enumeração e complexidade. Ações sugeridas pela IA continuam como propostas até a confirmação do usuário. A telemetria não carrega prompt interno, secret ou conteúdo privado completo.
 
-### Conversacional
+## IA por capacidade
 
-Brain e Atlas usam SSE. O servidor envia eventos `ready`, `delta`, `result` e `error`. A UI mantém uma mensagem transitória durante o stream e substitui por uma mensagem persistida quando o resultado final chega.
+Os modos Brain, Professor, roadmap, captura, revisão e planejamento declaram capacidades diferentes. O servidor monta uma ordem a partir de um registro explícito e valida tanto o modelo solicitado quanto o modelo efetivamente resolvido.
 
-### Estruturado
+Classificadores de segurança, moderação, embeddings, rerankers e modelos exclusivos de imagem ou visão são bloqueados nos fluxos conversacionais e estruturados. Uma falha temporária pode avançar para outro modelo permitido; autenticação, payload inválido e bloqueios de política não geram retry cego.
 
-Planejamento, ações e outros contratos usam JSON validado. O cliente envia contexto compactado, o servidor tenta um modelo gratuito compatível e o modo local assume quando a rede ou o provider falham.
+Brain e Atlas exibem indisponibilidade remota de forma honesta. O modo offline existe para planejamento determinístico, não para simular uma conversa gerada por IA.
 
-A política evita retry em erros permanentes como autenticação e aplica nova tentativa apenas em falhas temporárias.
+Detalhes em [AI_SYSTEM.md](AI_SYSTEM.md).
 
-## Estado local e storage v5
+## Planejamento e evidência
 
-`NexusRepository` isola a UI da implementação de armazenamento. O storage v5 inclui:
+O contrato de missão e tarefa possui título específico, contexto, primeira ação, resultado esperado e critério de conclusão. A síntese evita copiar uma meta extensa para o card diário.
 
-- preferências de Companion e Atlas;
-- Widget Studio 2.2;
-- Money Mission;
-- dados anteriores de perfil, plano, progresso, Brain, roadmaps, hábitos, operações e semana.
+Roadmaps classificam intenção antes de montar fases. Intenções técnicas não recebem conteúdo comercial automaticamente; objetivos de venda ou clientes usam uma trilha comercial explícita. O nível avançado pula introduções elementares.
 
-Migrações criam backup anterior, validam o resultado e recuperam seções corrompidas de forma independente.
+A revisão semanal calcula métricas observáveis localmente. Uma resposta remota pode organizar fatos e hipóteses, mas não pode substituir o score determinístico nem criar evidências inexistentes.
 
-Mutações de tarefa são atômicas. XP deriva da transição anterior → próxima, impedindo concessão repetida.
+## Persistência v6
 
-## Companion
+`NexusRepository` usa a chave estável `@nexus-ai/state`. Ao carregar uma versão anterior, salva um backup em `@nexus-ai/pre-v3.0-backup` antes da conversão.
 
-O motor em `features/companion` é determinístico e local. Ele escolhe uma linha com base em humor, data e estado do plano, sem abrir uma nova requisição de IA. A presença dentro do app é global, enquanto widgets armazenam humor e fala por instância.
+A migração preserva:
 
-## Professor Atlas
+- perfil e diagnóstico;
+- plano ativo, tarefas recorrentes e histórico;
+- XP, foco, streaks e conquistas;
+- conversas e memórias;
+- roadmaps e revisões;
+- preferências de tema, Companion e widget;
+- dados de módulos legados, mesmo ocultos da navegação.
 
-A entrevista registra nível, conceitos, tentativas, objetivo, prova de domínio, prazo, tempo e limitações. O Atlas 2.2 recebe uma personalidade configurável e responde uma etapa por vez, com ação, entrega e critério de conclusão.
+Coleções são validadas item a item. Um item corrompido é ignorado com aviso sem zerar os vizinhos válidos. Um storage com versão maior que a suportada fica bloqueado contra escrita, evitando downgrade destrutivo.
+
+## Temas
+
+`theme/theme.ts` é a fonte única dos seis temas. Cada tema contém tokens semânticos de cor e tokens visuais de geometria, sombra e backdrop. Componentes básicos consomem esses tokens; não definem uma segunda paleta própria. Identificadores antigos são convertidos para o tema v3 mais próximo.
 
 ## Widget Android
 
-O módulo `modules/nexus-widget` é isolado do bundle web. O provider renderiza `RemoteViews`, mantém preferências por `appWidgetId` e consome um JSON compacto produzido pelo app.
+`WidgetRenderSpec` descreve família, tamanho, conteúdo, campos visíveis, limite de tarefas, cores, opacidade, Companion, ações e estado vazio. O preview React Native e o payload nativo consomem essa mesma especificação.
 
-Ações:
+O módulo mantém configurações por `appWidgetId`. Conclusão de tarefa continua protegida por nonce e consumo idempotente. O código web usa um adaptador no-op e nunca importa Kotlin ou APIs Android.
 
-- concluir tarefa;
-- alternar página;
-- abrir uma rota do app.
+## Backend
 
-As duas primeiras validam nonce. A fila de tarefa é consumida atomicamente pelo app para manter XP idempotente.
+O backend é o export web do Expo servido no Render. `/api/status` é o health check público e informa configuração, versão da API e disponibilidade do assistente sem expor secrets. A chave OpenRouter é a única credencial de IA; a ordem de modelos vem da allowlist e pode apenas ser reordenada por variáveis exclusivas do servidor.
 
-## OTA e runtime
+O cliente trata cold start com estado de conexão, timeout limitado e nova tentativa explícita. Indisponibilidade não é escondida por uma resposta local de conversa.
 
-`runtimeVersion` segue `appVersion`. Código OTA só é entregue a binários com runtime compatível. Como 2.2 altera Kotlin/XML e runtime, ela inaugura uma nova base APK. Atualizações 2.2.x compatíveis podem usar OTA sem tocar no módulo nativo.
+## Release e runtime
 
-## Web e código nativo
+`runtimeVersion.policy` usa `appVersion`. O detector nativo classifica mudanças em módulo Android, plugin, configuração Expo ou versão como necessidade de novo APK.
 
-Componentes visuais usam primitives React Native. Nenhum array de estilo é encaminhado a elemento DOM. O módulo do widget só é carregado no Android; a implementação web é no-op.
+O CI valida TypeScript, lint, testes, secrets, release, export web e dependências Expo. Um job nativo separado executa prebuild Android limpo e `:app:assembleDebug` com JDK 17. EAS Build produz o APK de release; OTA só é permitido quando não existe alteração nativa desde a base instalada.

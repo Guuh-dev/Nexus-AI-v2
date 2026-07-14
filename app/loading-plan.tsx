@@ -29,7 +29,7 @@ export default function LoadingPlanRoute() {
         error={planGenerationError}
         generating={planGenerating}
         onRetry={() => void retryPlanGeneration()}
-        onUseLocal={recoverPlanLocally}
+        onUseLocal={() => void recoverPlanLocally()}
         onCancel={() => {
           cancelPlanGeneration();
           router.replace(data.onboardingCompleted ? "/(tabs)/today" : "/onboarding");

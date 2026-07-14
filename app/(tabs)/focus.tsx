@@ -34,7 +34,7 @@ function formatTime(seconds: number) { const safe = Math.max(0, Math.floor(secon
 
 export default function FocusScreen() {
   const params = useLocalSearchParams<{ taskId?: string }>();
-  const { data, colors, finishFocusSession } = useNexus();
+  const { data, colors, finishFocusSession, updatePreferences } = useNexus();
   const player = useAudioPlayer(null);
   const tasks = useMemo(() => data.activePlan?.tasks ?? [], [data.activePlan?.tasks]);
   const initialId = typeof params.taskId === "string" ? params.taskId : undefined;
@@ -44,14 +44,19 @@ export default function FocusScreen() {
   const [customDuration, setCustomDuration] = useState("25");
   const [intention, setIntention] = useState("");
   const [reflection, setReflection] = useState("");
+  const [sessionTaskTitle, setSessionTaskTitle] = useState("");
   const [ambientSound, setAmbientSound] = useState<AmbientSound>("nenhum");
   const [status, setStatus] = useState<TimerStatus>("idle");
   const [elapsedBase, setElapsedBase] = useState(0);
   const [runStartedAt, setRunStartedAt] = useState<number | null>(null);
   const [tick, setTick] = useState(Date.now());
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"save" | "save_and_complete" | "cancel" | null>(null);
+  const [saveError, setSaveError] = useState("");
+  const sessionId = useRef(createId("focus-session"));
   const sessionStartedAt = useRef<string | null>(null);
   const saved = useRef(false);
+  const saving = useRef(false);
   const restored = useRef(false);
   const active = status === "running" || status === "paused";
   const selectedTask = tasks.find((task) => task.id === selectedTaskId);
@@ -59,20 +64,77 @@ export default function FocusScreen() {
   const elapsed = Math.min(totalSeconds, elapsedBase + (runStartedAt ? Math.floor((tick - runStartedAt) / 1000) : 0));
   const remaining = Math.max(0, totalSeconds - elapsed);
 
-  useEffect(() => { if (restored.current) return; restored.current = true; void loadFocusRuntime().then((runtime) => { if (!runtime) return; setSelectedTaskId(runtime.taskId); setDuration(runtime.duration); setCustomDuration(String(runtime.duration)); setMode(runtime.mode); setIntention(runtime.intention); setAmbientSound(runtime.ambientSound); setStatus(runtime.status); setElapsedBase(runtime.elapsedBase); setRunStartedAt(runtime.runStartedAt); sessionStartedAt.current = runtime.sessionStartedAt; setTick(Date.now()); }); }, []);
+  useEffect(() => { if (restored.current) return; restored.current = true; void loadFocusRuntime().then((runtime) => { if (!runtime) return; sessionId.current = runtime.sessionId; setSelectedTaskId(runtime.taskId); setSessionTaskTitle(runtime.taskTitle); setDuration(runtime.duration); setCustomDuration(String(runtime.duration)); setMode(runtime.mode); setIntention(runtime.intention); setReflection(runtime.reflection ?? ""); setAmbientSound(runtime.ambientSound); setStatus(runtime.status); setElapsedBase(runtime.elapsedBase); setRunStartedAt(runtime.runStartedAt); sessionStartedAt.current = runtime.sessionStartedAt; setTick(Date.now()); }); }, []);
   useEffect(() => { if (status !== "running") return; const interval = setInterval(() => setTick(Date.now()), 250); return () => clearInterval(interval); }, [status]);
-  useEffect(() => { if (status === "running" && elapsed >= totalSeconds) { setElapsedBase(totalSeconds); setRunStartedAt(null); setStatus("completed"); player.pause(); void clearFocusRuntime(); } }, [elapsed, player, status, totalSeconds]);
+  useEffect(() => { if (status === "running" && elapsed >= totalSeconds) { setElapsedBase(totalSeconds); setRunStartedAt(null); setStatus("completed"); player.pause(); } }, [elapsed, player, status, totalSeconds]);
   useEffect(() => { if (!active) return; const subscription = BackHandler.addEventListener("hardwareBackPress", () => { setCancelOpen(true); return true; }); return () => subscription.remove(); }, [active]);
-  useEffect(() => { if (!active || !sessionStartedAt.current) return; void saveFocusRuntime({ ...(selectedTaskId ? { taskId: selectedTaskId } : {}), taskTitle: selectedTask?.title ?? "Sessão livre", duration, mode, intention, ambientSound, status: status as "running" | "paused", elapsedBase, runStartedAt, sessionStartedAt: sessionStartedAt.current }); }, [active, ambientSound, duration, elapsedBase, intention, mode, runStartedAt, selectedTask?.title, selectedTaskId, status]);
-  useEffect(() => { let cancelled = false; if (!active || status !== "running" || ambientSound === "nenhum") { player.pause(); return; } void ambientSoundUri(ambientSound).then((uri) => { if (!uri || cancelled) return; player.replace(uri); player.loop = true; player.volume = 0.28; player.play(); }).catch(() => undefined); return () => { cancelled = true; }; }, [active, ambientSound, player, status]);
+  useEffect(() => { if (status === "idle" || !sessionStartedAt.current) return; void saveFocusRuntime({ sessionId: sessionId.current, ...(selectedTaskId ? { taskId: selectedTaskId } : {}), taskTitle: sessionTaskTitle || selectedTask?.title || "Sessão livre", duration, mode, intention, ambientSound, status, elapsedBase, runStartedAt, sessionStartedAt: sessionStartedAt.current, ...(reflection ? { reflection } : {}) }); }, [ambientSound, duration, elapsedBase, intention, mode, reflection, runStartedAt, selectedTask?.title, selectedTaskId, sessionTaskTitle, status]);
+  useEffect(() => { let cancelled = false; if (!data.preferences.sound || !active || status !== "running" || ambientSound === "nenhum") { player.pause(); return; } void ambientSoundUri(ambientSound).then((uri) => { if (!uri || cancelled) return; player.replace(uri); player.loop = true; player.volume = 0.28; player.play(); }).catch(() => undefined); return () => { cancelled = true; }; }, [active, ambientSound, data.preferences.sound, player, status]);
 
   const chooseMode = (item: typeof MODES[number]) => { setMode(item.id); setDuration(item.duration); setCustomDuration(String(item.duration)); };
-  const start = () => { const parsed = Math.max(5, Math.min(360, Number(customDuration) || duration)); setDuration(parsed); setElapsedBase(0); setTick(Date.now()); setRunStartedAt(Date.now()); sessionStartedAt.current = new Date().toISOString(); saved.current = false; setStatus("running"); };
+  const start = () => { const parsed = Math.max(5, Math.min(360, Number(customDuration) || duration)); sessionId.current = createId("focus-session"); setDuration(parsed); setElapsedBase(0); setTick(Date.now()); setRunStartedAt(Date.now()); setSessionTaskTitle(selectedTask?.title ?? "Sessão livre"); sessionStartedAt.current = new Date().toISOString(); saved.current = false; setSaveError(""); setStatus("running"); };
   const pause = () => { setElapsedBase(elapsed); setRunStartedAt(null); setStatus("paused"); player.pause(); };
   const resume = () => { setTick(Date.now()); setRunStartedAt(Date.now()); setStatus("running"); };
-  const finish = () => { setElapsedBase(elapsed); setRunStartedAt(null); setStatus("completed"); player.pause(); void clearFocusRuntime(); };
-  const saveSession = (markTaskComplete: boolean) => { if (saved.current) return; saved.current = true; const session: FocusSession = { id: createId("focus"), ...(selectedTask ? { taskId: selectedTask.id, category: selectedTask.category } : {}), taskTitle: selectedTask?.title ?? "Sessão de foco livre", plannedMinutes: duration, elapsedSeconds: elapsedBase, xp: focusXpForSeconds(elapsedBase), status: "completed", startedAt: sessionStartedAt.current ?? new Date().toISOString(), completedAt: new Date().toISOString(), mode, intention: intention.trim(), reflection: reflection.trim(), ambientSound }; finishFocusSession(session, markTaskComplete); setStatus("idle"); setElapsedBase(0); setReflection(""); sessionStartedAt.current = null; void clearFocusRuntime(); };
-  const cancel = () => { if (elapsed > 0) finishFocusSession({ id: createId("focus-cancelled"), ...(selectedTask ? { taskId: selectedTask.id, category: selectedTask.category } : {}), taskTitle: selectedTask?.title ?? "Sessão de foco livre", plannedMinutes: duration, elapsedSeconds: elapsed, xp: 0, status: "cancelled", startedAt: sessionStartedAt.current ?? new Date().toISOString(), completedAt: new Date().toISOString(), mode, intention: intention.trim(), ambientSound }, false); player.pause(); setCancelOpen(false); setStatus("idle"); setElapsedBase(0); setRunStartedAt(null); sessionStartedAt.current = null; void clearFocusRuntime(); };
+  const finish = () => { setElapsedBase(elapsed); setRunStartedAt(null); setStatus("completed"); player.pause(); };
+  const resetPersistedSession = async (): Promise<boolean> => {
+    try {
+      await clearFocusRuntime();
+    } catch {
+      setSaveError("A sessão foi salva, mas o timer local não pôde ser limpo. Tente finalizar novamente.");
+      return false;
+    }
+    player.pause();
+    setCancelOpen(false);
+    setStatus("idle");
+    setElapsedBase(0);
+    setRunStartedAt(null);
+    setReflection("");
+    setSessionTaskTitle("");
+    sessionStartedAt.current = null;
+    saved.current = false;
+    setSaveError("");
+    return true;
+  };
+  const persistFocusSession = async (
+    session: FocusSession,
+    markTaskComplete: boolean,
+    action: "save" | "save_and_complete" | "cancel",
+  ): Promise<boolean> => {
+    if (saving.current) return false;
+    saving.current = true;
+    setPendingAction(action);
+    setSaveError("");
+    try {
+      if (!saved.current) {
+        const persisted = await finishFocusSession(session, markTaskComplete);
+        if (!persisted) {
+          setSaveError("Não foi possível confirmar a sessão. Seu timer foi mantido; tente novamente.");
+          return false;
+        }
+        saved.current = true;
+      }
+      return await resetPersistedSession();
+    } catch {
+      setSaveError("Não foi possível confirmar a sessão. Seu timer foi mantido; tente novamente.");
+      return false;
+    } finally {
+      saving.current = false;
+      setPendingAction(null);
+    }
+  };
+  const saveSession = async (markTaskComplete: boolean) => {
+    const session: FocusSession = { id: sessionId.current, ...(selectedTask ? { taskId: selectedTask.id, category: selectedTask.category } : {}), taskTitle: sessionTaskTitle || selectedTask?.title || "Sessão de foco livre", plannedMinutes: duration, elapsedSeconds: elapsedBase, xp: focusXpForSeconds(elapsedBase), status: "completed", startedAt: sessionStartedAt.current ?? new Date().toISOString(), completedAt: new Date().toISOString(), mode, intention: intention.trim(), reflection: reflection.trim(), ambientSound };
+    await persistFocusSession(session, markTaskComplete, markTaskComplete ? "save_and_complete" : "save");
+  };
+  const cancel = async () => {
+    const cancelledAt = elapsed;
+    setElapsedBase(cancelledAt);
+    setRunStartedAt(null);
+    setStatus("paused");
+    player.pause();
+    const session: FocusSession = { id: sessionId.current, ...(selectedTask ? { taskId: selectedTask.id, category: selectedTask.category } : {}), taskTitle: sessionTaskTitle || selectedTask?.title || "Sessão de foco livre", plannedMinutes: duration, elapsedSeconds: cancelledAt, xp: 0, status: "cancelled", startedAt: sessionStartedAt.current ?? new Date().toISOString(), completedAt: new Date().toISOString(), mode, intention: intention.trim(), ambientSound };
+    await persistFocusSession(session, false, "cancel");
+  };
   const taskOptions = useMemo(() => tasks.filter((task) => !task.completed), [tasks]);
 
   return <>
@@ -84,16 +146,16 @@ export default function FocusScreen() {
         <View style={styles.section}><NexusText variant="title">Modo</NexusText><View style={styles.modeGrid}>{MODES.map((item) => <Pressable key={item.id} onPress={() => chooseMode(item)} style={[styles.modeCard, { backgroundColor: mode === item.id ? `${colors.primary}18` : colors.surface, borderColor: mode === item.id ? colors.primary : colors.border }]}><NexusText variant="subtitle">{item.label}</NexusText><NexusText variant="caption" secondary>{item.description}</NexusText><NexusText variant="mono" color={colors.primarySoft}>{item.duration} MIN</NexusText></Pressable>)}</View>{mode === "personalizado" ? <Field label="Duração personalizada" value={customDuration} onChangeText={setCustomDuration} keyboardType="number-pad" maxLength={3} hint="Entre 5 e 360 minutos." /> : null}</View>
         <View style={styles.section}><NexusText variant="title">Tarefa</NexusText><View style={styles.taskOptions}>{taskOptions.length ? taskOptions.map((task) => <Pressable key={task.id} onPress={() => setSelectedTaskId(task.id)} style={[styles.taskOption, { backgroundColor: selectedTaskId === task.id ? `${colors.primary}20` : colors.surface, borderColor: selectedTaskId === task.id ? colors.primary : colors.border }]}><NexusText color={selectedTaskId === task.id ? colors.primarySoft : colors.textSecondary}>{selectedTaskId === task.id ? "●" : "○"}</NexusText><View style={styles.flex}><NexusText variant="subtitle">{task.title}</NexusText><NexusText variant="caption" secondary>{task.estimatedMinutes} min • {task.xp} XP</NexusText></View></Pressable>) : <Card><NexusText secondary>Todas as tarefas foram concluídas. Use uma sessão livre.</NexusText></Card>}<ChoiceChip label="Sessão livre" selected={!selectedTaskId} onPress={() => setSelectedTaskId(undefined)} /></View></View>
         <Field label="Intenção da sessão" value={intention} onChangeText={setIntention} multiline maxLength={300} placeholder="Ao final deste bloco, eu terei..." />
-        <View style={styles.section}><NexusText variant="title">Ambiente opcional</NexusText><View style={styles.chips}>{SOUNDS.map(([value,label]) => <ChoiceChip key={value} label={label} selected={ambientSound === value} onPress={() => setAmbientSound(value)} />)}</View><NexusText variant="caption" secondary>Sons leves são gerados no próprio dispositivo e funcionam offline.</NexusText></View>
+        <View style={styles.section}><NexusText variant="title">Ambiente opcional</NexusText>{data.preferences.sound ? <><View style={styles.chips}>{SOUNDS.map(([value,label]) => <ChoiceChip key={value} label={label} selected={ambientSound === value} onPress={() => setAmbientSound(value)} />)}</View><NexusText variant="caption" secondary>Sons leves são gerados no próprio dispositivo e funcionam offline.</NexusText></> : <Card style={styles.readyCard}><NexusText variant="caption" secondary>O som está desativado nas preferências.</NexusText><NexusButton label="Ativar som" variant="ghost" compact onPress={() => void updatePreferences({ sound: true })} /></Card>}</View>
         <Card style={[styles.readyCard, { backgroundColor: `${colors.primary}0F`, borderColor: `${colors.primary}40` }]}><NexusText variant="mono" color={colors.primarySoft}>ALVO</NexusText><NexusText variant="title">{selectedTask?.title ?? "Sessão de foco livre"}</NexusText><NexusText secondary>{customDuration || duration} minutos • {MODES.find((item) => item.id === mode)?.label}</NexusText></Card>
         <NexusButton label="Iniciar foco" icon="◎" onPress={start} fullWidth />
       </View> : null}
 
-      {active ? <View style={styles.active}><PixelMascot state={status === "paused" ? "sleeping" : "thinking"} size={62} /><NexusText variant="mono" color={status === "paused" ? colors.warning : colors.success}>{status === "paused" ? "FOCO PAUSADO" : "FOCO ATIVO"}</NexusText><NexusText variant="title" style={styles.center} numberOfLines={2}>{selectedTask?.title ?? "Sessão de foco livre"}</NexusText>{intention ? <NexusText variant="caption" secondary style={styles.center}>Intenção: {intention}</NexusText> : null}<ProgressRing progress={totalSeconds ? elapsed / totalSeconds : 0} size={220} strokeWidth={12} label={formatTime(remaining)} /><NexusText secondary>{Math.floor(elapsed / 60)} de {duration} minutos • {MODES.find((item) => item.id === mode)?.label}</NexusText>{ambientSound !== "nenhum" ? <NexusText variant="caption" color={colors.primarySoft}>♫ {SOUNDS.find(([value]) => value === ambientSound)?.[1]}</NexusText> : null}<View style={styles.timerActions}>{status === "running" ? <NexusButton label="Pausar" icon="Ⅱ" variant="secondary" onPress={pause} style={styles.flex} /> : <NexusButton label="Retomar" icon="▶" onPress={resume} style={styles.flex} />}<NexusButton label="Finalizar" icon="✓" variant="secondary" onPress={finish} style={styles.flex} /></View><NexusButton label="Cancelar sessão" variant="ghost" onPress={() => setCancelOpen(true)} /></View> : null}
+      {active ? <View style={styles.active}><PixelMascot state={status === "paused" ? "sleeping" : "thinking"} size={62} /><NexusText variant="mono" color={status === "paused" ? colors.warning : colors.success}>{status === "paused" ? "FOCO PAUSADO" : "FOCO ATIVO"}</NexusText><NexusText variant="title" style={styles.center} numberOfLines={2}>{sessionTaskTitle || selectedTask?.title || "Sessão de foco livre"}</NexusText>{intention ? <NexusText variant="caption" secondary style={styles.center}>Intenção: {intention}</NexusText> : null}<ProgressRing progress={totalSeconds ? elapsed / totalSeconds : 0} size={220} strokeWidth={12} label={formatTime(remaining)} /><NexusText secondary>{Math.floor(elapsed / 60)} de {duration} minutos • {MODES.find((item) => item.id === mode)?.label}</NexusText>{ambientSound !== "nenhum" ? <NexusText variant="caption" color={colors.primarySoft}>♫ {SOUNDS.find(([value]) => value === ambientSound)?.[1]}</NexusText> : null}<View style={styles.timerActions}>{status === "running" ? <NexusButton label="Pausar" icon="Ⅱ" variant="secondary" onPress={pause} style={styles.flex} /> : <NexusButton label="Retomar" icon="▶" onPress={resume} style={styles.flex} />}<NexusButton label="Finalizar" icon="✓" variant="secondary" onPress={finish} style={styles.flex} /></View><NexusButton label="Cancelar sessão" variant="ghost" onPress={() => setCancelOpen(true)} /></View> : null}
 
-      {status === "completed" ? <View style={styles.completed}><View style={[styles.celebration, { backgroundColor: `${colors.success}16` }]}><PixelMascot state="celebrating" size={96} /></View><NexusText variant="mono" color={colors.success}>SESSÃO CONCLUÍDA</NexusText><NexusText variant="display" style={styles.center}>{formatTime(elapsedBase)} de execução.</NexusText><NexusText secondary style={styles.center}>+{focusXpForSeconds(elapsedBase)} XP de foco. Registre uma frase para transformar tempo em aprendizado.</NexusText><Field label="O que avançou ou descobriu?" value={reflection} onChangeText={setReflection} multiline maxLength={500} placeholder="Consegui..., travei em..., próximo passo..." />{selectedTask && !selectedTask.completed ? <Card style={styles.completionCard}><NexusText variant="subtitle">A tarefa também foi concluída?</NexusText><NexusText variant="caption" secondary>{selectedTask.title}</NexusText><View style={styles.timerActions}><NexusButton label="Ainda não" variant="ghost" onPress={() => saveSession(false)} style={styles.flex} /><NexusButton label="Sim, concluir" onPress={() => saveSession(true)} style={styles.flex} /></View></Card> : <NexusButton label="Salvar sessão" onPress={() => saveSession(false)} fullWidth />}</View> : null}
+      {status === "completed" ? <View style={styles.completed}><View style={[styles.celebration, { backgroundColor: `${colors.success}16` }]}><PixelMascot state="celebrating" size={96} /></View><NexusText variant="mono" color={colors.success}>SESSÃO CONCLUÍDA</NexusText><NexusText variant="display" style={styles.center}>{formatTime(elapsedBase)} de execução.</NexusText><NexusText secondary style={styles.center}>+{focusXpForSeconds(elapsedBase)} XP de foco. Registre uma frase para transformar tempo em aprendizado.</NexusText><Field label="O que avançou ou descobriu?" value={reflection} onChangeText={setReflection} multiline maxLength={500} placeholder="Consegui..., travei em..., próximo passo..." />{saveError ? <NexusText variant="caption" color={colors.danger} style={styles.center}>{saveError}</NexusText> : null}{selectedTask && !selectedTask.completed ? <Card style={styles.completionCard}><NexusText variant="subtitle">A tarefa também foi concluída?</NexusText><NexusText variant="caption" secondary>{selectedTask.title}</NexusText><View style={styles.timerActions}><NexusButton label="Ainda não" variant="ghost" loading={pendingAction === "save"} disabled={pendingAction !== null} onPress={() => { void saveSession(false); }} style={styles.flex} /><NexusButton label="Sim, concluir" loading={pendingAction === "save_and_complete"} disabled={pendingAction !== null} onPress={() => { void saveSession(true); }} style={styles.flex} /></View></Card> : <NexusButton label="Salvar sessão" loading={pendingAction === "save"} disabled={pendingAction !== null} onPress={() => { void saveSession(false); }} fullWidth />}</View> : null}
     </Screen>
-    <ConfirmDialog visible={cancelOpen} title="Cancelar esta sessão?" message="O tempo executado será registrado sem XP. Sua tarefa não será alterada." confirmLabel="Cancelar sessão" destructive onCancel={() => setCancelOpen(false)} onConfirm={cancel} />
+    <ConfirmDialog visible={cancelOpen} title="Cancelar esta sessão?" message={saveError || "O tempo executado será registrado sem XP. Sua tarefa não será alterada."} confirmLabel="Cancelar sessão" destructive loading={pendingAction === "cancel"} onCancel={() => setCancelOpen(false)} onConfirm={cancel} />
   </>;
 }
 

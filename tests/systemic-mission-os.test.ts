@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStarterRoadmap } from "@/features/learning/roadmap";
 import { buildWeeklyEvidence, createEvidenceBasedWeeklyReview, sanitizeAiWeeklyReview } from "@/features/progress/weekly-review";
 import { synthesizeMission } from "@/features/context/synthesis";
@@ -10,6 +10,8 @@ import { makeAppData, makeProfile } from "./fixtures";
 import type { Category, ProfessorIntake, Profile, WeeklyReview } from "@/types";
 
 const advancedGoal = "Conseguir meu primeiro freelance criando coisas envolvendo programação com IA, sei criar LPs, SaaS, Micro-SaaS, Apps e quero ganhar bem mais até o fim do ano";
+
+afterEach(() => vi.useRealTimers());
 
 function advancedProfile(): Profile {
   return { ...makeProfile(), mainGoal: advancedGoal, skillLevel: "avancado" as const, priorities: ["dinheiro", "desenvolvimento"] as Category[] };
@@ -59,7 +61,7 @@ describe("systemic mission OS regressions", () => {
     const evidence = buildWeeklyEvidence(data);
     const review = createEvidenceBasedWeeklyReview(data);
     expect(evidence.score).toBeNull();
-    expect(review.patterns.join(" ")).toContain("Não há dados suficientes");
+    expect(review.patterns.join(" ")).toMatch(/dados insuficientes/i);
     expect(review.highlights.join(" ")).not.toMatch(/medo|perfeccionismo|mentor|rotina imprevisível/i);
   });
 
@@ -84,12 +86,14 @@ describe("systemic mission OS regressions", () => {
       createdAt: "2026-07-13T00:00:00.000Z",
     };
     const sanitized = sanitizeAiWeeklyReview(ai, data);
-    expect(sanitized.consistencyScore).toBe(0);
+    expect(sanitized.consistencyScore).toBeNull();
     expect(sanitized.focusMinutes).toBe(0);
     expect(sanitized.patterns.join(" ")).not.toContain("Medo de falhar");
   });
 
   it("uses observable evidence and a deterministic score in the local weekly-review fallback", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-13T15:00:00.000Z"));
     const data = makeAppData(advancedProfile());
     const plan = generateLocalPlan({ profile: advancedProfile(), date: "2026-07-10", requestId: "request-review", clientId: "install-systemic" });
     data.history = [
@@ -108,11 +112,58 @@ describe("systemic mission OS regressions", () => {
     expect(review.highlights.join(" ")).toContain("45 min de foco");
   });
 
+  it("counts a civil date once when history and active plan overlap", () => {
+    const data = makeAppData(advancedProfile());
+    const date = "2026-07-13";
+    const plan = generateLocalPlan({
+      profile: advancedProfile(),
+      date,
+      requestId: "overlap-review",
+      clientId: "install-overlap",
+    });
+    plan.tasks[0]!.completed = true;
+    plan.mainMission.completed = true;
+    data.activePlan = plan;
+    data.history = [{
+      date,
+      plan,
+      completedTasks: 1,
+      totalTasks: plan.tasks.length,
+      completionPercentage: Math.round(100 / plan.tasks.length),
+      xpEarned: 125,
+      focusMinutes: 30,
+      countedForStreak: true,
+    }];
+    data.progress.focusSessions = [{
+      id: "focus-overlap",
+      taskId: plan.tasks[0]!.id,
+      taskTitle: plan.tasks[0]!.title,
+      plannedMinutes: 25,
+      elapsedSeconds: 1500,
+      status: "completed",
+      startedAt: "2026-07-13T13:00:00.000Z",
+      completedAt: "2026-07-13T13:25:00.000Z",
+      xp: 15,
+    }];
+
+    const evidence = buildWeeklyEvidence(data, new Date("2026-07-13T15:00:00.000Z"));
+
+    expect(evidence).toMatchObject({
+      daysRecorded: 1,
+      plannedTasks: plan.tasks.length,
+      completedTasks: 1,
+      missionsPlanned: 1,
+      missionsCompleted: 1,
+      focusMinutes: 30,
+      xpEarned: 125,
+    });
+  });
+
   it("generates clear offline mission and revenue action for commercial goals", () => {
     const plan = generateLocalPlan({ profile: advancedProfile(), date: "2026-07-13", requestId: "request-systemic", clientId: "install-systemic" });
     expect(plan.mainMission.title).toBe("Fechar o primeiro projeto pago");
     expect(plan.mainMission.title).not.toContain("Avançar de verdade em");
-    expect(plan.tasks.some((task) => task.title === "Enviar uma proposta de Landing Page" && task.description?.includes("Resultado:"))).toBe(true);
+    expect(plan.tasks.some((task) => task.title === "Enviar uma proposta de Landing Page" && task.expectedResult && task.doneWhen)).toBe(true);
   });
 
   it("widget payload has a useful empty state when no daily plan exists", () => {

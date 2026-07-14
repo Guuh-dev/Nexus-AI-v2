@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_APP_DATA } from "@/constants/defaults";
-import { companionLines, companionStatus, getCompanionLine } from "@/features/companion/companion";
+import { companionLines, companionStatus, getCompanionLine, shouldShowCompanion } from "@/features/companion/companion";
 import type { AppData } from "@/types";
 
 function dataWithProgress(completed: number): AppData {
@@ -35,5 +35,32 @@ describe("Nexus Companion 2.2", () => {
 
   it("recognizes a fully completed day", () => {
     expect(companionStatus(dataWithProgress(3))).toBe("done");
+  });
+
+  it("gives every presence option a distinct, recoverable effect", () => {
+    const idle = dataWithProgress(0);
+    idle.preferences.mascot.showCompanion = true;
+    idle.preferences.mascot.companionPresence = "balanced";
+    expect(shouldShowCompanion(idle)).toBe(false);
+
+    const progressing = dataWithProgress(1);
+    progressing.preferences.mascot.showCompanion = true;
+    progressing.preferences.mascot.companionPresence = "balanced";
+    expect(shouldShowCompanion(progressing)).toBe(true);
+
+    idle.preferences.mascot.companionPresence = "active";
+    expect(shouldShowCompanion(idle)).toBe(true);
+    idle.preferences.mascot.companionPresence = "quiet";
+    expect(shouldShowCompanion(idle)).toBe(false);
+    idle.preferences.mascot.companionPresence = "active";
+    idle.preferences.mascot.showCompanion = false;
+    expect(shouldShowCompanion(idle)).toBe(false);
+  });
+
+  it("exposes the legacy visibility switch in the v3 customization UI", async () => {
+    const { readFileSync } = await import("node:fs");
+    const customize = readFileSync("app/customize.tsx", "utf8");
+    expect(customize).toContain("Mostrar Companion no Hoje");
+    expect(customize).toContain("showCompanion: value");
   });
 });

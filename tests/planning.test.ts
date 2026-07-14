@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { generateLocalPlan, generatePlan } from "@/services/planning.service";
+import { mergeRequiredCarryOver } from "@/features/planning/carry-over";
 import { aiDailyPlanSchema, extractJson, hydrateAiPlan, parseAiDailyPlan } from "@/schemas/daily-plan.schema";
 import { makeProfile } from "@/tests/fixtures";
 
@@ -14,6 +15,46 @@ describe("planning", () => {
     expect(new Set(plan.tasks.map((task) => task.title)).size).toBe(plan.tasks.length);
     expect(plan.totalEstimatedMinutes).toBeLessThanOrEqual(720);
     expect(plan.mainMission.xp).toBe(75);
+  });
+
+  it("reinjects required carry-over deterministically after remote generation", () => {
+    const profile = makeProfile({ maxDailyTasks: 3 });
+    const request = {
+      profile,
+      date: "2026-07-10",
+      requestId: "request-required-carry",
+      clientId: "install-test-123",
+      carryOver: [{
+        id: "scheduled-required",
+        title: "Entregar declaração assinada",
+        description: "Documento conferido e enviado.",
+        context: "Agendado explicitamente no dia anterior.",
+        firstStep: "Abrir o documento final.",
+        expectedResult: "Declaração enviada.",
+        doneWhen: "O envio estiver confirmado.",
+        category: "organizacao" as const,
+        priority: "media" as const,
+        estimatedMinutes: 20,
+        xp: 30,
+        recurring: false,
+        completed: false,
+        scheduledDate: "2026-07-10",
+      }],
+    };
+    const remote = { ...generateLocalPlan({ ...request, carryOver: [] }), source: "ai" as const };
+
+    const merged = mergeRequiredCarryOver(remote, request);
+
+    expect(merged.tasks[0]).toMatchObject({
+      id: "scheduled-required",
+      title: "Entregar declaração assinada",
+      scheduledDate: "2026-07-10",
+    });
+    expect(merged.tasks).toHaveLength(3);
+    expect(merged.totalEstimatedMinutes).toBe(
+      merged.mainMission.estimatedMinutes +
+      merged.tasks.reduce((total, task) => total + task.estimatedMinutes, 0),
+    );
   });
 
   it("extracts fenced JSON and normalizes a safe daily plan", () => {
@@ -77,7 +118,19 @@ describe("planning", () => {
     )));
     const response = await generatePlan(
       { profile: makeProfile(), date: "2026-07-10", requestId: "request-retry-123", clientId: "install-test-123" },
-      { timeoutMs: 500 },
+      { timeoutMs: 2_000 },
+    );
+    expect(response.plan.source).toBe("offline");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("retries a backend connection failure exactly once", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => {
+      throw new TypeError("Network request failed");
+    }));
+    const response = await generatePlan(
+      { profile: makeProfile(), date: "2026-07-10", requestId: "request-network-retry", clientId: "install-network-retry" },
+      { timeoutMs: 2_000 },
     );
     expect(response.plan.source).toBe("offline");
     expect(fetch).toHaveBeenCalledTimes(2);
