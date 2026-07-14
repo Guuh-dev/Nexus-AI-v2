@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="nexus_widget_name">Nexus Command — 4×4</string>
-  <string name="nexus_widget_description">Central completa com tarefas, ações, páginas e progresso</string>
+  <string name="nexus_widget_description">Missão, quatro tarefas, foco, progresso e Companion</string>
   <string name="nexus_widget_mini_name">Nexus Mini — 1×1</string>
   <string name="nexus_widget_mini_description">Mascote e streak em um espaço mínimo</string>
-  <string name="nexus_widget_strip_name">Nexus Strip — 2×1 / 4×1</string>
+  <string name="nexus_widget_strip_name">Nexus Strip — 2×1</string>
   <string name="nexus_widget_strip_description">Próxima missão e progresso em uma faixa redimensionável</string>
   <string name="nexus_widget_companion_name">Nexus Companion — 2×2</string>
   <string name="nexus_widget_companion_description">Mascote grande, humor e fala próprios desta instância</string>
   <string name="nexus_widget_mission_name">Nexus Mission — 4×2</string>
-  <string name="nexus_widget_mission_description">Missão, até três tarefas interativas e progresso</string>
+  <string name="nexus_widget_mission_description">Missão, até duas tarefas interativas e progresso</string>
   <string name="nexus_widget_mascot_description">Mascote pixel do Nexus</string>
-  <string name="nexus_widget_professor_description">Professor Atlas</string>
   <string name="nexus_capture_short">Capturar</string>
   <string name="nexus_capture_long">Captura rápida do Nexus</string>
   <string name="nexus_focus_short">Iniciar foco</string>

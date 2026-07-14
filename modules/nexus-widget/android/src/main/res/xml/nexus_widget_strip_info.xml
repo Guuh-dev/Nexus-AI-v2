@@ -4,5 +4,5 @@
   android:initialLayout="@layout/nexus_widget_strip" android:minWidth="110dp" android:minHeight="40dp"
   android:minResizeWidth="110dp" android:minResizeHeight="40dp" android:maxResizeWidth="530dp" android:maxResizeHeight="110dp"
   android:targetCellWidth="2" android:targetCellHeight="1" android:previewImage="@drawable/ic_nexus_mascot"
-  android:previewLayout="@layout/nexus_widget_strip" android:resizeMode="horizontal" android:updatePeriodMillis="0"
+  android:previewLayout="@layout/nexus_widget_strip" android:resizeMode="none" android:updatePeriodMillis="0"
   android:widgetCategory="home_screen" android:widgetFeatures="configuration_optional|reconfigurable" />

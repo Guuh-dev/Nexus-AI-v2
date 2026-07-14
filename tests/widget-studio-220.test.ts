@@ -1,28 +1,39 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PREFERENCES , DEFAULT_APP_DATA } from "@/constants/defaults";
-import { applyWidgetPreset, WIDGET_PRESETS } from "@/features/widget/presets";
-import { appDataSchema } from "@/schemas/storage.schema";
+import { WIDGET_PRESETS } from "@/features/widget/presets";
 
-describe("Widget Studio 2.2", () => {
-  it("ships a balanced catalog with unique presets", () => {
-    expect(WIDGET_PRESETS.length).toBeGreaterThanOrEqual(16);
-    expect(new Set(WIDGET_PRESETS.map((item) => item.id)).size).toBe(WIDGET_PRESETS.length);
-    const categories = new Set(WIDGET_PRESETS.map((item) => item.category));
-    expect(categories).toEqual(new Set(["execução", "foco", "atlas", "companion", "progresso", "freelance"]));
+describe("Widget Studio 3.0", () => {
+  const studio = readFileSync("app/widget-studio.tsx", "utf8");
+
+  it("keeps the editor intentionally small", () => {
+    expect(WIDGET_PRESETS).toHaveLength(5);
+    expect(studio).toContain("WIDGET STUDIO 3.0");
+    expect(studio).toContain("Salvar e sincronizar");
+    expect(studio).not.toContain("Glass");
+    expect(studio).not.toContain("Gamer");
+    expect(studio).not.toContain("Neon");
+    expect(studio).not.toContain('["motivational", "Motivacional"]');
   });
 
-  it("supports independent Companion and finance widget instances", () => {
-    const companion = applyWidgetPreset(DEFAULT_PREFERENCES.widget, "companion");
-    const finance = applyWidgetPreset(DEFAULT_PREFERENCES.widget, "finance");
-    expect(companion.contentMode).toBe("companion");
-    expect(companion.showQuote).toBe(true);
-    expect(finance.contentMode).toBe("finance");
-    expect(finance.showFinance).toBe(true);
-    expect(companion).not.toEqual(finance);
+  it("loads native instances and persists the selected appWidgetId", () => {
+    expect(studio).toContain("listAndroidWidgetInstances");
+    expect(studio).toContain("saveAndroidWidgetInstance(target, configuration)");
+    expect(studio).toContain("updateAndroidWidget");
+    expect(studio).toContain("appWidgetId");
+    expect(studio).toContain("if (!result.updated)");
+    expect(studio).toContain("Modo privado");
   });
 
-  it("keeps the complete v5 default state schema-valid", () => {
-    const result = appDataSchema.safeParse({ ...DEFAULT_APP_DATA, installationId: "install-default-220" });
-    expect(result.success).toBe(true);
+  it("persists before confirming and avoids duplicate redraws", () => {
+    expect(studio).toContain("await updatePreferences({ widget: widgetPatch })");
+    expect(studio.match(/updateAndroidWidget\(/g)).toHaveLength(1);
+    expect(studio).not.toContain("saved ? await updateAndroidWidget");
+    expect(studio).not.toContain("}, [data]);");
+  });
+
+  it("explains when changing family requires remove and re-add", () => {
+    expect(studio).toContain("Remova este widget e adicione a família desejada");
+    expect(studio).toContain("novo APK");
+    expect(studio).toContain("não chegam apenas por OTA");
   });
 });
