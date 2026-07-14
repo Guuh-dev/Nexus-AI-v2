@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createStarterRoadmap } from "@/features/learning/roadmap";
 import { buildWeeklyEvidence, createEvidenceBasedWeeklyReview, sanitizeAiWeeklyReview } from "@/features/progress/weekly-review";
 import { synthesizeMission } from "@/features/context/synthesis";
@@ -10,6 +10,8 @@ import { makeAppData, makeProfile } from "./fixtures";
 import type { Category, ProfessorIntake, Profile, WeeklyReview } from "@/types";
 
 const advancedGoal = "Conseguir meu primeiro freelance criando coisas envolvendo programação com IA, sei criar LPs, SaaS, Micro-SaaS, Apps e quero ganhar bem mais até o fim do ano";
+
+afterEach(() => vi.useRealTimers());
 
 function advancedProfile(): Profile {
   return { ...makeProfile(), mainGoal: advancedGoal, skillLevel: "avancado" as const, priorities: ["dinheiro", "desenvolvimento"] as Category[] };
@@ -90,6 +92,8 @@ describe("systemic mission OS regressions", () => {
   });
 
   it("uses observable evidence and a deterministic score in the local weekly-review fallback", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-13T15:00:00.000Z"));
     const data = makeAppData(advancedProfile());
     const plan = generateLocalPlan({ profile: advancedProfile(), date: "2026-07-10", requestId: "request-review", clientId: "install-systemic" });
     data.history = [
