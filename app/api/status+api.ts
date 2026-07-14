@@ -1,19 +1,46 @@
-import { FREE_ROUTER, PRIMARY_MODEL } from "@/constants/models";
-import { probeOpenRouter } from "@/services/assistant.server";
+import {
+  assistantModelOrder,
+  probeOpenRouter,
+} from "@/services/assistant.server";
 
 const PROBE_COOLDOWN_MS = 12_000;
+const GLOBAL_PROBE_WINDOW_MS = 60_000;
+const MAX_GLOBAL_PROBES_PER_WINDOW = 6;
 const probeBuckets = new Map<string, number>();
+let globalProbeBucket = {
+  count: 0,
+  resetAt: Date.now() + GLOBAL_PROBE_WINDOW_MS,
+};
 
 function baseStatus() {
-  const paidFallback = process.env.OPENROUTER_ALLOW_PAID_FALLBACK === "true";
+  const brainModels = assistantModelOrder("brain");
+  const coreModes = [
+    "brain",
+    "professor",
+    "roadmap",
+    "weekly_review",
+    "evidence_review",
+  ] as const;
+  const routingReady = coreModes.every(
+    (mode) => assistantModelOrder(mode).length >= 2,
+  );
+  const configured = Boolean(process.env.OPENROUTER_API_KEY);
   return {
-    configured: Boolean(process.env.OPENROUTER_API_KEY),
-    primaryModel: process.env.OPENROUTER_FAST_MODEL?.trim() || FREE_ROUTER,
-    fallback: paidFallback ? `${PRIMARY_MODEL} → plano local` : "plano local",
-    apiVersion: "2.3.1",
-    assistantAvailable: Boolean(process.env.OPENROUTER_API_KEY),
-    service: "nexus-ai-v2-1",
-    capabilities: ["assistant", "professor", "roadmap", "planning", "local-fallback", "live-probe"],
+    configured,
+    primaryModel: brainModels[0] ?? "sem-modelo-compativel",
+    fallback: brainModels[1] ?? "sem-modelo-alternativo",
+    apiVersion: "3.0.0",
+    assistantAvailable: configured && routingReady,
+    service: "nexus-ai-v3",
+    capabilities: [
+      "capability-routing",
+      "assistant",
+      "professor",
+      "roadmap",
+      "weekly-review",
+      "validated-streaming",
+      "live-probe",
+    ],
     serverTime: new Date().toISOString(),
   };
 }
@@ -26,11 +53,26 @@ function headers(): HeadersInit {
   };
 }
 
-function clientKey(request: Request): string {
-  return request.headers.get("x-nexus-client-id")?.slice(0, 120)
-    || request.headers.get("cf-connecting-ip")
+export function statusProbeClientKey(request: Request): string {
+  const key = request.headers.get("cf-connecting-ip")
+    || request.headers.get("fly-client-ip")
+    || request.headers.get("true-client-ip")
     || request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || "anonymous";
+    || request.headers.get("x-real-ip")
+    || "unknown-client";
+  return key.slice(0, 120);
+}
+
+function consumeGlobalProbe(now: number): boolean {
+  if (now >= globalProbeBucket.resetAt) {
+    globalProbeBucket = {
+      count: 0,
+      resetAt: now + GLOBAL_PROBE_WINDOW_MS,
+    };
+  }
+  if (globalProbeBucket.count >= MAX_GLOBAL_PROBES_PER_WINDOW) return false;
+  globalProbeBucket.count += 1;
+  return true;
 }
 
 function probeErrorCode(error: unknown, aborted: boolean): string {
@@ -52,17 +94,24 @@ export async function POST(request: Request): Promise<Response> {
   if (!status.configured) {
     return Response.json({
       ...status,
-      probe: { ok: false, errorCode: "missing_key", message: "OPENROUTER_API_KEY não está configurada no servidor publicado." },
+      assistantAvailable: false,
+      probe: { ok: false, errorCode: "missing_key", message: "A credencial do provedor não está configurada no servidor publicado." },
     }, { status: 503, headers: headers() });
   }
 
-  const key = clientKey(request);
+  const key = statusProbeClientKey(request);
   const now = Date.now();
   const lastProbe = probeBuckets.get(key) ?? 0;
   if (now - lastProbe < PROBE_COOLDOWN_MS) {
     return Response.json({
       ...status,
       probe: { ok: false, errorCode: "cooldown", message: "Aguarde alguns segundos antes de testar novamente." },
+    }, { status: 429, headers: headers() });
+  }
+  if (!consumeGlobalProbe(now)) {
+    return Response.json({
+      ...status,
+      probe: { ok: false, errorCode: "global_cooldown", message: "O teste ao vivo atingiu o limite global. Tente novamente em instantes." },
     }, { status: 429, headers: headers() });
   }
   probeBuckets.set(key, now);
@@ -92,7 +141,7 @@ export async function POST(request: Request): Promise<Response> {
         message: errorCode === "unauthorized"
           ? "A chave foi recusada pelo OpenRouter."
           : errorCode === "rate_limit"
-            ? "Os modelos gratuitos estão ocupados agora."
+            ? "Os modelos compatíveis estão ocupados agora."
             : errorCode === "timeout"
               ? "O OpenRouter não respondeu dentro do limite do teste."
               : "O provedor remoto não respondeu ao teste.",

@@ -14,7 +14,7 @@ function cleanInline(value: string): string {
 }
 
 /**
- * Free models occasionally return valid Markdown without line breaks. Insert
+ * Some providers occasionally return valid Markdown without line breaks. Insert
  * conservative boundaries around labels and numbered steps before rendering so
  * a useful answer never becomes one unreadable wall of text.
  */

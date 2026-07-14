@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CATEGORIES } from "@/types";
+import { CATEGORIES, type AssistantRequest } from "@/types";
 import { roadmapSchema, weeklyReviewSchema } from "@/schemas/expansion.schema";
 
 const memoryDraftSchema = z.object({
@@ -8,12 +8,25 @@ const memoryDraftSchema = z.object({
   confidence: z.number().min(0).max(1),
 }).strict();
 
-const actionDraftSchema = z.object({
-  type: z.enum(["replan", "create_task", "create_roadmap", "update_goal", "start_operation"]),
+const actionDraftFields = {
   title: z.string().trim().min(2).max(160),
   description: z.string().trim().min(2).max(600),
-  payload: z.record(z.string(), z.unknown()),
-}).strict();
+};
+
+const actionDraftSchema = z.discriminatedUnion("type", [
+  z.object({
+    ...actionDraftFields,
+    type: z.literal("update_goal"),
+    payload: z.object({
+      mainGoal: z.string().trim().min(10).max(600),
+    }).strict(),
+  }).strict(),
+  z.object({
+    ...actionDraftFields,
+    type: z.enum(["replan", "create_task", "create_roadmap"]),
+    payload: z.record(z.string(), z.unknown()),
+  }).strict(),
+]);
 
 const roadmapDraftSchema = z.object({
   topic: z.string().trim().min(2).max(160),
@@ -24,10 +37,10 @@ const roadmapDraftSchema = z.object({
     lessons: z.array(z.object({
       title: z.string().trim().min(2).max(160),
       description: z.string().trim().min(2).max(700),
-      objective: z.string().trim().min(2).max(400).optional(),
-      steps: z.array(z.string().trim().min(2).max(240)).min(1).max(6).optional(),
-      deliverable: z.string().trim().min(2).max(400).optional(),
-      successCriteria: z.string().trim().min(2).max(400).optional(),
+      objective: z.string().trim().min(2).max(400),
+      steps: z.array(z.string().trim().min(2).max(240)).min(2).max(5),
+      deliverable: z.string().trim().min(2).max(400),
+      successCriteria: z.string().trim().min(2).max(400),
       estimatedMinutes: z.number().int().min(5).max(180),
     }).strict()).min(1).max(12),
   }).strict()).min(1).max(10),
@@ -36,6 +49,10 @@ const roadmapDraftSchema = z.object({
 const captureDraftSchema = z.object({
   title: z.string().trim().min(2).max(120),
   description: z.string().trim().max(300).optional(),
+  context: z.string().trim().min(2).max(300),
+  firstStep: z.string().trim().min(2).max(240),
+  expectedResult: z.string().trim().min(2).max(300),
+  doneWhen: z.string().trim().min(2).max(300),
   category: z.enum(CATEGORIES),
   priority: z.enum(["alta", "media", "baixa"]),
   estimatedMinutes: z.number().int().min(5).max(240),
@@ -44,7 +61,6 @@ const captureDraftSchema = z.object({
 }).strict();
 
 const weeklyReviewDraftSchema = z.object({
-  consistencyScore: z.number().min(0).max(100),
   highlights: z.array(z.string().trim().min(2).max(160)).max(8),
   patterns: z.array(z.string().trim().min(2).max(160)).max(8),
   keep: z.array(z.string().trim().min(2).max(160)).max(8),
@@ -52,6 +68,20 @@ const weeklyReviewDraftSchema = z.object({
   nextWeekFocus: z.string().trim().min(2).max(500),
   challenge: z.string().trim().min(2).max(500),
 }).strict();
+
+const lessonReviewDraftSchema = z.object({
+  accepted: z.boolean(),
+  feedback: z.string().trim().min(2).max(2000),
+  nextAdjustment: z.string().trim().min(2).max(1000).optional(),
+}).strict().superRefine((review, context) => {
+  if (!review.accepted && !review.nextAdjustment) {
+    context.addIssue({
+      code: "custom",
+      path: ["nextAdjustment"],
+      message: "Uma entrega recusada precisa de um próximo ajuste executável.",
+    });
+  }
+});
 
 export const assistantAiResponseSchema = z.object({
   message: z.string().trim().min(1).max(6000),
@@ -61,6 +91,7 @@ export const assistantAiResponseSchema = z.object({
   roadmap: roadmapDraftSchema.optional(),
   capture: captureDraftSchema.optional(),
   weeklyReview: weeklyReviewDraftSchema.optional(),
+  lessonReview: lessonReviewDraftSchema.optional(),
 }).strict();
 
 export const assistantClientResponseSchema = z.object({
@@ -71,6 +102,7 @@ export const assistantClientResponseSchema = z.object({
   roadmap: roadmapSchema.optional(),
   capture: captureDraftSchema.extend({ xp: z.number().int().min(0).max(200) }).optional(),
   weeklyReview: weeklyReviewSchema.optional(),
+  lessonReview: lessonReviewDraftSchema.optional(),
   warning: z.string().trim().max(500).optional(),
   meta: z.object({
     source: z.enum(["remote", "local"]),
@@ -105,13 +137,29 @@ export const ASSISTANT_JSON_SCHEMA = {
     actions: {
       type: "array", maxItems: 5,
       items: {
-        type: "object", additionalProperties: false, required: ["type", "title", "description", "payload"],
-        properties: {
-          type: { type: "string", enum: ["replan", "create_task", "create_roadmap", "update_goal", "start_operation"] },
-          title: { type: "string", maxLength: 160 },
-          description: { type: "string", maxLength: 600 },
-          payload: { type: "object" },
-        },
+        oneOf: [
+          {
+            type: "object", additionalProperties: false, required: ["type", "title", "description", "payload"],
+            properties: {
+              type: { type: "string", enum: ["replan", "create_task", "create_roadmap"] },
+              title: { type: "string", minLength: 2, maxLength: 160 },
+              description: { type: "string", minLength: 2, maxLength: 600 },
+              payload: { type: "object" },
+            },
+          },
+          {
+            type: "object", additionalProperties: false, required: ["type", "title", "description", "payload"],
+            properties: {
+              type: { type: "string", const: "update_goal" },
+              title: { type: "string", minLength: 2, maxLength: 160 },
+              description: { type: "string", minLength: 2, maxLength: 600 },
+              payload: {
+                type: "object", additionalProperties: false, required: ["mainGoal"],
+                properties: { mainGoal: { type: "string", minLength: 10, maxLength: 600 } },
+              },
+            },
+          },
+        ],
       },
     },
     roadmap: {
@@ -120,11 +168,11 @@ export const ASSISTANT_JSON_SCHEMA = {
         topic: { type: "string", maxLength: 160 }, outcome: { type: "string", maxLength: 600 },
         phases: { type: "array", minItems: 1, maxItems: 10, items: { type: "object", additionalProperties: false, required: ["title", "objective", "lessons"], properties: {
           title: { type: "string", maxLength: 160 }, objective: { type: "string", maxLength: 500 },
-          lessons: { type: "array", minItems: 1, maxItems: 12, items: { type: "object", additionalProperties: false, required: ["title", "description", "estimatedMinutes"], properties: {
+          lessons: { type: "array", minItems: 1, maxItems: 12, items: { type: "object", additionalProperties: false, required: ["title", "description", "objective", "steps", "deliverable", "successCriteria", "estimatedMinutes"], properties: {
             title: { type: "string", maxLength: 160 },
             description: { type: "string", maxLength: 700 },
             objective: { type: "string", maxLength: 400 },
-            steps: { type: "array", minItems: 1, maxItems: 6, items: { type: "string", maxLength: 240 } },
+            steps: { type: "array", minItems: 2, maxItems: 5, items: { type: "string", maxLength: 240 } },
             deliverable: { type: "string", maxLength: 400 },
             successCriteria: { type: "string", maxLength: 400 },
             estimatedMinutes: { type: "integer", minimum: 5, maximum: 180 },
@@ -133,19 +181,52 @@ export const ASSISTANT_JSON_SCHEMA = {
       },
     },
     capture: {
-      type: "object", additionalProperties: false, required: ["title", "category", "priority", "estimatedMinutes", "recurring"],
+      type: "object", additionalProperties: false, required: ["title", "context", "firstStep", "expectedResult", "doneWhen", "category", "priority", "estimatedMinutes", "recurring"],
       properties: {
-        title: { type: "string", maxLength: 120 }, description: { type: "string", maxLength: 300 }, category: { type: "string", enum: [...CATEGORIES] },
+        title: { type: "string", minLength: 2, maxLength: 120 },
+        description: { type: "string", maxLength: 300 },
+        context: { type: "string", minLength: 2, maxLength: 300 },
+        firstStep: { type: "string", minLength: 2, maxLength: 240 },
+        expectedResult: { type: "string", minLength: 2, maxLength: 300 },
+        doneWhen: { type: "string", minLength: 2, maxLength: 300 },
+        category: { type: "string", enum: [...CATEGORIES] },
         priority: { type: "string", enum: ["alta", "media", "baixa"] }, estimatedMinutes: { type: "integer", minimum: 5, maximum: 240 }, recurring: { type: "boolean" }, scheduledDate: { type: "string", format: "date" },
       },
     },
     weeklyReview: {
-      type: "object", additionalProperties: false, required: ["consistencyScore", "highlights", "patterns", "keep", "cut", "nextWeekFocus", "challenge"],
+      type: "object", additionalProperties: false, required: ["highlights", "patterns", "keep", "cut", "nextWeekFocus", "challenge"],
       properties: {
-        consistencyScore: { type: "number", minimum: 0, maximum: 100 }, highlights: { type: "array", maxItems: 8, items: { type: "string", maxLength: 160 } },
+        highlights: { type: "array", maxItems: 8, items: { type: "string", maxLength: 160 } },
         patterns: { type: "array", maxItems: 8, items: { type: "string", maxLength: 160 } }, keep: { type: "array", maxItems: 8, items: { type: "string", maxLength: 160 } },
         cut: { type: "array", maxItems: 8, items: { type: "string", maxLength: 160 } }, nextWeekFocus: { type: "string", maxLength: 500 }, challenge: { type: "string", maxLength: 500 },
       },
     },
+    lessonReview: {
+      type: "object",
+      additionalProperties: false,
+      required: ["accepted", "feedback"],
+      properties: {
+        accepted: { type: "boolean" },
+        feedback: { type: "string", minLength: 2, maxLength: 2000 },
+        nextAdjustment: { type: "string", minLength: 2, maxLength: 1000 },
+      },
+    },
   },
 } as const;
+
+const REQUIRED_OUTPUT_BY_MODE: Partial<
+  Record<AssistantRequest["mode"], "roadmap" | "capture" | "weeklyReview" | "lessonReview">
+> = {
+  roadmap: "roadmap",
+  capture: "capture",
+  weekly_review: "weeklyReview",
+  evidence_review: "lessonReview",
+};
+
+export function assistantJsonSchemaForMode(mode: AssistantRequest["mode"]) {
+  const requiredOutput = REQUIRED_OUTPUT_BY_MODE[mode];
+  return {
+    ...ASSISTANT_JSON_SCHEMA,
+    required: requiredOutput ? ["message", requiredOutput] : ["message"],
+  };
+}

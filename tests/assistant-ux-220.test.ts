@@ -34,7 +34,9 @@ describe("Assistant UX 2.2", () => {
 
   it("enforces compact Brain and one-step Atlas instructions", () => {
     const server = readFileSync("services/assistant.server.ts", "utf8");
-    expect(server).toContain("Use no máximo 120 palavras");
+    expect(server).toContain("Use no máximo 90 palavras");
+    expect(server).toContain("Use no máximo 140 palavras");
+    expect(server).toContain("Use no máximo 220 palavras");
     expect(server).toContain("Entregue uma etapa por vez");
     expect(server).toContain("Faça no máximo uma pergunta por resposta");
   });
@@ -46,5 +48,13 @@ describe("Assistant UX 2.2", () => {
     expect(route).toContain('streamEvent("delta"');
     expect(client).toContain('Accept: "text/event-stream"');
     expect(route).not.toContain("process.env.OPENROUTER_API_KEY,");
+  });
+
+  it("preserves a failed draft, exposes retry and supports contextual roadmap links", () => {
+    const brain = readFileSync("app/(tabs)/brain.tsx", "utf8");
+    expect(brain).toContain("useLocalSearchParams");
+    expect(brain).toContain('raw === "roadmaps"');
+    expect(brain).toContain("setFailedDraft(clean)");
+    expect(brain).toContain('"Tentar novamente"');
   });
 });

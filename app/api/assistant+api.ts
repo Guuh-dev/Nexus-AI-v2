@@ -23,7 +23,14 @@ type RunningAssistant = {
 const inFlight = new Map<string, RunningAssistant>();
 
 const requestSchema = z.object({
-  mode: z.enum(["brain", "professor", "roadmap", "capture", "weekly_review"]),
+  mode: z.enum([
+    "brain",
+    "professor",
+    "roadmap",
+    "capture",
+    "weekly_review",
+    "evidence_review",
+  ]),
   requestId: z.string().trim().min(8).max(120),
   clientId: z.string().trim().min(8).max(120),
   message: z.string().trim().min(1).max(4000),
@@ -249,7 +256,7 @@ export async function POST(request: Request): Promise<Response> {
     if (error instanceof Error && error.message === "NEXUS_MISSING_OPENROUTER_KEY") return json(request, { error: { code: "missing_key", message: "A inteligência do Nexus ainda não foi configurada." } }, 503);
     const status = statusFromError(error);
     if (status === 401) return json(request, { error: { code: "unauthorized", message: "Não foi possível validar a inteligência do Nexus." } }, 401);
-    if (status === 402) return json(request, { error: { code: "payment_required", message: "A cota da inteligência terminou. O modo local continua disponível." } }, 402);
+    if (status === 402) return json(request, { error: { code: "payment_required", message: "A cota da inteligência terminou. Tente novamente mais tarde." } }, 402);
     if (status === 429) return json(request, { error: { code: "rate_limit", message: "O Nexus está recebendo muitas solicitações. Tente novamente em instantes." } }, 429);
     if ([408, 425, 504, 529].includes(status)) return json(request, { error: { code: "timeout", message: "O provedor remoto demorou ou está temporariamente sobrecarregado." } }, 504);
     return json(request, { error: { code: "provider_unavailable", message: "A inteligência está temporariamente indisponível." } }, 503);

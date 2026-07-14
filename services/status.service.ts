@@ -52,7 +52,9 @@ export async function getIntelligenceStatus(signal?: AbortSignal, deep = false):
     if (!(response.headers.get("content-type") ?? "").includes("application/json")) return null;
     const parsed = intelligenceStatusSchema.safeParse(await response.json());
     if (!parsed.success) return null;
-    const compatible = Boolean(parsed.data.apiVersion && /^2\.(?:[1-9]|\d{2,})(?:\.|$)/.test(parsed.data.apiVersion));
+    const compatible = Boolean(
+      parsed.data.apiVersion && /^3\.\d+(?:\.|$)/.test(parsed.data.apiVersion),
+    );
     const probe = parsed.data.probe;
     return {
       configured: parsed.data.configured,
