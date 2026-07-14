@@ -82,7 +82,6 @@ No Render, confirme:
 
 ```text
 OPENROUTER_API_KEY=<segredo>
-OPENROUTER_ALLOW_PAID_FALLBACK=false
 ```
 
 Depois do merge, aguarde o deploy da `main` e teste:

@@ -1,98 +1,92 @@
-# Publicação do Nexus AI 2.3.0
+# Deploy do Nexus AI 3.0
 
-## 1. Requisitos
+## Requisitos
 
 - Node.js `22.13+ <23`;
 - pnpm `10.0.0`;
-- conta Expo dona do projeto `littleguhh/nexus-ai`;
+- projeto Expo vinculado ao owner configurado em `app.json`;
 - `EXPO_TOKEN` nos secrets do GitHub;
-- backend Render publicado a partir da `main` 2.3.0.
+- `OPENROUTER_API_KEY` somente no serviço Render;
+- branch protegida e revisão obrigatória para `main`.
 
-```bash
-npx -y pnpm@10.0.0 install --frozen-lockfile
-pnpm run verify
-pnpm run release:check
-pnpm run export:web
-pnpm exec expo install --check
-bash scripts/verify-native-widget.sh
-```
+O repositório usa apenas `pnpm-lock.yaml`. Não adicione `package-lock.json`.
 
-O projeto usa somente `pnpm-lock.yaml`. Não recrie `package-lock.json`, pois EAS pode selecionar npm.
+## Backend Render
 
-## 2. Backend e IA
+O nome público atual é histórico e permanece configurado em `eas.json` e nos workflows. `render.yaml` instala com lockfile congelado, exporta o servidor web Expo e usa `/api/status` como health check.
 
-URL nativa:
+Variáveis:
 
 ```text
-https://nexus-ai-v1.onrender.com
+NODE_VERSION=22.14.0
+OPENROUTER_API_KEY=<secret server-side>
 ```
 
-O nome `v1` é histórico. O serviço deve executar a `main` atual.
-
-Secrets exclusivos do servidor:
-
-```text
-OPENROUTER_API_KEY
-OPENROUTER_ALLOW_PAID_FALLBACK=false
-```
-
-Nunca prefixe a chave com `EXPO_PUBLIC_`.
+A conta OpenRouter precisa ter créditos para os dois modelos de produção. O backend aplica ZDR, nega coleta persistente e limita o preço por token em código.
 
 Depois do deploy:
 
 ```bash
-curl -sS https://nexus-ai-v1.onrender.com/api/status
+curl --fail --show-error https://nexus-ai-v1.onrender.com/api/status
 ```
 
-O resultado deve incluir `configured: true`, `apiVersion: "2.3.0"` e `assistantAvailable: true`.
+Resposta saudável esperada:
 
-## 3. GitHub Actions
-
-Secret obrigatório:
-
-```text
-EXPO_TOKEN
+```json
+{
+  "configured": true,
+  "apiVersion": "3.0.0",
+  "assistantAvailable": true
+}
 ```
 
-Workflows:
+Teste também uma chamada conversacional e uma estruturada. O health check não garante sozinho que um modelo permitido está respondendo.
 
-- Nexus CI
-- Nexus Security
-- Nexus Native Change Detector
-- Nexus OTA Preview
-- Nexus OTA Production
-- Nexus OTA Rollback
-- Nexus Android Build
-- Nexus Release
+## CI e segurança
 
-## 4. APK base 2.3.0
+Todo PR executa:
 
-A 2.3.0 muda o runtime e a família nativa de widgets. Após o merge:
+- Node 22 e pnpm 10;
+- install frozen;
+- typecheck, lint e testes;
+- scan de secrets e release check;
+- Expo Doctor, config e export web;
+- prebuild Android limpo;
+- compilação Gradle debug;
+- detector de mudança nativa;
+- audit alto e CodeQL.
+
+Nenhuma etapa verde isolada substitui a suíte completa.
+
+## APK-base 3.0.0
+
+A v3 muda runtime e módulo nativo. Após aprovação, merge e backend saudável:
 
 ```bash
 git switch main
 git pull --ff-only origin main
 node -p "require('./package.json').version"
-git tag -a v2.3.0 -m "Nexus AI v2.3.0 Widget Family"
-git push origin v2.3.0
+git tag -a v3.0.0 -m "Nexus AI v3.0.0 Core Reborn"
+git push origin v3.0.0
 ```
 
-A tag dispara **Nexus Release**, que valida o projeto, solicita o build EAS e anexa o APK à GitHub Release quando concluído.
+A tag dispara o workflow Nexus Release, que verifica a versão, solicita o build EAS, baixa o APK e o anexa à GitHub Release.
 
-Antes de instalar:
+Antes de distribuir:
 
-1. exporte backup JSON;
-2. mantenha o APK anterior disponível;
-3. instale por cima para testar migração;
-4. remova e adicione novamente widgets com cache antigo.
+1. exporte backup em uma instalação 2.x;
+2. instale o APK 3.0.0 por cima;
+3. valide migração e reinício;
+4. teste as cinco famílias de widget;
+5. registre o resultado do checklist de [ANDROID_QA.md](ANDROID_QA.md).
 
-## 5. OTAs futuras
+## OTA
 
-Depois do APK 2.3.0 instalado:
+Depois que o APK 3.0.0 estiver publicado e instalado:
 
-- mudança OTA-compatible na `main` → Preview;
-- teste aprovado → execute OTA Production e confirme `PRODUCTION`;
-- mudança nativa/runtime → nova versão e novo APK;
-- regressão OTA → execute OTA Rollback com o group ID.
+- mudança compatível na `main` pode gerar Preview;
+- produção exige execução manual e confirmação explícita;
+- mudança nativa ou de versão exige outro APK;
+- rollback usa o group ID de uma atualização anterior.
 
-O `runtimeVersion` usa `appVersion`, impedindo código 2.2 de ser enviado a um binário 2.1.1 incompatível.
+Os workflows comparam o diff com a tag da base instalada e falham de modo seguro quando não conseguem classificar a mudança. Não altere essa política para forçar uma OTA.

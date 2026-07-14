@@ -1,47 +1,57 @@
-# Widget Studio Android — Nexus AI 2.2
+# Widget Studio Android — Nexus AI 3.0
 
-## Recursos
+## Arquitetura instalada
 
-- provider Kotlin e configuração independente por instância;
-- layouts adaptáveis de 1×1 a 5×2;
-- 16 presets de missão, foco, Atlas, Companion, progresso, hábitos e dinheiro;
-- 11 estilos, incluindo Light Clean;
-- missão, até cinco tarefas, XP, nível, streak, foco, progresso, aprendizado, hábitos, Boss Battle e finanças;
-- humor, fala, mascote e acessório por instância;
-- troca de página;
-- conclusão idempotente de tarefas;
-- nonce para conclusão e navegação interna de página;
-- payload compacto sem chave, perfil completo ou conversa.
+O APK registra cinco `AppWidgetProvider`: Mini, Strip, Companion, Mission e Command. Todos consomem um payload compacto v3, mas cada provider escolhe seu próprio layout e aplica o limite de conteúdo da família.
 
-## APK obrigatório
+`NexusWidgetConfigureActivity` é opcional e reconfigurável. Antes de ler ou gravar uma instância, ela confirma com `AppWidgetManager` que o ID pertence a um provider Nexus conhecido. Os valores iniciais vêm do render spec da família; valores salvos pela instância têm precedência.
 
-A 2.3.0 altera providers Kotlin, XML, drawables, Manifest e runtime. Ela precisa de novo APK e não pode ser entregue ao binário 2.2.0 por OTA.
+## Capacidades
 
-Depois que o APK 2.3.0 estiver instalado, mudanças compatíveis apenas em JavaScript/TypeScript podem chegar via OTA 2.3.x.
+- cinco layouts com preview estático no launcher;
+- Nexus, AMOLED, Transparente, Pixel e Minimal;
+- opacidades de 0%, 70%, 85%, 96% e 100%;
+- cor de destaque, inclusive cor personalizada já salva;
+- sete mascotes e sete personalidades;
+- fala contextual ou silenciosa;
+- privacidade global ou por instância;
+- abertura de Hoje, Brain, Foco ou Progresso;
+- conclusão segura de até duas tarefas em Mission e quatro em Command.
 
-## Build
+Opções de versões antigas são migradas. A família real sempre vem do provider, fala antiga vira contextual e destinos removidos viram Hoje.
 
-1. Configure `EXPO_TOKEN` no GitHub.
-2. Faça merge da branch da 2.3.0 após CI, Security e Native Change Detector verdes.
-3. Crie a tag `v2.3.0` para disparar **Nexus Release**.
+Os mínimos nativos são 40×40 dp (Mini), 110×40 dp (Strip), 110×110 dp (Companion), 250×110 dp (Mission) e 250×250 dp (Command). O elemento raiz de cada XML declara exatamente o mesmo mínimo do metadata do provider; imagens, padding, linhas e tarefas visíveis foram dimensionados para esse limite, evitando depender de espaço extra concedido por um launcher específico.
 
-Build manual:
+Aprendizado e o Professor Atlas separado permanecem no app. A v3 não oferece controles nem payload paralelo para uma lição ou segundo personagem, pois nenhuma das cinco famílias renderiza esse canal. Atlas continua disponível como o mascote único da instância. Preferências antigas continuam válidas durante migração/restore, mas não reativam uma superfície invisível.
+
+## Quando é necessário um APK
+
+Qualquer alteração em `modules/nexus-widget`, `plugins`, configuração Expo, Manifest, recursos Android ou dependências nativas exige novo runtime e novo APK. OTA só pode alterar código compatível com as capacidades já instaladas.
+
+## Verificação local
 
 ```bash
-pnpm dlx eas-cli@20.5.1 build --platform android --profile preview
+pnpm install --frozen-lockfile
+pnpm run typecheck
+pnpm run test
+pnpm exec expo prebuild --platform android --clean
+bash scripts/verify-native-widget.sh
+./android/gradlew :app:assembleDebug
 ```
 
-## Teste
+O último comando requer JDK e Android SDK configurados. O verificador confere providers, Activity, política de backup, previews, normalizadores, rotas permitidas e ausência de recursos órfãos. Testes TypeScript também comparam dimensões do metadata e da raiz dos cinco layouts; isso não substitui a compilação Gradle nem o teste em launcher real.
 
-1. Faça backup JSON.
-2. Instale o APK e abra o app uma vez.
-3. Remova widgets antigos mantidos em cache pelo launcher.
-4. Adicione duas instâncias com estilos e humores diferentes.
-5. Teste missão, tarefas, Companion, finanças, hábitos e Boss Battle.
-6. Ative troca de página e reinicie o aparelho.
-7. Conclua a mesma tarefa repetidamente e confirme XP único.
-8. Teste privacy mode.
-9. Altere Money Mission e confirme atualização do widget.
-10. Confirme que cada instância preserva configuração independente.
+## Roteiro em Android físico
 
-Leia também [WIDGET_STUDIO_2_2.md](WIDGET_STUDIO_2_2.md).
+1. Instale o APK v3 e abra o app uma vez para sincronizar o payload.
+2. Abra o seletor do launcher e confira a amostra das cinco famílias.
+3. Adicione uma instância de cada família e conclua a configuração inicial.
+4. Reabra a configuração e confirme que os valores permanecem selecionados.
+5. Configure duas instâncias da mesma família com estilos diferentes.
+6. Teste fala contextual e silenciosa.
+7. Ative privacidade global e por instância; confirme que textos e métricas não vazam.
+8. Teste as quatro ações de raiz.
+9. Conclua tarefas em Mission e Command e confirme sincronização idempotente no app.
+10. Reinicie o dispositivo e confirme persistência e redesenho.
+
+Consulte também [WIDGETS.md](WIDGETS.md) e [ANDROID_QA.md](ANDROID_QA.md).

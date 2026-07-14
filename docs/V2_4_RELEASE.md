@@ -18,7 +18,7 @@ This release changes the Android widget provider under `modules/nexus-widget`, s
 
 No persisted schema fields were changed. Existing AsyncStorage payloads continue to be read. Widget empty-state handling was added for missing `activePlan` data instead of changing the payload schema.
 
-## Manual QA checklist: Galaxy A16 / One UI
+## Manual QA checklist: Android físico / One UI
 
 1. Open Professor Atlas intake, select advanced level, focus the multiline skills field and verify the keyboard does not cover it.
 2. Test a short form, long form, modal form and multiline input with gesture navigation and three-button navigation.
