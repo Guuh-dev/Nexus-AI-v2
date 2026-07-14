@@ -33,7 +33,7 @@ export function NexusButton({
   const background =
     variant === "primary" ? colors.primary : variant === "danger" ? `${colors.danger}22` : variant === "secondary" ? colors.surfaceAlt : "transparent";
   const borderColor = variant === "danger" ? `${colors.danger}66` : variant === "ghost" ? colors.border : variant === "secondary" ? colors.borderStrong : background;
-  const textColor = variant === "primary" ? "#FFFFFF" : variant === "danger" ? colors.danger : colors.text;
+  const textColor = variant === "primary" ? colors.onPrimary : variant === "danger" ? colors.danger : colors.text;
 
   return (
     <Pressable

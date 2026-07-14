@@ -483,7 +483,7 @@ export default function Onboarding() {
                     >
                       <NexusText
                         variant="caption"
-                        color={selected ? "#FFFFFF" : colors.text}
+                        color={selected ? colors.onPrimary : colors.text}
                       >
                         {day.label}
                       </NexusText>

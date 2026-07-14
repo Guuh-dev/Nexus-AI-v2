@@ -11,12 +11,39 @@ import {
 } from "@/components/ErrorBoundary";
 import { Toast } from "@/components/Toast";
 import { NotificationBootstrap } from "@/components/NotificationBootstrap";
+import { Card } from "@/components/ui/Card";
+import { NexusText } from "@/components/ui/NexusText";
 import { NexusProvider, useNexus } from "@/providers/NexusProvider";
 
 export { RouteErrorBoundary as ErrorBoundary };
 
 function Navigation() {
-  const { colors, data } = useNexus();
+  const { colors, data, ready, storageReadOnlyReason } = useNexus();
+
+  if (!ready) return null;
+  if (storageReadOnlyReason) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          padding: 24,
+          backgroundColor: colors.background,
+        }}
+      >
+        <Card style={{ gap: 12, maxWidth: 560, width: "100%", alignSelf: "center" }}>
+          <NexusText variant="mono" color={colors.warning}>
+            DADOS PROTEGIDOS
+          </NexusText>
+          <NexusText variant="display">Seus dados foram preservados.</NexusText>
+          <NexusText secondary>{storageReadOnlyReason}</NexusText>
+          <NexusText variant="caption" secondary>
+            Esta instalação ficou somente leitura para evitar sobrescrever o estado original. Nenhuma alteração foi gravada.
+          </NexusText>
+        </Card>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -36,11 +63,7 @@ function Navigation() {
         <Stack.Screen name="loading-plan" options={{ gestureEnabled: false }} />
         <Stack.Screen name="customize" />
         <Stack.Screen name="widget-studio" />
-        <Stack.Screen name="operations" />
-        <Stack.Screen name="habits" />
-        <Stack.Screen name="week" />
         <Stack.Screen name="privacy" />
-        <Stack.Screen name="finance" />
         <Stack.Screen name="(tabs)" />
       </Stack>
       <NotificationBootstrap />

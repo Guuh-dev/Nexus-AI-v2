@@ -5,6 +5,7 @@ import { NexusText } from "@/components/ui/NexusText";
 import { PixelMascot } from "@/components/PixelMascot";
 import { useNexus } from "@/providers/NexusProvider";
 import { getIntelligenceStatus } from "@/services/status.service";
+import { OTA_RELEASE } from "@/constants/release";
 
 export default function Index() {
   const { ready, data, colors } = useNexus();
@@ -56,7 +57,7 @@ export default function Index() {
         <NexusText variant="display" style={styles.brand}>NEXUS AI</NexusText>
         <View style={styles.statusRow}><View style={[styles.dot, { backgroundColor: ready ? colors.success : colors.warning }]} /><NexusText variant="caption" secondary>{ready ? "SISTEMAS SINCRONIZADOS" : "RECUPERANDO SEU PROGRESSO"}</NexusText></View>
       </Animated.View>
-      <View style={styles.version}><NexusText variant="mono" secondary>NEXUS CORE • V2</NexusText></View>
+      <View style={styles.version}><NexusText variant="mono" secondary>NEXUS CORE • V{OTA_RELEASE.label}</NexusText></View>
     </View>
   );
 }

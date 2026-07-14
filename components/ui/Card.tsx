@@ -40,8 +40,8 @@ export function Card({
             sharp || terminal
               ? Math.min(visuals.cardRadius, 10)
               : visuals.cardRadius,
-          padding: 16,
-          shadowColor: terminal ? colors.primarySoft : colors.primary,
+          padding: 14,
+          shadowColor: terminal ? colors.glow : colors.shadow,
           shadowOpacity: minimal ? 0 : visuals.shadowOpacity,
           shadowRadius: terminal
             ? Math.min(10, visuals.shadowRadius)

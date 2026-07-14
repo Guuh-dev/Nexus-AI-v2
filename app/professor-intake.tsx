@@ -46,6 +46,7 @@ export default function ProfessorIntakeScreen() {
     typeof topicParam === "string" ? topicParam : data.learning.pendingTopics[0] ?? "";
   const [step, setStep] = useState(0);
   const [errors, setErrors] = useState<ProfessorIntakeErrors>({});
+  const [roadmapError, setRoadmapError] = useState("");
   const [weekly, setWeekly] = useState(
     String(profile?.evolution?.weeklyLearningMinutes ?? 180),
   );
@@ -80,6 +81,7 @@ export default function ProfessorIntakeScreen() {
   if (!profile) return null;
 
   const clearError = (field?: ProfessorIntakeField) => {
+    setRoadmapError("");
     if (!field) {
       setErrors({});
       return;
@@ -155,8 +157,12 @@ export default function ProfessorIntakeScreen() {
       return;
     }
 
-    await createRoadmap(parsed.data.topic, parsed.data);
-    router.replace("/(tabs)/brain");
+    const created = await createRoadmap(parsed.data.topic, parsed.data);
+    if (!created) {
+      setRoadmapError("A IA não conseguiu gerar uma trilha confiável agora. Suas respostas continuam aqui; tente novamente.");
+      return;
+    }
+    router.replace({ pathname: "/(tabs)/brain", params: { view: "roadmaps" } });
   };
 
   const meta = STEP_META[step] ?? STEP_META[0];
@@ -173,7 +179,7 @@ export default function ProfessorIntakeScreen() {
         style={styles.back}
       />
       <NexusButton
-        label={step === STEP_META.length - 1 ? "Criar meu roadmap" : "Continuar"}
+        label={step === STEP_META.length - 1 ? (roadmapError ? "Tentar novamente" : "Criar meu roadmap") : "Continuar"}
         loading={assistantBusy}
         disabled={assistantBusy}
         onPress={() => void next()}
@@ -370,40 +376,18 @@ export default function ProfessorIntakeScreen() {
                 {weekly} min/semana • sessões de {intake.sessionMinutes} min • nível {intake.knowledgeLevel}
               </NexusText>
             </Card>
+            {roadmapError ? (
+              <Card style={{ borderColor: colors.danger }}>
+                <NexusText variant="subtitle" color={colors.danger}>Roadmap não criado</NexusText>
+                <NexusText variant="caption" secondary>{roadmapError}</NexusText>
+              </Card>
+            ) : null}
             <Toggle
               label="Incluir próximas lições no plano diário"
               description="O Nexus poderá sugerir uma sessão de evolução nos seus dias ativos."
               value={intake.includeInDailyPlan}
               onChange={(value) => patch("includeInDailyPlan", value)}
             />
-            <Toggle
-              label="Mostrar aprendizado no widget"
-              description="Exibe a próxima lição e o progresso do roadmap quando houver espaço."
-              value={intake.showLearningInWidget}
-              onChange={(value) => patch("showLearningInWidget", value)}
-            />
-            <Toggle
-              label="Colocar o Professor Atlas no widget"
-              description="Ele aparece ao lado da sua cobrinha Nexus. Você poderá desligar isso no Widget Studio."
-              value={intake.showProfessorInWidget}
-              onChange={(value) => patch("showProfessorInWidget", value)}
-            />
-            {intake.showProfessorInWidget ? (
-              <Card style={styles.widgetDuo}>
-                <PixelMascot
-                  skin={data.preferences.mascot.skin}
-                  accessory={data.preferences.mascot.equippedAccessory}
-                  size={52}
-                />
-                <CompanionMascot mascot="atlas" state="idle" size={52} />
-                <View style={styles.flex}>
-                  <NexusText variant="subtitle">Dupla Nexus + Atlas</NexusText>
-                  <NexusText variant="caption" secondary>
-                    Seu mascote continua principal; Atlas acompanha o aprendizado.
-                  </NexusText>
-                </View>
-              </Card>
-            ) : null}
           </>
         ) : null}
       </View>
@@ -513,7 +497,7 @@ function Toggle({
         value={value}
         onValueChange={onChange}
         trackColor={{ false: colors.borderStrong, true: colors.primary }}
-        thumbColor="#FFFFFF"
+        thumbColor={colors.onPrimary}
       />
     </View>
   );
@@ -548,7 +532,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
   },
-  widgetDuo: { flexDirection: "row", alignItems: "center", gap: 10 },
   footer: { flexDirection: "row", gap: 10 },
   back: { flex: 0.8 },
   next: { flex: 1.6 },

@@ -11,6 +11,7 @@ export function ConfirmDialog({
   message,
   confirmLabel,
   destructive = false,
+  loading = false,
   onConfirm,
   onCancel,
   children,
@@ -20,22 +21,26 @@ export function ConfirmDialog({
   message: string;
   confirmLabel: string;
   destructive?: boolean;
-  onConfirm: () => void;
+  loading?: boolean;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   children?: ReactNode;
 }) {
   const { colors } = useNexus();
+  const cancel = () => {
+    if (!loading) onCancel();
+  };
   return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={onCancel}>
-      <Pressable accessibilityRole="button" accessibilityLabel="Fechar diálogo" onPress={onCancel} style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={cancel}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Fechar diálogo" onPress={cancel} style={[styles.overlay, { backgroundColor: colors.overlay }]}>
         <Pressable onPress={(event) => event.stopPropagation()} style={styles.container}>
           <Card elevated style={styles.card}>
             <NexusText variant="title">{title}</NexusText>
             <NexusText secondary>{message}</NexusText>
             {children}
             <View style={styles.actions}>
-              <NexusButton label="Cancelar" variant="ghost" onPress={onCancel} style={styles.flex} />
-              <NexusButton label={confirmLabel} variant={destructive ? "danger" : "primary"} onPress={onConfirm} style={styles.flex} />
+              <NexusButton label="Cancelar" variant="ghost" disabled={loading} onPress={cancel} style={styles.flex} />
+              <NexusButton label={confirmLabel} variant={destructive ? "danger" : "primary"} loading={loading} onPress={() => { void onConfirm(); }} style={styles.flex} />
             </View>
           </Card>
         </Pressable>

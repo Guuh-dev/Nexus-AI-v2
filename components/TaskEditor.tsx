@@ -29,6 +29,10 @@ const categoryLabels: Record<Category, string> = {
 export type TaskEditorValue = {
   title: string;
   description?: string;
+  context?: string;
+  firstStep?: string;
+  expectedResult?: string;
+  doneWhen?: string;
   category: Category;
   priority: Priority;
   estimatedMinutes: number;
@@ -43,54 +47,81 @@ export function TaskEditor({
 }: {
   visible: boolean;
   task?: Task;
-  onSave: (value: TaskEditorValue) => void;
+  onSave: (value: TaskEditorValue) => Promise<boolean>;
   onClose: () => void;
 }) {
   const { colors } = useNexus();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [context, setContext] = useState("");
+  const [firstStep, setFirstStep] = useState("");
+  const [expectedResult, setExpectedResult] = useState("");
+  const [doneWhen, setDoneWhen] = useState("");
   const [category, setCategory] = useState<Category>("desenvolvimento");
   const [priority, setPriority] = useState<Priority>("media");
   const [minutes, setMinutes] = useState("25");
   const [recurring, setRecurring] = useState(false);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
     setTitle(task?.title ?? "");
     setDescription(task?.description ?? "");
+    setContext(task?.context ?? "");
+    setFirstStep(task?.firstStep ?? "");
+    setExpectedResult(task?.expectedResult ?? "");
+    setDoneWhen(task?.doneWhen ?? "");
     setCategory(task?.category ?? "desenvolvimento");
     setPriority(task?.priority ?? "media");
     setMinutes(String(task?.estimatedMinutes ?? 25));
     setRecurring(task?.recurring ?? false);
     setError("");
+    setSaving(false);
   }, [task, visible]);
 
-  const save = () => {
+  const close = () => {
+    if (!saving) onClose();
+  };
+
+  const save = async () => {
     const parsedMinutes = Number(minutes);
     if (title.trim().length < 2) return setError("Escreva um título com pelo menos 2 caracteres.");
     if (!Number.isFinite(parsedMinutes) || parsedMinutes < 5 || parsedMinutes > 240) {
       return setError("Escolha entre 5 e 240 minutos.");
     }
-    onSave({
-      title: title.trim(),
-      ...(description.trim() ? { description: description.trim() } : {}),
-      category,
-      priority,
-      estimatedMinutes: Math.round(parsedMinutes),
-      recurring,
-    });
-    onClose();
+    setSaving(true);
+    setError("");
+    try {
+      const saved = await onSave({
+        title: title.trim(),
+        ...(description.trim() ? { description: description.trim() } : {}),
+        ...(context.trim() ? { context: context.trim() } : {}),
+        ...(firstStep.trim() ? { firstStep: firstStep.trim() } : {}),
+        ...(expectedResult.trim() ? { expectedResult: expectedResult.trim() } : {}),
+        ...(doneWhen.trim() ? { doneWhen: doneWhen.trim() } : {}),
+        category,
+        priority,
+        estimatedMinutes: Math.round(parsedMinutes),
+        recurring,
+      });
+      if (saved) onClose();
+      else setError("Não foi possível confirmar a gravação. Revise os dados e tente novamente.");
+    } catch {
+      setError("Não foi possível confirmar a gravação. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <Modal transparent visible={visible} animationType="slide" onRequestClose={onClose}>
+    <Modal transparent visible={visible} animationType="slide" onRequestClose={close}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
         style={styles.keyboardRoot}
       >
-        <Pressable onPress={onClose} style={[styles.overlay, { backgroundColor: colors.overlay }]}>
+        <Pressable onPress={close} style={[styles.overlay, { backgroundColor: colors.overlay }]}>
           <Pressable onPress={(event) => event.stopPropagation()} style={styles.shell}>
             <Card elevated style={styles.card}>
               <ScrollView
@@ -104,19 +135,30 @@ export function TaskEditor({
                     <NexusText variant="mono" color={colors.primarySoft}>MISSÃO MANUAL</NexusText>
                     <NexusText variant="title">{task ? "Editar tarefa" : "Adicionar tarefa"}</NexusText>
                   </View>
-                  <Pressable accessibilityRole="button" accessibilityLabel="Fechar" onPress={onClose} style={styles.close}>
+                  <Pressable accessibilityRole="button" accessibilityLabel="Fechar" disabled={saving} onPress={close} style={styles.close}>
                     <NexusText variant="title">×</NexusText>
                   </Pressable>
                 </View>
                 <Field label="Título" value={title} onChangeText={setTitle} maxLength={120} placeholder="O que precisa ser executado?" />
                 <Field
-                  label="Descrição opcional"
+                  label="Descrição"
                   value={description}
                   onChangeText={setDescription}
                   maxLength={300}
                   multiline
-                  placeholder="Defina o resultado esperado"
+                  placeholder="O que precisa ser feito?"
                 />
+                <Field
+                  label="Contexto curto"
+                  value={context}
+                  onChangeText={setContext}
+                  maxLength={300}
+                  multiline
+                  placeholder="Por que esta tarefa existe?"
+                />
+                <Field label="Primeiro passo" value={firstStep} onChangeText={setFirstStep} maxLength={240} placeholder="A menor ação para começar" />
+                <Field label="Resultado esperado" value={expectedResult} onChangeText={setExpectedResult} maxLength={300} placeholder="Qual entrega deve existir?" />
+                <Field label="Concluído quando" value={doneWhen} onChangeText={setDoneWhen} maxLength={300} placeholder="Critério verificável de conclusão" />
                 <View style={styles.section}>
                   <NexusText variant="caption" secondary>Categoria</NexusText>
                   <View style={styles.chips}>
@@ -153,11 +195,11 @@ export function TaskEditor({
                     value={recurring}
                     onValueChange={setRecurring}
                     trackColor={{ false: colors.borderStrong, true: colors.primary }}
-                    thumbColor="#FFFFFF"
+                    thumbColor={colors.onPrimary}
                   />
                 </View>
                 {error ? <NexusText variant="caption" color={colors.danger}>{error}</NexusText> : null}
-                <NexusButton label={task ? "Salvar alterações" : "Adicionar ao plano"} onPress={save} fullWidth />
+                <NexusButton label={task ? "Salvar alterações" : "Adicionar ao plano"} loading={saving} onPress={() => { void save(); }} fullWidth />
               </ScrollView>
             </Card>
           </Pressable>

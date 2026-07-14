@@ -5,8 +5,8 @@ import { useNexus } from "@/providers/NexusProvider";
 type Variant = "display" | "title" | "subtitle" | "body" | "caption" | "mono";
 
 const variants: Record<Variant, TextStyle> = {
-  display: { fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.8 },
-  title: { fontSize: 21, lineHeight: 27, fontWeight: "700", letterSpacing: -0.35 },
+  display: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.7 },
+  title: { fontSize: 20, lineHeight: 26, fontWeight: "700", letterSpacing: -0.3 },
   subtitle: { fontSize: 16, lineHeight: 22, fontWeight: "600" },
   body: { fontSize: 15, lineHeight: 22, fontWeight: "400" },
   caption: { fontSize: 12, lineHeight: 17, fontWeight: "500", letterSpacing: 0.15 },

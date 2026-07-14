@@ -1,5 +1,12 @@
-import type { Preferences, ThemeId } from "@/types";
-import { normalizeHexColor } from "@/utils/text";
+import type { Preferences } from "@/types";
+
+export type CoreThemeId =
+  | "nexus"
+  | "amoled"
+  | "glass"
+  | "light"
+  | "pixel"
+  | "minimal";
 
 export type NexusColors = {
   background: string;
@@ -8,15 +15,19 @@ export type NexusColors = {
   surfaceRaised: string;
   primary: string;
   primarySoft: string;
+  onPrimary: string;
   text: string;
   textSecondary: string;
   success: string;
+  onSuccess: string;
   warning: string;
   danger: string;
   border: string;
   borderStrong: string;
   overlay: string;
   tabBar: string;
+  shadow: string;
+  glow: string;
 };
 
 export type NexusVisuals = {
@@ -27,54 +38,266 @@ export type NexusVisuals = {
   shadowOpacity: number;
   shadowRadius: number;
   elevation: number;
-  backdrop: "none" | "grid" | "aurora" | "stars" | "scanlines" | "glow";
+  backdrop: "none" | "grid" | "aurora" | "glow";
   cardStyle: "soft" | "sharp" | "glass" | "terminal" | "minimal";
   tabActiveFill: string;
 };
 
-const base = {
-  text: "#F7F7F8",
-  textSecondary: "#A1A1AA",
+export type NexusTheme = {
+  id: CoreThemeId;
+  label: string;
+  description: string;
+  colors: NexusColors;
+  visuals: NexusVisuals;
+};
+
+const darkSemantic = {
+  text: "#F7F7FA",
+  textSecondary: "#A7A4B3",
   success: "#4ADE80",
-  warning: "#FBBF24",
+  onSuccess: "#07120B",
+  warning: "#F6C453",
   danger: "#FB7185",
 };
 
-const palettes: Record<Exclude<ThemeId, "custom">, NexusColors> = {
-  nexus: { ...base, background: "#050505", surface: "#111114", surfaceAlt: "#19191F", surfaceRaised: "#202028", primary: "#8B5CF6", primarySoft: "#C4B5FD", border: "#282632", borderStrong: "#554675", overlay: "rgba(0,0,0,0.76)", tabBar: "#0A090D" },
-  amoled: { ...base, background: "#000000", surface: "#050505", surfaceAlt: "#0A0A0A", surfaceRaised: "#101010", primary: "#B89CFF", primarySoft: "#E1D7FF", border: "#151515", borderStrong: "#2B2B2B", overlay: "rgba(0,0,0,0.92)", tabBar: "#000000" },
-  oneui: { ...base, background: "#0B1020", surface: "#161D31", surfaceAlt: "#202A43", surfaceRaised: "#2A3654", primary: "#6EA8FF", primarySoft: "#C0D8FF", border: "#33415F", borderStrong: "#5874A7", overlay: "rgba(5,8,18,0.80)", tabBar: "#11182A" },
-  hud: { ...base, background: "#020806", surface: "#07130F", surfaceAlt: "#0B2119", surfaceRaised: "#103126", primary: "#32F5A5", primarySoft: "#9BFFD8", border: "#124A36", borderStrong: "#1C7653", overlay: "rgba(0,7,4,0.88)", tabBar: "#030E0A" },
-  aurora: { ...base, background: "#070914", surface: "#11182B", surfaceAlt: "#182642", surfaceRaised: "#213355", primary: "#24D7E8", primarySoft: "#C49CFF", border: "#29456C", borderStrong: "#4B72A4", overlay: "rgba(3,5,18,0.84)", tabBar: "#0A1020" },
-  ocean: { ...base, background: "#01070D", surface: "#061725", surfaceAlt: "#0A2940", surfaceRaised: "#103B59", primary: "#24B5FF", primarySoft: "#9DDEFF", border: "#164B67", borderStrong: "#26779A", overlay: "rgba(0,5,12,0.88)", tabBar: "#03111C" },
-  ember: { ...base, background: "#0B0300", surface: "#1A0B06", surfaceAlt: "#2C120A", surfaceRaised: "#421C0E", primary: "#FF6B1A", primarySoft: "#FFD09A", border: "#5A2613", borderStrong: "#93421F", overlay: "rgba(10,2,0,0.88)", tabBar: "#130603" },
-  rose: { ...base, background: "#0C0209", surface: "#1C0B18", surfaceAlt: "#321226", surfaceRaised: "#48203A", primary: "#FF4FA0", primarySoft: "#FFD0E7", border: "#5C284A", borderStrong: "#98436F", overlay: "rgba(10,1,7,0.88)", tabBar: "#160611" },
-  monochrome: { ...base, background: "#070707", surface: "#111111", surfaceAlt: "#1C1C1C", surfaceRaised: "#292929", primary: "#F4F4F5", primarySoft: "#FFFFFF", border: "#333333", borderStrong: "#696969", overlay: "rgba(0,0,0,0.90)", tabBar: "#0A0A0A" },
-  light: { background: "#F3F5FA", surface: "#FFFFFF", surfaceAlt: "#EEF1F8", surfaceRaised: "#E5EAF5", primary: "#6D3BEF", primarySoft: "#5730C2", text: "#15131B", textSecondary: "#625D70", success: "#168B4B", warning: "#B86E00", danger: "#D4355A", border: "#D9DEEA", borderStrong: "#B8C1D5", overlay: "rgba(21,19,27,0.44)", tabBar: "#FBFCFF" },
+export const NEXUS_THEMES: Record<CoreThemeId, NexusTheme> = {
+  nexus: {
+    id: "nexus",
+    label: "Nexus Dark",
+    description: "A identidade oficial, escura e equilibrada.",
+    colors: {
+      ...darkSemantic,
+      background: "#07070A",
+      surface: "#121217",
+      surfaceAlt: "#191820",
+      surfaceRaised: "#211F2A",
+      primary: "#8B5CF6",
+      primarySoft: "#C4B5FD",
+      onPrimary: "#08070D",
+      border: "#2B2934",
+      borderStrong: "#504667",
+      overlay: "rgba(4,4,8,0.82)",
+      tabBar: "#0B0A0F",
+      shadow: "#000000",
+      glow: "#8B5CF6",
+    },
+    visuals: {
+      cardRadius: 18,
+      buttonRadius: 14,
+      chipRadius: 999,
+      borderWidth: 1,
+      shadowOpacity: 0.16,
+      shadowRadius: 16,
+      elevation: 3,
+      backdrop: "glow",
+      cardStyle: "soft",
+      tabActiveFill: "1F",
+    },
+  },
+  amoled: {
+    id: "amoled",
+    label: "AMOLED",
+    description: "Preto absoluto, contraste alto e mínimo ruído.",
+    colors: {
+      ...darkSemantic,
+      background: "#000000",
+      surface: "#050505",
+      surfaceAlt: "#0A0A0C",
+      surfaceRaised: "#111114",
+      primary: "#A78BFA",
+      primarySoft: "#DDD6FE",
+      onPrimary: "#09070D",
+      border: "#17171B",
+      borderStrong: "#303038",
+      overlay: "rgba(0,0,0,0.94)",
+      tabBar: "#000000",
+      shadow: "#000000",
+      glow: "#A78BFA",
+    },
+    visuals: {
+      cardRadius: 14,
+      buttonRadius: 12,
+      chipRadius: 999,
+      borderWidth: 1,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      backdrop: "none",
+      cardStyle: "minimal",
+      tabActiveFill: "1A",
+    },
+  },
+  glass: {
+    id: "glass",
+    label: "Glass",
+    description: "Profundidade translúcida sem prometer blur nativo.",
+    colors: {
+      ...darkSemantic,
+      background: "#090B16",
+      surface: "#151929",
+      surfaceAlt: "#1B2135",
+      surfaceRaised: "#252D45",
+      primary: "#8B7CFF",
+      primarySoft: "#C9C3FF",
+      onPrimary: "#080A14",
+      border: "#313A54",
+      borderStrong: "#596887",
+      overlay: "rgba(6,8,18,0.84)",
+      tabBar: "#0E1220",
+      shadow: "#02030A",
+      glow: "#6F8CFF",
+    },
+    visuals: {
+      cardRadius: 22,
+      buttonRadius: 16,
+      chipRadius: 18,
+      borderWidth: 1,
+      shadowOpacity: 0.2,
+      shadowRadius: 22,
+      elevation: 5,
+      backdrop: "aurora",
+      cardStyle: "glass",
+      tabActiveFill: "22",
+    },
+  },
+  light: {
+    id: "light",
+    label: "Light",
+    description: "Claro, sóbrio e legível em todas as telas.",
+    colors: {
+      background: "#F5F6FA",
+      surface: "#FFFFFF",
+      surfaceAlt: "#ECEEF5",
+      surfaceRaised: "#E3E6F0",
+      primary: "#6842D9",
+      primarySoft: "#4E2DB6",
+      onPrimary: "#FFFFFF",
+      text: "#18161F",
+      textSecondary: "#625E6E",
+      success: "#137A42",
+      onSuccess: "#FFFFFF",
+      warning: "#875000",
+      danger: "#A62346",
+      border: "#D8DAE4",
+      borderStrong: "#B9BDCC",
+      overlay: "rgba(24,22,31,0.46)",
+      tabBar: "#FCFCFE",
+      shadow: "#34303F",
+      glow: "#6842D9",
+    },
+    visuals: {
+      cardRadius: 18,
+      buttonRadius: 14,
+      chipRadius: 999,
+      borderWidth: 1,
+      shadowOpacity: 0.09,
+      shadowRadius: 14,
+      elevation: 2,
+      backdrop: "none",
+      cardStyle: "soft",
+      tabActiveFill: "14",
+    },
+  },
+  pixel: {
+    id: "pixel",
+    label: "Pixel",
+    description: "Retrô futurista, cantos retos e contraste limpo.",
+    colors: {
+      ...darkSemantic,
+      background: "#08070D",
+      surface: "#12101B",
+      surfaceAlt: "#1B1726",
+      surfaceRaised: "#251F34",
+      primary: "#A78BFA",
+      primarySoft: "#DDD6FE",
+      onPrimary: "#08070D",
+      border: "#493C62",
+      borderStrong: "#7963A0",
+      overlay: "rgba(5,4,9,0.9)",
+      tabBar: "#0B0911",
+      shadow: "#000000",
+      glow: "#A78BFA",
+    },
+    visuals: {
+      cardRadius: 4,
+      buttonRadius: 4,
+      chipRadius: 4,
+      borderWidth: 1,
+      shadowOpacity: 0.12,
+      shadowRadius: 4,
+      elevation: 1,
+      backdrop: "grid",
+      cardStyle: "terminal",
+      tabActiveFill: "20",
+    },
+  },
+  minimal: {
+    id: "minimal",
+    label: "Minimal",
+    description: "Superfícies discretas e hierarquia pelo conteúdo.",
+    colors: {
+      ...darkSemantic,
+      background: "#0B0B0D",
+      surface: "#101012",
+      surfaceAlt: "#171719",
+      surfaceRaised: "#1D1D20",
+      primary: "#E6E2F2",
+      primarySoft: "#FFFFFF",
+      onPrimary: "#0B0B0D",
+      border: "#27272B",
+      borderStrong: "#44444B",
+      overlay: "rgba(0,0,0,0.9)",
+      tabBar: "#0B0B0D",
+      shadow: "#000000",
+      glow: "#E6E2F2",
+    },
+    visuals: {
+      cardRadius: 10,
+      buttonRadius: 10,
+      chipRadius: 10,
+      borderWidth: 1,
+      shadowOpacity: 0,
+      shadowRadius: 0,
+      elevation: 0,
+      backdrop: "none",
+      cardStyle: "minimal",
+      tabActiveFill: "12",
+    },
+  },
 };
 
-const visuals: Record<Exclude<ThemeId, "custom">, NexusVisuals> = {
-  nexus: { cardRadius: 22, buttonRadius: 16, chipRadius: 999, borderWidth: 1, shadowOpacity: 0.22, shadowRadius: 18, elevation: 5, backdrop: "glow", cardStyle: "soft", tabActiveFill: "22" },
-  amoled: { cardRadius: 12, buttonRadius: 12, chipRadius: 999, borderWidth: 1, shadowOpacity: 0, shadowRadius: 0, elevation: 0, backdrop: "none", cardStyle: "minimal", tabActiveFill: "18" },
-  oneui: { cardRadius: 30, buttonRadius: 22, chipRadius: 999, borderWidth: 0, shadowOpacity: 0.3, shadowRadius: 24, elevation: 8, backdrop: "glow", cardStyle: "soft", tabActiveFill: "28" },
-  hud: { cardRadius: 4, buttonRadius: 4, chipRadius: 4, borderWidth: 1, shadowOpacity: 0.16, shadowRadius: 8, elevation: 1, backdrop: "grid", cardStyle: "terminal", tabActiveFill: "20" },
-  aurora: { cardRadius: 24, buttonRadius: 18, chipRadius: 16, borderWidth: 1, shadowOpacity: 0.28, shadowRadius: 26, elevation: 6, backdrop: "aurora", cardStyle: "glass", tabActiveFill: "24" },
-  ocean: { cardRadius: 28, buttonRadius: 20, chipRadius: 999, borderWidth: 1, shadowOpacity: 0.25, shadowRadius: 22, elevation: 5, backdrop: "stars", cardStyle: "glass", tabActiveFill: "22" },
-  ember: { cardRadius: 10, buttonRadius: 8, chipRadius: 8, borderWidth: 1, shadowOpacity: 0.3, shadowRadius: 16, elevation: 4, backdrop: "scanlines", cardStyle: "sharp", tabActiveFill: "24" },
-  rose: { cardRadius: 26, buttonRadius: 24, chipRadius: 999, borderWidth: 1, shadowOpacity: 0.3, shadowRadius: 24, elevation: 6, backdrop: "aurora", cardStyle: "glass", tabActiveFill: "24" },
-  monochrome: { cardRadius: 0, buttonRadius: 2, chipRadius: 2, borderWidth: 1, shadowOpacity: 0, shadowRadius: 0, elevation: 0, backdrop: "scanlines", cardStyle: "minimal", tabActiveFill: "16" },
-  light: { cardRadius: 26, buttonRadius: 18, chipRadius: 999, borderWidth: 1, shadowOpacity: 0.12, shadowRadius: 18, elevation: 3, backdrop: "glow", cardStyle: "soft", tabActiveFill: "18" },
+const LEGACY_THEME_MAP: Record<string, CoreThemeId> = {
+  nexus: "nexus",
+  amoled: "amoled",
+  glass: "glass",
+  light: "light",
+  pixel: "pixel",
+  minimal: "minimal",
+  oneui: "minimal",
+  hud: "pixel",
+  aurora: "glass",
+  ocean: "glass",
+  ember: "nexus",
+  rose: "glass",
+  monochrome: "minimal",
+  custom: "nexus",
 };
+
+export function resolveThemeId(theme: string | null | undefined): CoreThemeId {
+  return LEGACY_THEME_MAP[theme ?? ""] ?? "nexus";
+}
+
+export function getTheme(preferences: Preferences): NexusTheme {
+  return NEXUS_THEMES[resolveThemeId(String(preferences.theme))];
+}
 
 export function getColors(preferences: Preferences): NexusColors {
-  if (preferences.theme !== "custom") return palettes[preferences.theme];
-  const primary = normalizeHexColor(preferences.customAccent);
-  return { ...palettes.nexus, primary, primarySoft: primary };
+  return getTheme(preferences).colors;
 }
 
 export function getVisuals(preferences: Preferences): NexusVisuals {
-  return preferences.theme === "custom" ? visuals.nexus : visuals[preferences.theme];
+  return getTheme(preferences).visuals;
 }
 
-export const radii = { small: 10, medium: 16, large: 22, pill: 999 } as const;
+export const radii = { small: 8, medium: 14, large: 18, pill: 999 } as const;
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;

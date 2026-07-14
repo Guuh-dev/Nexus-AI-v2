@@ -12,6 +12,7 @@ import { NexusText } from "@/components/ui/NexusText";
 import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Screen } from "@/components/ui/Screen";
 import { DEFAULT_EVOLUTION_PROFILE } from "@/constants/defaults";
+import { OTA_RELEASE } from "@/constants/release";
 import { ACCOUNTABILITY_OPTIONS, CHALLENGE_OPTIONS, EVOLUTION_OPTIONS, LEARNING_STYLE_OPTIONS, OBSTACLE_OPTIONS, STRENGTH_OPTIONS, TRIGGER_OPTIONS } from "@/features/onboarding/options";
 import { useNexus } from "@/providers/NexusProvider";
 import type { EvolutionArea, EvolutionProfile } from "@/types";
@@ -29,13 +30,14 @@ export default function DiscoveryScreen() {
   const [topics, setTopics] = useState(current.professorTopics.join(", "));
   const [custom, setCustom] = useState(current.customAreas.join(", "));
   const [weekly, setWeekly] = useState(String(current.weeklyLearningMinutes));
+  const [saving, setSaving] = useState(false);
 
   if (!data.profile) return null;
   const patch = <K extends keyof EvolutionProfile>(key: K, value: EvolutionProfile[K]) => { setEvolution((valueNow) => ({ ...valueNow, [key]: value })); setError(""); };
   const toggle = (key: "biggestObstacles" | "procrastinationTriggers" | "strengths", value: string) => patch(key, evolution[key].includes(value) ? evolution[key].filter((item) => item !== value) : [...evolution[key], value]);
   const toggleArea = (area: EvolutionArea) => patch("primaryAreas", evolution.primaryAreas.includes(area) ? evolution.primaryAreas.filter((item) => item !== area) : [...evolution.primaryAreas, area]);
 
-  const next = () => {
+  const next = async () => {
     if (step === 0 && !evolution.primaryAreas.length) return setError("Escolha ao menos uma área.");
     if (step === 1 && evolution.currentSituation.trim().length < 5) return setError("Conte um pouco sobre sua situação atual.");
     if (step === 2 && (Number(weekly) < 30 || Number(weekly) > 3000)) return setError("Use entre 30 e 3000 minutos por semana.");
@@ -47,15 +49,24 @@ export default function DiscoveryScreen() {
       customAreas: custom.split(",").map((item) => item.trim()).filter((item) => item.length >= 2).slice(0, 8),
       professorTopics: topics.split(/[,\n]/).map((item) => item.trim()).filter((item) => item.length >= 2).slice(0, 12),
     };
-    if (completeDiscovery(finalEvolution)) router.replace(finalEvolution.professorScope === "depois" ? "/(tabs)/today" : "/professor-intake");
-    else setError("Revise suas escolhas antes de continuar.");
+    setSaving(true);
+    setError("");
+    try {
+      const saved = await completeDiscovery(finalEvolution);
+      if (saved) router.replace(finalEvolution.professorScope === "depois" ? "/(tabs)/today" : "/professor-intake");
+      else setError("Não foi possível confirmar o diagnóstico. Revise suas escolhas e tente novamente.");
+    } catch {
+      setError("Não foi possível salvar o diagnóstico agora. Tente novamente.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
     <Screen>
       <View style={styles.header}>
         {step === 4 ? <View style={styles.duo}><PixelMascot size={44} /><CompanionMascot mascot="atlas" state="thinking" size={48} /></View> : <PixelMascot state={step === 3 ? "celebrating" : "idle"} size={52} />}
-        <View style={styles.flex}><NexusText variant="mono" color={colors.primarySoft}>NEXUS 2 • {step + 1}/5</NexusText><NexusText variant="title">{TITLES[step]}</NexusText></View>
+        <View style={styles.flex}><NexusText variant="mono" color={colors.primarySoft}>NEXUS {OTA_RELEASE.label} • {step + 1}/5</NexusText><NexusText variant="title">{TITLES[step]}</NexusText></View>
       </View>
       <ProgressBar progress={(step + 1) / 5} />
       <View style={styles.intro}><NexusText variant="display">Vamos conhecer sua próxima versão.</NexusText><NexusText secondary>Seu plano, XP e histórico continuam intactos. Este diagnóstico só torna o Nexus mais inteligente.</NexusText></View>
@@ -90,7 +101,7 @@ export default function DiscoveryScreen() {
         </> : null}
         {error ? <NexusText color={colors.danger} variant="caption">{error}</NexusText> : null}
       </View>
-      <View style={styles.footer}>{step > 0 ? <NexusButton label="Voltar" variant="ghost" onPress={() => setStep((value) => value - 1)} style={styles.back} /> : null}<NexusButton label={step === 4 ? "Salvar meu diagnóstico" : "Continuar"} onPress={next} style={styles.next} /></View>
+      <View style={styles.footer}>{step > 0 ? <NexusButton label="Voltar" variant="ghost" disabled={saving} onPress={() => setStep((value) => value - 1)} style={styles.back} /> : null}<NexusButton label={step === 4 ? "Salvar meu diagnóstico" : "Continuar"} loading={saving} onPress={() => { void next(); }} style={styles.next} /></View>
     </Screen>
   );
 }

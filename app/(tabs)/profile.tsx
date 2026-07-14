@@ -1,113 +1,35 @@
 import { useEffect, useState } from "react";
-import {
-  Alert,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Switch,
-  View,
-} from "react-native";
+import { Alert, Platform, StyleSheet, Switch, View } from "react-native";
 import { router } from "expo-router";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PixelMascot } from "@/components/PixelMascot";
+import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { Card } from "@/components/ui/Card";
 import { ChoiceChip } from "@/components/ui/ChoiceChip";
 import { Field } from "@/components/ui/Field";
 import { NexusButton } from "@/components/ui/NexusButton";
 import { NexusText } from "@/components/ui/NexusText";
 import { Screen } from "@/components/ui/Screen";
-import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { useNexus } from "@/providers/NexusProvider";
 import { pickBackupJson, shareBackupJson } from "@/services/backup.service";
+import type { BackupImportPreview } from "@/services/storage.service";
 import { configureDailyReminder } from "@/services/notification.service";
-import {
-  getIntelligenceStatus,
-  type IntelligenceStatus,
-} from "@/services/status.service";
+import { getIntelligenceStatus, type IntelligenceStatus } from "@/services/status.service";
 import {
   applyNexusUpdate,
   checkForNexusUpdate,
   getNexusUpdateInfo,
   type NexusUpdateInfo,
 } from "@/services/update.service";
-import type { Profile, ThemeId, Weekday } from "@/types";
-import { calculateLevel } from "@/utils/levels";
-import { normalizeHexColor } from "@/utils/text";
 import { OTA_RELEASE } from "@/constants/release";
+import type { Weekday } from "@/types";
+import { calculateLevel } from "@/utils/levels";
 
 export { RouteErrorBoundary as ErrorBoundary };
 
-type ProfileArea = "central" | "perfil" | "visual" | "sistema" | "dados";
+type Area = "perfil" | "sistema" | "dados";
 
-const themes: {
-  id: ThemeId;
-  label: string;
-  description: string;
-  color: string;
-}[] = [
-  {
-    id: "nexus",
-    label: "Nexus Purple",
-    description: "Comando premium roxo e preto",
-    color: "#8B5CF6",
-  },
-  {
-    id: "amoled",
-    label: "AMOLED",
-    description: "Preto puro e contraste máximo",
-    color: "#9B7BFF",
-  },
-  {
-    id: "oneui",
-    label: "One UI Future",
-    description: "Limpo, azul e arredondado",
-    color: "#7C9CFF",
-  },
-  {
-    id: "hud",
-    label: "Mission HUD",
-    description: "Terminal verde de execução",
-    color: "#2DD4A8",
-  },
-  {
-    id: "aurora",
-    label: "Aurora",
-    description: "Ciano e energia sutil",
-    color: "#22D3EE",
-  },
-  {
-    id: "ocean",
-    label: "Deep Ocean",
-    description: "Azul profundo e calmo",
-    color: "#38BDF8",
-  },
-  {
-    id: "ember",
-    label: "Ember",
-    description: "Laranja de operação",
-    color: "#F97316",
-  },
-  {
-    id: "rose",
-    label: "Rose Protocol",
-    description: "Rosa futurista controlado",
-    color: "#EC4899",
-  },
-  {
-    id: "monochrome",
-    label: "Monochrome",
-    description: "Preto, branco e silêncio",
-    color: "#E4E4E7",
-  },
-  {
-    id: "custom",
-    label: "Personalizado",
-    description: "Sua própria cor de destaque",
-    color: "#F472B6",
-  },
-];
-
-const profileDays: { value: Weekday; label: string }[] = [
+const DAYS: readonly { value: Weekday; label: string }[] = [
   { value: 0, label: "D" },
   { value: 1, label: "S" },
   { value: 2, label: "T" },
@@ -117,17 +39,6 @@ const profileDays: { value: Weekday; label: string }[] = [
   { value: 6, label: "S" },
 ];
 
-const areaMeta: Record<ProfileArea, { label: string; description: string }> = {
-  central: { label: "Central", description: "Atalhos e estado do sistema" },
-  perfil: {
-    label: "Perfil",
-    description: "Missão, rotina e preferências pessoais",
-  },
-  visual: { label: "Visual", description: "Tema, movimento e identidade" },
-  sistema: { label: "Sistema", description: "IA, lembretes e diagnóstico" },
-  dados: { label: "Dados", description: "Backup, privacidade e reset" },
-};
-
 export default function ProfileScreen() {
   const {
     data,
@@ -136,44 +47,47 @@ export default function ProfileScreen() {
     updateProfile,
     updatePreferences,
     exportBackup,
+    inspectBackup,
     importBackup,
+    restoreImportBackup,
+    hasImportRollback,
+    restoreMigrationBackup,
+    hasMigrationBackup,
     resetToday,
     resetAll,
   } = useNexus();
   const profile = data.profile;
-  const [area, setArea] = useState<ProfileArea>("central");
+  const [area, setArea] = useState<Area>("perfil");
   const [name, setName] = useState(profile?.name ?? "");
   const [nickname, setNickname] = useState(profile?.nickname ?? "");
   const [goal, setGoal] = useState(profile?.mainGoal ?? "");
-  const [minutes, setMinutes] = useState(
-    String(profile?.availableMinutes ?? 120),
-  );
+  const [minutes, setMinutes] = useState(String(profile?.availableMinutes ?? 120));
   const [schedule, setSchedule] = useState(profile?.schedule ?? "");
-  const [notificationTime, setNotificationTime] = useState(
-    data.preferences.notificationTime,
-  );
-  const [customAccent, setCustomAccent] = useState(
-    data.preferences.customAccent,
-  );
+  const [notificationTime, setNotificationTime] = useState(data.preferences.notificationTime);
   const [status, setStatus] = useState<IntelligenceStatus | null>(null);
   const [statusLoading, setStatusLoading] = useState(true);
-  const [updateInfo, setUpdateInfo] =
-    useState<NexusUpdateInfo>(getNexusUpdateInfo);
+  const [updateInfo, setUpdateInfo] = useState<NexusUpdateInfo>(getNexusUpdateInfo);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateBusy, setUpdateBusy] = useState(false);
   const [resetTodayOpen, setResetTodayOpen] = useState(false);
   const [resetAllOpen, setResetAllOpen] = useState(false);
+  const [pendingImport, setPendingImport] = useState<{
+    json: string;
+    preview: BackupImportPreview;
+  } | null>(null);
+  const [restoreImportOpen, setRestoreImportOpen] = useState(false);
+  const [restoreMigrationOpen, setRestoreMigrationOpen] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [reminderBusy, setReminderBusy] = useState(false);
+  const [dataBusy, setDataBusy] = useState(false);
   const [message, setMessage] = useState("");
-  const level = calculateLevel(data.progress.totalXp);
-  const intelligenceOnline = Boolean(
-    status?.configured && status.assistantAvailable !== false,
-  );
 
   const refreshStatus = (deep = false) => {
     const controller = new AbortController();
     setStatusLoading(true);
     void getIntelligenceStatus(controller.signal, deep)
       .then(setStatus)
+      .catch(() => setStatus(null))
       .finally(() => setStatusLoading(false));
     return controller;
   };
@@ -183,45 +97,70 @@ export default function ProfileScreen() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    setName(profile?.name ?? "");
+    setNickname(profile?.nickname ?? "");
+    setGoal(profile?.mainGoal ?? "");
+    setMinutes(String(profile?.availableMinutes ?? 120));
+    setSchedule(profile?.schedule ?? "");
+  }, [
+    profile?.availableMinutes,
+    profile?.mainGoal,
+    profile?.name,
+    profile?.nickname,
+    profile?.schedule,
+  ]);
+
   if (!profile) return null;
+  const level = calculateLevel(data.progress.totalXp);
+  const intelligenceConfigured = status?.configured === true && status.assistantAvailable === true;
+  const intelligenceProbed = intelligenceConfigured && status?.probeOk === true;
 
-  const saveProfile = () => {
-    const ok = updateProfile({
-      name: name.trim(),
-      nickname: nickname.trim(),
-      mainGoal: goal.trim(),
-      availableMinutes: Number(minutes),
-      schedule: schedule.trim(),
-    });
-    setMessage(
-      ok
-        ? "Perfil salvo."
-        : "Revise os campos. A meta precisa ter pelo menos 10 caracteres.",
-    );
-  };
-
-  const applyCustomAccent = () => {
-    const normalized = normalizeHexColor(customAccent);
-    if (!normalized) {
-      setMessage("Use uma cor hexadecimal válida, como #8B5CF6.");
+  const saveProfile = async () => {
+    const availableMinutes = Number(minutes);
+    if (!Number.isFinite(availableMinutes)) {
+      setMessage("Revise nome, missão e minutos disponíveis.");
       return;
     }
-    setCustomAccent(normalized);
-    updatePreferences({ customAccent: normalized });
-    setMessage("Cor personalizada aplicada.");
+    setProfileSaving(true);
+    try {
+      const ok = await updateProfile({
+        name: name.trim(),
+        nickname: nickname.trim(),
+        mainGoal: goal.trim(),
+        availableMinutes,
+        schedule: schedule.trim(),
+      });
+      setMessage(ok ? "Perfil salvo." : "Revise nome, missão e minutos disponíveis.");
+    } finally {
+      setProfileSaving(false);
+    }
   };
 
   const setReminder = async (enabled: boolean) => {
+    if (reminderBusy) return;
     if (enabled && !/^([01]\d|2[0-3]):[0-5]\d$/.test(notificationTime)) {
       setMessage("Use um horário válido no formato HH:MM.");
       return;
     }
-    const result = await configureDailyReminder(enabled, notificationTime);
-    updatePreferences({
-      notificationEnabled: result.enabled,
-      notificationTime,
-    });
-    if (result.reason) Alert.alert("Lembrete do Nexus", result.reason);
+    const previousEnabled = data.preferences.notificationEnabled;
+    const previousTime = data.preferences.notificationTime;
+    setReminderBusy(true);
+    try {
+      const result = await configureDailyReminder(enabled, notificationTime);
+      const persisted = await updatePreferences({ notificationEnabled: result.enabled, notificationTime });
+      if (!persisted) {
+        await configureDailyReminder(previousEnabled, previousTime).catch(() => undefined);
+        setMessage("A preferência não pôde ser salva; o lembrete anterior foi restaurado.");
+        return;
+      }
+      setMessage(result.enabled ? "Lembrete salvo." : "Lembrete desativado.");
+      if (result.reason) Alert.alert("Lembrete do Nexus", result.reason);
+    } catch {
+      setMessage("Não foi possível atualizar o lembrete. A configuração anterior foi mantida.");
+    } finally {
+      setReminderBusy(false);
+    }
   };
 
   const checkUpdates = async () => {
@@ -230,23 +169,15 @@ export default function ProfileScreen() {
       const result = await checkForNexusUpdate();
       setUpdateInfo(result.info);
       setUpdateAvailable(result.available || result.rollbackAvailable);
-      if (!result.info.enabled) {
-        setMessage(
-          "Atualizações OTA só funcionam no APK de release, não no Expo Go ou preview de desenvolvimento.",
-        );
-      } else if (result.available) {
-        setMessage("Atualização encontrada. Toque em baixar e reiniciar.");
-      } else if (result.rollbackAvailable) {
-        setMessage("Uma recuperação para a versão estável está disponível.");
-      } else {
-        setMessage(
-          "Seu Nexus já está na atualização mais recente deste canal.",
-        );
-      }
-    } catch {
       setMessage(
-        "Não foi possível verificar atualizações agora. Confira a internet e tente novamente.",
+        !result.info.enabled
+          ? "Atualizações remotas só funcionam em uma instalação de release."
+          : result.available || result.rollbackAvailable
+            ? "Há uma atualização pronta para baixar."
+            : "Esta instalação já está atualizada.",
       );
+    } catch {
+      setMessage("Não foi possível verificar atualizações agora.");
     } finally {
       setUpdateBusy(false);
     }
@@ -259,984 +190,333 @@ export default function ProfileScreen() {
       if (result === "unchanged") {
         setUpdateAvailable(false);
         setMessage("Nenhuma atualização nova foi baixada.");
+        setUpdateBusy(false);
       }
     } catch {
-      setMessage(
-        "A atualização não pôde ser aplicada. O app atual continua intacto.",
-      );
+      setMessage("A atualização não pôde ser aplicada; a versão atual continua intacta.");
       setUpdateBusy(false);
     }
   };
 
   const exportData = async () => {
+    if (dataBusy) return;
+    setDataBusy(true);
     try {
       await shareBackupJson(exportBackup());
       setMessage("Backup preparado com sucesso.");
     } catch {
       setMessage("Não foi possível exportar o backup neste dispositivo.");
+    } finally {
+      setDataBusy(false);
     }
   };
 
   const importData = async () => {
+    if (dataBusy) return;
+    setDataBusy(true);
     try {
       const json = await pickBackupJson();
       if (!json) return;
-      await importBackup(json);
-      setMessage("Backup importado com sucesso.");
+      const preview = inspectBackup(json);
+      setPendingImport({ json, preview });
+      setMessage("Backup validado. Confira o resumo antes de substituir os dados.");
     } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "O arquivo não é um backup válido.",
-      );
+      setMessage(error instanceof Error ? error.message : "O arquivo não é um backup válido.");
+    } finally {
+      setDataBusy(false);
     }
   };
 
   return (
     <>
-      <Screen>
-        <View style={styles.profileHeader}>
-          <View
-            style={[
-              styles.avatar,
-              {
-                backgroundColor: `${colors.primary}20`,
-                borderColor: `${colors.primary}55`,
-              },
-            ]}
-          >
-            <PixelMascot state="idle" size={62} />
+      <Screen maxWidth={760}>
+        <View style={styles.hero}>
+          <View style={[styles.avatar, { backgroundColor: `${colors.primary}16`, borderColor: colors.borderStrong }]}>
+            <PixelMascot state="idle" size={58} />
           </View>
           <View style={styles.flex}>
             <NexusText variant="display">{profile.nickname}</NexusText>
-            <NexusText variant="mono" color={colors.primarySoft}>
-              NÍVEL {level.level} • {level.title.toUpperCase()}
-            </NexusText>
-            <NexusText variant="caption" secondary>
-              {data.progress.totalXp} XP acumulado
-            </NexusText>
+            <NexusText variant="mono" color={colors.primarySoft}>NÍVEL {level.level} • {level.title.toUpperCase()}</NexusText>
+            <NexusText variant="caption" secondary>{data.progress.totalXp} XP • {data.progress.currentStreak} dias de sequência</NexusText>
           </View>
         </View>
 
-        <View
-          style={[
-            styles.areaNav,
-            { backgroundColor: colors.surface, borderColor: colors.border },
-          ]}
-        >
-          {(Object.keys(areaMeta) as ProfileArea[]).map((item) => (
-            <ChoiceChip
-              key={item}
-              label={areaMeta[item].label}
-              selected={area === item}
-              onPress={() => setArea(item)}
-            />
-          ))}
+        <View style={styles.primaryActions}>
+          <NexusButton label="Aparência" variant="secondary" onPress={() => router.push("/customize")} style={styles.flex} />
+          <NexusButton label="Widget Studio" variant="secondary" onPress={() => router.push("/widget-studio")} style={styles.flex} />
         </View>
-        <NexusText variant="caption" secondary>
-          {areaMeta[area].description}
-        </NexusText>
 
-        {area === "central" ? (
-          <>
-            <Section
-              title="Centrais do Nexus"
-              subtitle="Cada sistema tem sua própria área para não virar um painel embolado."
-            >
-              <View style={styles.controlGrid}>
-                <ControlCard
-                  title="Command Center"
-                  description="Layout, ordem e densidade"
-                  icon="▦"
-                  onPress={() => router.push("/customize")}
-                />
-                <ControlCard
-                  title="Widget Studio"
-                  description="Tamanhos, conteúdo e visual"
-                  icon="◇"
-                  onPress={() => router.push("/widget-studio")}
-                />
-                <ControlCard
-                  title="Operações"
-                  description="Projetos com fases e prazo"
-                  icon="★"
-                  onPress={() => router.push("/operations")}
-                />
-                <ControlCard
-                  title="Hábitos"
-                  description="Rotinas com recuperação"
-                  icon="♨"
-                  onPress={() => router.push("/habits")}
-                />
-                <ControlCard
-                  title="Money Mission"
-                  description="Receita, clientes e follow-ups"
-                  icon="R$"
-                  onPress={() => router.push("/finance")}
-                />
-                <ControlCard
-                  title="Semana"
-                  description="Capacidade em sete dias"
-                  icon="▥"
-                  onPress={() => router.push("/week")}
-                />
-                <ControlCard
-                  title="Diagnóstico"
-                  description="Rever evolução e Professor"
-                  icon="✦"
-                  onPress={() => router.push("/discovery")}
-                />
-              </View>
-            </Section>
-
-            <Section
-              title="Estado do sistema"
-              subtitle="Um resumo rápido antes de abrir configurações avançadas."
-            >
-              <Card style={styles.statusCard}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor: intelligenceOnline
-                        ? colors.success
-                        : status
-                          ? colors.warning
-                          : colors.textSecondary,
-                    },
-                  ]}
-                />
-                <View style={styles.flex}>
-                  <NexusText variant="subtitle">
-                    {statusLoading
-                      ? "Verificando inteligência..."
-                      : intelligenceOnline
-                        ? "Nexus Brain online"
-                        : status?.configured
-                          ? "Backend antigo detectado"
-                          : status
-                            ? "Modo local ativo"
-                            : "Backend não alcançado"}
-                  </NexusText>
-                  <NexusText variant="caption" secondary>
-                    {intelligenceOnline
-                      ? `API ${status?.apiVersion ?? "compatível"} • ${status?.primaryModel}`
-                      : status
-                        ? "Seu plano e captura continuam disponíveis pelo fallback local."
-                        : "Confira a URL do backend ou o deploy do Render na aba Sistema."}
-                  </NexusText>
-                </View>
-              </Card>
-              <View style={styles.summaryGrid}>
-                <SummaryMetric
-                  label="Chats"
-                  value={String(data.brain.threads.length)}
-                />
-                <SummaryMetric
-                  label="Roadmaps"
-                  value={String(data.learning.roadmaps.length)}
-                />
-                <SummaryMetric
-                  label="Operações"
-                  value={String(
-                    data.operations.filter((item) => item.status === "active")
-                      .length,
-                  )}
-                />
-                <SummaryMetric
-                  label="Hábitos"
-                  value={String(data.habits.length)}
-                />
-              </View>
-            </Section>
-          </>
-        ) : null}
+        <View style={[styles.areaTabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <ChoiceChip label="Perfil" selected={area === "perfil"} onPress={() => setArea("perfil")} />
+          <ChoiceChip label="Sistema" selected={area === "sistema"} onPress={() => setArea("sistema")} />
+          <ChoiceChip label="Dados" selected={area === "dados"} onPress={() => setArea("dados")} />
+        </View>
 
         {area === "perfil" ? (
-          <Section
-            title="Seu comando"
-            subtitle="Essas respostas guiam planejamento, Brain e Professor."
-          >
-            <Field
-              label="Nome"
-              value={name}
-              onChangeText={setName}
-              maxLength={80}
-            />
-            <Field
-              label="Como o Nexus chama você"
-              value={nickname}
-              onChangeText={setNickname}
-              maxLength={40}
-            />
-            <Field
-              label="Grande missão"
-              value={goal}
-              onChangeText={setGoal}
-              multiline
-              maxLength={600}
-            />
-            <Field
-              label="Minutos disponíveis por dia"
-              value={minutes}
-              onChangeText={setMinutes}
-              keyboardType="number-pad"
-              maxLength={3}
-            />
-            <Field
-              label="Rotina"
-              value={schedule}
-              onChangeText={setSchedule}
-              multiline
-              maxLength={600}
-            />
-            <View style={styles.choiceGroup}>
-              <NexusText variant="caption" secondary>
-                Dias ativos
-              </NexusText>
-              <View style={styles.chips}>
-                {profileDays.map((day) => {
-                  const selected = profile.activeDays.includes(day.value);
-                  const nextDays = selected
-                    ? profile.activeDays.filter((item) => item !== day.value)
-                    : ([...profile.activeDays, day.value].sort() as Weekday[]);
-                  return (
-                    <ChoiceChip
-                      key={day.value}
-                      label={day.label}
-                      selected={selected}
-                      onPress={() =>
-                        nextDays.length > 0 &&
-                        updateProfile({ activeDays: nextDays })
-                      }
-                    />
-                  );
-                })}
-              </View>
-            </View>
-            <ProfileChoice
-              title="Máximo diário"
-              value={profile.maxDailyTasks}
-              options={[
-                [2, "2 tarefas"],
-                [3, "3 tarefas"],
-                [4, "4 tarefas"],
-                [5, "5 tarefas"],
-              ]}
-              onChange={(value) =>
-                updateProfile({ maxDailyTasks: Number(value) })
-              }
-            />
-            <ProfileChoice
-              title="Intensidade"
-              value={profile.intensity}
-              options={[
-                ["leve", "Leve"],
-                ["equilibrado", "Equilibrado"],
-                ["intenso", "Intenso"],
-              ]}
-              onChange={(value) =>
-                updateProfile({ intensity: value as Profile["intensity"] })
-              }
-            />
-            <ProfileChoice
-              title="Tom do assistente"
-              value={profile.assistantTone}
-              options={[
-                ["direto", "Direto"],
-                ["parceiro", "Parceiro"],
-                ["treinador", "Treinador"],
-              ]}
-              onChange={(value) =>
-                updateProfile({
-                  assistantTone: value as Profile["assistantTone"],
-                })
-              }
-            />
-            <NexusButton
-              label="Salvar perfil"
-              onPress={saveProfile}
-              fullWidth
-            />
-          </Section>
-        ) : null}
-
-        {area === "visual" ? (
-          <>
-            <Section
-              title="Temas"
-              subtitle="Mude o clima inteiro sem alterar seus dados."
-            >
-              <View style={styles.themeGrid}>
-                {themes.map((theme) => (
-                  <Pressable
-                    key={theme.id}
-                    accessibilityRole="radio"
-                    accessibilityState={{
-                      selected: data.preferences.theme === theme.id,
+          <Section title="Seu contexto" subtitle="Somente informações que melhoram missão, tarefas e orientação.">
+            <Field label="Nome" value={name} onChangeText={setName} maxLength={80} />
+            <Field label="Como o Nexus chama você" value={nickname} onChangeText={setNickname} maxLength={40} />
+            <Field label="Missão de longo prazo" value={goal} onChangeText={setGoal} multiline maxLength={600} />
+            <Field label="Minutos disponíveis por dia" value={minutes} onChangeText={setMinutes} keyboardType="number-pad" maxLength={3} />
+            <Field label="Rotina relevante" value={schedule} onChangeText={setSchedule} multiline maxLength={600} />
+            <Choice title="Dias ativos">
+              {DAYS.map((day) => {
+                const selected = profile.activeDays.includes(day.value);
+                return (
+                  <ChoiceChip
+                    key={day.value}
+                    label={day.label}
+                    selected={selected}
+                    onPress={() => {
+                      const next = selected
+                        ? profile.activeDays.filter((item) => item !== day.value)
+                        : [...profile.activeDays, day.value].sort() as Weekday[];
+                      if (next.length) void updateProfile({ activeDays: next });
                     }}
-                    onPress={() => updatePreferences({ theme: theme.id })}
-                    style={[
-                      styles.themeCard,
-                      {
-                        backgroundColor:
-                          data.preferences.theme === theme.id
-                            ? `${theme.color}18`
-                            : colors.surface,
-                        borderColor:
-                          data.preferences.theme === theme.id
-                            ? theme.color
-                            : colors.border,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.themeDot,
-                        { backgroundColor: theme.color },
-                      ]}
-                    />
-                    <NexusText variant="subtitle">{theme.label}</NexusText>
-                    <NexusText variant="caption" secondary>
-                      {theme.description}
-                    </NexusText>
-                  </Pressable>
-                ))}
-              </View>
-              {data.preferences.theme === "custom" ? (
-                <Card style={styles.customColorCard}>
-                  <Field
-                    label="Cor hexadecimal"
-                    value={customAccent}
-                    onChangeText={setCustomAccent}
-                    maxLength={7}
-                    placeholder="#8B5CF6"
                   />
-                  <NexusButton
-                    label="Aplicar cor"
-                    variant="secondary"
-                    onPress={applyCustomAccent}
-                    fullWidth
-                  />
-                </Card>
-              ) : null}
-            </Section>
-
-            <Section
-              title="Conforto"
-              subtitle="Ajustes de movimento, vibração e som."
-            >
-              <SwitchRow
-                label="Movimento reduzido"
-                description="Remove animações que possam incomodar."
-                value={data.preferences.reducedMotion}
-                onChange={(value) =>
-                  updatePreferences({ reducedMotion: value })
-                }
-              />
-              <SwitchRow
-                label="Vibração sutil"
-                description="Feedback ao concluir tarefas."
-                value={data.preferences.haptics}
-                onChange={(value) => updatePreferences({ haptics: value })}
-              />
-              <SwitchRow
-                label="Sons"
-                description="Ativa ambientes e efeitos opcionais do Focus OS."
-                value={data.preferences.sound}
-                onChange={(value) => updatePreferences({ sound: value })}
-              />
-              <NexusButton
-                label="Abrir Command Center"
-                variant="secondary"
-                onPress={() => router.push("/customize")}
-                fullWidth
-              />
-              <NexusButton
-                label="Abrir Widget Studio"
-                variant="ghost"
-                onPress={() => router.push("/widget-studio")}
-                fullWidth
-              />
-            </Section>
-          </>
+                );
+              })}
+            </Choice>
+            <Choice title="Máximo diário">
+              {([2, 3, 4, 5] as const).map((value) => (
+                <ChoiceChip key={value} label={`${value} tarefas`} selected={profile.maxDailyTasks === value} onPress={() => void updateProfile({ maxDailyTasks: value })} />
+              ))}
+            </Choice>
+            <Choice title="Intensidade">
+              {(["leve", "equilibrado", "intenso"] as const).map((value) => (
+                <ChoiceChip key={value} label={{ leve: "Leve", equilibrado: "Equilibrada", intenso: "Intensa" }[value]} selected={profile.intensity === value} onPress={() => void updateProfile({ intensity: value })} />
+              ))}
+            </Choice>
+            <Choice title="Tom do Brain">
+              {(["direto", "parceiro", "treinador"] as const).map((value) => (
+                <ChoiceChip key={value} label={{ direto: "Direto", parceiro: "Parceiro", treinador: "Treinador" }[value]} selected={profile.assistantTone === value} onPress={() => void updateProfile({ assistantTone: value })} />
+              ))}
+            </Choice>
+            <NexusButton label="Salvar perfil" loading={profileSaving} onPress={() => void saveProfile()} fullWidth />
+          </Section>
         ) : null}
 
         {area === "sistema" ? (
           <>
-            <Section
-              title="Inteligência"
-              subtitle="A chave da OpenRouter continua exclusivamente no backend."
-            >
+            <Section title="Inteligência remota" subtitle="Configuração do backend e teste real sob demanda, sem resposta local fingindo ser IA.">
               <Card style={styles.statusCard}>
-                <View
-                  style={[
-                    styles.statusDot,
-                    {
-                      backgroundColor: intelligenceOnline
-                        ? colors.success
-                        : status
-                          ? colors.warning
-                          : colors.danger,
-                    },
-                  ]}
-                />
+                <View style={[styles.statusDot, { backgroundColor: statusLoading ? colors.warning : intelligenceProbed ? colors.success : intelligenceConfigured ? colors.warning : colors.danger }]} />
                 <View style={styles.flex}>
-                  <NexusText variant="subtitle">
-                    {intelligenceOnline
-                      ? "IA remota online"
-                      : status?.configured
-                        ? "Backend online, provedor instável"
-                        : status
-                          ? "Fallback local ativo"
-                          : "Backend indisponível"}
-                  </NexusText>
+                  <NexusText variant="subtitle">{statusLoading ? "Verificando…" : intelligenceProbed ? "Brain e Atlas responderam ao teste" : intelligenceConfigured ? "Backend configurado; teste a conexão" : "IA temporariamente indisponível"}</NexusText>
                   <NexusText variant="caption" secondary>
-                    {intelligenceOnline
-                      ? `API ${status?.apiVersion ?? "sem versão"} • ${status?.probeModel ?? status?.primaryModel ?? "modelo não identificado"}`
-                      : (status?.probeMessage ??
-                        "Teste a conexão para separar problema de backend, chave e modelo.")}
+                    {intelligenceProbed
+                      ? `API ${status?.apiVersion ?? "compatível"}${status?.probeLatencyMs !== undefined ? ` • ${status.probeLatencyMs} ms` : ""}`
+                      : intelligenceConfigured
+                        ? `API ${status?.apiVersion ?? "compatível"} registrada. O teste abaixo confirma cota e resposta do provedor.`
+                      : status?.probeMessage ?? "Tente novamente; seus dados e seu texto permanecem no aparelho."}
                   </NexusText>
                 </View>
               </Card>
-              <NexusButton
-                label="Testar conexão agora"
-                variant="secondary"
-                loading={statusLoading}
-                onPress={() => refreshStatus(true)}
-                fullWidth
-              />
-              {status ? (
-                <Card style={styles.diagnosticCard}>
-                  <DiagnosticRow
-                    label="Backend"
-                    value={status.endpoint ?? "não identificado"}
-                  />
-                  <DiagnosticRow
-                    label="Ping do backend"
-                    value={
-                      status.latencyMs !== undefined
-                        ? `${status.latencyMs} ms`
-                        : "sem resposta"
-                    }
-                  />
-                  <DiagnosticRow
-                    label="Serviço"
-                    value={status.service ?? "legado/indefinido"}
-                  />
-                  <DiagnosticRow
-                    label="Modelo testado"
-                    value={
-                      status.probeModel ?? "teste rápido ainda não executado"
-                    }
-                  />
-                  <DiagnosticRow
-                    label="Resposta do modelo"
-                    value={
-                      status.probeLatencyMs !== undefined
-                        ? `${status.probeLatencyMs} ms`
-                        : (status.probeMessage ?? "toque em testar conexão")
-                    }
-                  />
-                  <DiagnosticRow
-                    label="Última checagem"
-                    value={
-                      status.checkedAt
-                        ? new Date(status.checkedAt).toLocaleTimeString(
-                            "pt-BR",
-                            { hour: "2-digit", minute: "2-digit" },
-                          )
-                        : "agora"
-                    }
-                  />
-                </Card>
-              ) : null}
+              <NexusButton label="Testar conexão" variant="secondary" loading={statusLoading} onPress={() => refreshStatus(true)} fullWidth />
               {lastAssistantMeta ? (
-                <Card style={styles.diagnosticCard}>
-                  <NexusText
-                    variant="mono"
-                    color={
-                      lastAssistantMeta.source === "remote"
-                        ? colors.success
-                        : colors.warning
-                    }
-                  >
-                    ÚLTIMA RESPOSTA
-                  </NexusText>
-                  <DiagnosticRow
-                    label="Origem"
-                    value={
-                      lastAssistantMeta.source === "remote"
-                        ? "OpenRouter"
-                        : "Plano local"
-                    }
-                  />
-                  <DiagnosticRow
-                    label="Modelo"
-                    value={lastAssistantMeta.model ?? "não usado"}
-                  />
-                  <DiagnosticRow
-                    label="Tempo"
-                    value={`${Math.max(1, Math.round(lastAssistantMeta.latencyMs / 1000))} s`}
-                  />
-                  <DiagnosticRow
-                    label="Tentativas"
-                    value={String(lastAssistantMeta.attempts)}
-                  />
+                <Card style={styles.infoCard}>
+                  <NexusText variant="mono" color={lastAssistantMeta.source === "remote" ? colors.success : colors.warning}>ÚLTIMA TENTATIVA</NexusText>
+                  <InfoRow label="Modelo" value={lastAssistantMeta.model ?? "não selecionado"} />
+                  <InfoRow label="Latência" value={`${lastAssistantMeta.latencyMs} ms`} />
+                  <InfoRow label="Tentativas" value={String(lastAssistantMeta.attempts)} />
+                  {lastAssistantMeta.errorCode ? <InfoRow label="Status" value={lastAssistantMeta.errorCode} /> : null}
                 </Card>
               ) : null}
-              <Card
-                style={[
-                  styles.infoCard,
-                  { backgroundColor: `${colors.primary}0C` },
-                ]}
-              >
-                <NexusText variant="subtitle">
-                  Quando a IA não responder
-                </NexusText>
-                <NexusText variant="caption" secondary>
-                  O app mantém captura, revisão e planejamento local. Para
-                  reativar Brain e Atlas online, publique esta versão do backend
-                  e configure OPENROUTER_API_KEY no Render.
-                </NexusText>
-              </Card>
             </Section>
 
-            <Section
-              title="Atualizações"
-              subtitle="Correções comuns chegam sem reinstalar o APK."
-            >
-              <Card
-                style={[
-                  styles.changelogCard,
-                  { borderColor: `${colors.primary}55` },
-                ]}
-              >
-                <NexusText variant="mono" color={colors.primarySoft}>
-                  {OTA_RELEASE.title.toUpperCase()} • OTA {OTA_RELEASE.update}
-                </NexusText>
-                {OTA_RELEASE.notes.map((note) => (
-                  <NexusText key={note} variant="caption" secondary>
-                    • {note}
-                  </NexusText>
-                ))}
-              </Card>
-              <Card style={styles.updateCard}>
-                <View style={styles.updateRow}>
-                  <NexusText variant="caption" secondary>
-                    Versão nativa
-                  </NexusText>
-                  <NexusText variant="mono">
-                    {updateInfo.nativeVersion}
-                  </NexusText>
-                </View>
-                <View style={styles.updateRow}>
-                  <NexusText variant="caption" secondary>
-                    Runtime OTA
-                  </NexusText>
-                  <NexusText variant="mono">
-                    {updateInfo.runtimeVersion}
-                  </NexusText>
-                </View>
-                <View style={styles.updateRow}>
-                  <NexusText variant="caption" secondary>
-                    Canal
-                  </NexusText>
-                  <NexusText variant="mono">{updateInfo.channel}</NexusText>
-                </View>
-                <View style={styles.updateRow}>
-                  <NexusText variant="caption" secondary>
-                    Atualização ativa
-                  </NexusText>
-                  <NexusText variant="mono">
-                    {updateInfo.isEmbedded ? "embutida" : updateInfo.updateId}
-                  </NexusText>
-                </View>
-                {updateInfo.emergencyLaunch ? (
-                  <NexusText variant="caption" color={colors.warning}>
-                    O Expo recuperou automaticamente a última versão estável.
-                  </NexusText>
-                ) : null}
+            <Section title="Atualizações" subtitle="Mudança nativa exige nova instalação; correções compatíveis podem usar OTA.">
+              <Card style={styles.infoCard}>
+                <NexusText variant="mono" color={colors.primarySoft}>{OTA_RELEASE.title.toUpperCase()}</NexusText>
+                <InfoRow label="Versão" value={updateInfo.nativeVersion} />
+                <InfoRow label="Runtime" value={updateInfo.runtimeVersion} />
+                <InfoRow label="Canal" value={updateInfo.channel} />
               </Card>
               <NexusButton
-                label={
-                  updateAvailable
-                    ? "Baixar e reiniciar"
-                    : "Verificar atualização"
-                }
+                label={updateAvailable ? "Baixar e reiniciar" : "Verificar atualização"}
                 variant={updateAvailable ? "primary" : "secondary"}
                 loading={updateBusy}
-                onPress={() =>
-                  void (updateAvailable ? installUpdate() : checkUpdates())
-                }
+                onPress={() => void (updateAvailable ? installUpdate() : checkUpdates())}
                 fullWidth
               />
-              <NexusText variant="caption" secondary>
-                Atualizações que alteram módulos nativos, permissões ou
-                bibliotecas ainda exigem um novo APK.
-              </NexusText>
             </Section>
 
-            <Section
-              title="Lembrete diário"
-              subtitle="A permissão só é pedida quando você ativa."
-            >
-              <Field
-                label="Horário"
-                value={notificationTime}
-                onChangeText={setNotificationTime}
-                maxLength={5}
-                placeholder="18:00"
-                keyboardType="numbers-and-punctuation"
-              />
-              <SwitchRow
-                label="Notificação diária"
-                description="Nexus online: sua missão de hoje está pronta."
-                value={data.preferences.notificationEnabled}
-                onChange={(value) => void setReminder(value)}
-              />
-              {Platform.OS === "web" ? (
-                <NexusText variant="caption" secondary>
-                  Configure lembretes no APK Android. O preview web continua
-                  funcionando sem notificações.
-                </NexusText>
-              ) : null}
+            <Section title="Lembrete" subtitle="A permissão só é solicitada quando você ativa.">
+              <Field label="Horário" value={notificationTime} onChangeText={setNotificationTime} maxLength={5} placeholder="18:00" keyboardType="numbers-and-punctuation" />
+              <Toggle label="Notificação diária" description="Lembra você de abrir a missão do dia." value={data.preferences.notificationEnabled} disabled={reminderBusy} onChange={(value) => void setReminder(value)} />
+              {Platform.OS === "web" ? <NexusText variant="caption" secondary>Notificações são configuradas no aplicativo Android.</NexusText> : null}
             </Section>
           </>
         ) : null}
 
         {area === "dados" ? (
           <>
-            <Section
-              title="Backup e privacidade"
-              subtitle="Seus dados ficam locais até você exportá-los."
-            >
-              <NexusButton
-                label="Exportar dados em JSON"
-                variant="secondary"
-                onPress={() => void exportData()}
-                fullWidth
-              />
-              <NexusButton
-                label="Importar backup"
-                variant="ghost"
-                onPress={() => void importData()}
-                fullWidth
-              />
-              <Card style={styles.privacyCard}>
-                <NexusText variant="subtitle">Privacidade por padrão</NexusText>
-                <NexusText variant="caption" secondary>
-                  Perfil, tarefas, XP, chats e roadmaps ficam no armazenamento
-                  privado do app. Somente contexto sanitizado e limitado é
-                  enviado ao backend.
-                </NexusText>
-              </Card>
-              <NexusButton
-                label="Ler política completa"
-                variant="ghost"
-                onPress={() => router.push("/privacy" as never)}
-                fullWidth
-              />
+            <Section title="Backup e privacidade" subtitle="O conteúdo permanece local até você decidir exportar.">
+              <NexusButton label="Exportar backup JSON" variant="secondary" loading={dataBusy} onPress={() => void exportData()} fullWidth />
+              <NexusButton label="Importar backup" variant="ghost" disabled={dataBusy} onPress={() => void importData()} fullWidth />
+              {hasImportRollback ? (
+                <NexusButton label="Desfazer última importação" variant="ghost" disabled={dataBusy} onPress={() => setRestoreImportOpen(true)} fullWidth />
+              ) : null}
+              {hasMigrationBackup ? (
+                <NexusButton label="Restaurar cópia anterior à v3" variant="ghost" disabled={dataBusy} onPress={() => setRestoreMigrationOpen(true)} fullWidth />
+              ) : null}
+              <NexusButton label="Política de privacidade" variant="ghost" onPress={() => router.push("/privacy" as never)} fullWidth />
             </Section>
-
-            <Section
-              title="Zona de controle"
-              subtitle="Ações destrutivas sempre pedem confirmação."
-            >
-              <NexusButton
-                label="Reiniciar somente o plano de hoje"
-                variant="ghost"
-                onPress={() => setResetTodayOpen(true)}
-                fullWidth
-              />
-              <NexusButton
-                label="Apagar todos os dados"
-                variant="danger"
-                onPress={() => setResetAllOpen(true)}
-                fullWidth
-              />
+            <Section title="Controle" subtitle="Ações destrutivas sempre exigem confirmação.">
+              <NexusButton label="Recriar plano de hoje" variant="ghost" onPress={() => setResetTodayOpen(true)} fullWidth />
+              <NexusButton label="Apagar todos os dados" variant="danger" onPress={() => setResetAllOpen(true)} fullWidth />
             </Section>
           </>
         ) : null}
 
-        {message ? (
-          <Card
-            style={[styles.message, { borderColor: `${colors.primary}55` }]}
-          >
-            <NexusText variant="caption">{message}</NexusText>
-          </Card>
-        ) : null}
-        <NexusText variant="caption" secondary style={styles.footer}>
-          Nexus AI 2.3.1 • Recovery & Widget Polish • Personal Mission OS
-        </NexusText>
+        {message ? <Card style={[styles.message, { borderColor: colors.borderStrong }]}><NexusText variant="caption">{message}</NexusText></Card> : null}
+        <NexusText variant="caption" secondary style={styles.footer}>Nexus AI {OTA_RELEASE.label} • Core Reborn</NexusText>
       </Screen>
 
       <ConfirmDialog
+        visible={Boolean(pendingImport)}
+        title="Substituir pelos dados deste backup?"
+        message="Perfil, plano, progresso, conversas e preferências atuais serão substituídos. Um snapshot local será criado para permitir desfazer."
+        confirmLabel="Importar e substituir"
+        destructive
+        loading={dataBusy}
+        onCancel={() => setPendingImport(null)}
+        onConfirm={() => {
+          const selected = pendingImport;
+          if (!selected) return;
+          setDataBusy(true);
+          void importBackup(selected.json)
+            .then(() => {
+              setPendingImport(null);
+              setMessage("Backup importado com sucesso. A versão anterior pode ser restaurada.");
+            })
+            .catch((error: unknown) => setMessage(error instanceof Error ? error.message : "A importação falhou e os dados anteriores foram restaurados."))
+            .finally(() => setDataBusy(false));
+        }}
+      >
+        {pendingImport ? (
+          <Card style={styles.infoCard}>
+            <InfoRow label="Perfil" value={pendingImport.preview.nickname} />
+            <InfoRow label="Tarefas ativas" value={String(pendingImport.preview.activeTasks)} />
+            <InfoRow label="Roadmaps" value={String(pendingImport.preview.roadmaps)} />
+            <InfoRow label="Conversas" value={String(pendingImport.preview.conversations)} />
+            <InfoRow label="Sessões de foco" value={String(pendingImport.preview.focusSessions)} />
+          </Card>
+        ) : null}
+      </ConfirmDialog>
+      <ConfirmDialog
+        visible={restoreImportOpen}
+        title="Desfazer a última importação?"
+        message="O snapshot criado antes da importação voltará a ser o estado atual."
+        confirmLabel="Restaurar estado anterior"
+        loading={dataBusy}
+        onCancel={() => setRestoreImportOpen(false)}
+        onConfirm={() => {
+          setDataBusy(true);
+          void restoreImportBackup()
+            .then((restored) => {
+              if (restored) setRestoreImportOpen(false);
+              setMessage(restored ? "Estado anterior restaurado." : "O snapshot anterior não está mais disponível.");
+            })
+            .catch(() => setMessage("Não foi possível restaurar o snapshot anterior."))
+            .finally(() => setDataBusy(false));
+        }}
+      />
+      <ConfirmDialog
+        visible={restoreMigrationOpen}
+        title="Restaurar a cópia anterior à migração?"
+        message="Os dados preservados antes da conversão para a v3 voltarão ao estado atual. O estado de agora será salvo para permitir desfazer."
+        confirmLabel="Restaurar cópia anterior"
+        loading={dataBusy}
+        onCancel={() => setRestoreMigrationOpen(false)}
+        onConfirm={() => {
+          setDataBusy(true);
+          void restoreMigrationBackup()
+            .then((restored) => {
+              if (restored) setRestoreMigrationOpen(false);
+              setMessage(restored ? "Cópia anterior à migração restaurada." : "Nenhuma cópia recuperável foi encontrada.");
+            })
+            .catch(() => setMessage("Não foi possível restaurar a cópia anterior; o estado atual foi mantido."))
+            .finally(() => setDataBusy(false));
+        }}
+      />
+      <ConfirmDialog
         visible={resetTodayOpen}
-        title="Reiniciar o plano de hoje?"
-        message="O plano atual será substituído por uma versão local. Seu perfil e histórico não serão apagados."
-        confirmLabel="Reiniciar plano"
+        title="Recriar o plano de hoje?"
+        message="O planejamento pendente será recriado offline. Tarefas e missão já concluídas, XP, foco, perfil e histórico serão preservados."
+        confirmLabel="Recriar"
+        loading={dataBusy}
         onCancel={() => setResetTodayOpen(false)}
         onConfirm={() => {
-          resetToday();
-          setResetTodayOpen(false);
+          setDataBusy(true);
+          void resetToday()
+            .then((saved) => {
+              if (saved) setResetTodayOpen(false);
+              else setMessage("Não foi possível confirmar a recriação do plano. O estado anterior foi mantido.");
+            })
+            .finally(() => setDataBusy(false));
         }}
       />
       <ConfirmDialog
         visible={resetAllOpen}
-        title="Apagar tudo do Nexus?"
-        message="Perfil, tarefas, XP, sessões e histórico serão removidos deste dispositivo. Exporte um backup antes se quiser recuperar depois."
+        title="Apagar todos os dados?"
+        message="Perfil, tarefas, XP, chats e histórico serão removidos deste dispositivo. Exporte um backup antes se quiser recuperá-los."
         confirmLabel="Apagar tudo"
         destructive
+        loading={dataBusy}
         onCancel={() => setResetAllOpen(false)}
         onConfirm={() => {
-          setResetAllOpen(false);
-          void resetAll().then(() => router.replace("/onboarding"));
+          setDataBusy(true);
+          void resetAll()
+            .then(() => {
+              setResetAllOpen(false);
+              router.replace("/onboarding");
+            })
+            .catch(() => setMessage("Não foi possível apagar todos os dados; o estado atual foi mantido."))
+            .finally(() => setDataBusy(false));
         }}
       />
     </>
   );
 }
 
-function Section({
-  title,
-  subtitle,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <View style={styles.section}>
-      <View style={styles.sectionTitle}>
-        <NexusText variant="title">{title}</NexusText>
-        {subtitle ? (
-          <NexusText variant="caption" secondary>
-            {subtitle}
-          </NexusText>
-        ) : null}
-      </View>
-      {children}
-    </View>
-  );
+function Section({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
+  return <View style={styles.section}><View style={styles.sectionTitle}><NexusText variant="title">{title}</NexusText><NexusText variant="caption" secondary>{subtitle}</NexusText></View>{children}</View>;
 }
 
-function ControlCard({
-  title,
-  description,
-  icon,
-  onPress,
-}: {
-  title: string;
-  description: string;
-  icon: string;
-  onPress: () => void;
-}) {
+function Choice({ title, children }: { title: string; children: React.ReactNode }) {
+  return <View style={styles.choice}><NexusText variant="caption" secondary>{title}</NexusText><View style={styles.chips}>{children}</View></View>;
+}
+
+function Toggle({ label, description, value, disabled = false, onChange }: { label: string; description: string; value: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
   const { colors } = useNexus();
   return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.controlCard,
-        { backgroundColor: colors.surface, borderColor: colors.border },
-      ]}
-    >
-      <View
-        style={[styles.controlIcon, { backgroundColor: `${colors.primary}18` }]}
-      >
-        <NexusText variant="title" color={colors.primarySoft}>
-          {icon}
-        </NexusText>
-      </View>
-      <NexusText variant="subtitle">{title}</NexusText>
-      <NexusText variant="caption" secondary>
-        {description}
-      </NexusText>
-    </Pressable>
-  );
-}
-
-function DiagnosticRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.updateRow}>
-      <NexusText variant="caption" secondary>
-        {label}
-      </NexusText>
-      <NexusText
-        variant="caption"
-        numberOfLines={1}
-        style={styles.diagnosticValue}
-      >
-        {value}
-      </NexusText>
-    </View>
-  );
-}
-
-function SummaryMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <Card style={styles.summaryMetric}>
-      <NexusText variant="title">{value}</NexusText>
-      <NexusText variant="caption" secondary>
-        {label}
-      </NexusText>
+    <Card style={styles.toggle}>
+      <View style={styles.flex}><NexusText variant="subtitle">{label}</NexusText><NexusText variant="caption" secondary>{description}</NexusText></View>
+      <Switch accessibilityLabel={label} disabled={disabled} value={value} onValueChange={onChange} trackColor={{ false: colors.borderStrong, true: colors.primary }} thumbColor={colors.text} />
     </Card>
   );
 }
 
-function ProfileChoice({
-  title,
-  value,
-  options,
-  onChange,
-}: {
-  title: string;
-  value: string | number;
-  options: (readonly [string | number, string])[];
-  onChange: (value: string | number) => void;
-}) {
-  return (
-    <View style={styles.choiceGroup}>
-      <NexusText variant="caption" secondary>
-        {title}
-      </NexusText>
-      <View style={styles.chips}>
-        {options.map(([optionValue, label]) => (
-          <ChoiceChip
-            key={String(optionValue)}
-            label={label}
-            selected={value === optionValue}
-            onPress={() => onChange(optionValue)}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function SwitchRow({
-  label,
-  description,
-  value,
-  onChange,
-}: {
-  label: string;
-  description?: string;
-  value: boolean;
-  onChange: (value: boolean) => void;
-}) {
-  const { colors } = useNexus();
-  return (
-    <View style={[styles.switchRow, { borderBottomColor: colors.border }]}>
-      <View style={styles.flex}>
-        <NexusText variant="subtitle">{label}</NexusText>
-        {description ? (
-          <NexusText variant="caption" secondary>
-            {description}
-          </NexusText>
-        ) : null}
-      </View>
-      <Switch
-        accessibilityLabel={label}
-        value={value}
-        onValueChange={onChange}
-        trackColor={{ false: colors.borderStrong, true: colors.primary }}
-        thumbColor="#FFFFFF"
-      />
-    </View>
-  );
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return <View style={styles.infoRow}><NexusText variant="caption" secondary>{label}</NexusText><NexusText variant="caption" numberOfLines={1} style={styles.infoValue}>{value}</NexusText></View>;
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  profileHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
-    marginBottom: 8,
-  },
-  avatar: {
-    width: 92,
-    height: 92,
-    borderRadius: 28,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  areaNav: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 7,
-    borderWidth: 1,
-    borderRadius: 18,
-    padding: 8,
-    marginTop: 14,
-    marginBottom: 8,
-  },
-  section: { marginTop: 27, gap: 13 },
-  sectionTitle: { gap: 4 },
-  choiceGroup: { gap: 9 },
-  controlGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  controlCard: {
-    width: "47%",
-    flexGrow: 1,
-    minHeight: 132,
-    borderRadius: 19,
-    borderWidth: 1,
-    padding: 14,
-    gap: 7,
-  },
-  controlIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  summaryMetric: {
-    width: "47%",
-    flexGrow: 1,
-    minHeight: 82,
-    justifyContent: "center",
-    gap: 4,
-  },
-  themeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 9 },
-  themeCard: {
-    width: "47%",
-    flexGrow: 1,
-    minHeight: 118,
-    borderRadius: 18,
-    borderWidth: 1,
-    padding: 14,
-    gap: 7,
-  },
-  themeDot: { width: 22, height: 22, borderRadius: 8 },
-  customColorCard: { gap: 12 },
-  switchRow: {
-    minHeight: 62,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 8,
-  },
+  hero: { flexDirection: "row", alignItems: "center", gap: 14 },
+  avatar: { width: 82, height: 82, borderRadius: 24, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  primaryActions: { flexDirection: "row", gap: 8, marginTop: 16 },
+  areaTabs: { flexDirection: "row", flexWrap: "wrap", gap: 7, borderWidth: 1, borderRadius: 16, padding: 7, marginTop: 16 },
+  section: { marginTop: 26, gap: 11 },
+  sectionTitle: { gap: 4, marginBottom: 2 },
+  choice: { gap: 8 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   statusCard: { flexDirection: "row", alignItems: "center", gap: 12 },
-  diagnosticCard: { gap: 8 },
-  changelogCard: { gap: 7 },
-  diagnosticValue: { maxWidth: "64%", textAlign: "right" },
   statusDot: { width: 11, height: 11, borderRadius: 6 },
-  infoCard: { gap: 7 },
-  updateCard: { gap: 10 },
-  updateRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  privacyCard: { gap: 7 },
+  infoCard: { gap: 8 },
+  infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  infoValue: { maxWidth: "65%", textAlign: "right" },
+  toggle: { flexDirection: "row", alignItems: "center", gap: 12 },
   message: { marginTop: 22 },
   footer: { textAlign: "center", marginTop: 28, marginBottom: 8 },
 });

@@ -61,7 +61,7 @@ export function TaskCard({
               },
             ]}
           >
-            {task.completed ? <NexusText color="#07120B">✓</NexusText> : null}
+            {task.completed ? <NexusText color={colors.onSuccess}>✓</NexusText> : null}
           </View>
           <View style={styles.content}>
             <View style={styles.labelRow}>
@@ -69,7 +69,7 @@ export function TaskCard({
               <NexusText variant="caption" color={priorityColor}>{task.priority.toUpperCase()}</NexusText>
             </View>
             <NexusText variant="subtitle" style={task.completed ? styles.completed : undefined}>{task.title}</NexusText>
-            {task.description ? <NexusText variant="caption" secondary numberOfLines={showGuidance ? undefined : 2}>{task.description}</NexusText> : null}
+            {task.description || task.context ? <NexusText variant="caption" secondary numberOfLines={showGuidance ? undefined : 2}>{task.description ?? task.context}</NexusText> : null}
             {!showGuidance ? (
               <View style={[styles.quickOutcome, { borderColor: `${colors.success}28`, backgroundColor: `${colors.success}08` }]}>
                 <NexusText variant="caption" color={colors.success} numberOfLines={2}>
@@ -97,6 +97,9 @@ export function TaskCard({
         {showGuidance ? (
           <View style={[styles.guidance, { borderTopColor: colors.border }]}>
             <NexusText variant="mono" color={colors.primarySoft}>EXECUÇÃO</NexusText>
+            {guidance.context ? (
+              <NexusText variant="caption" secondary>{guidance.context}</NexusText>
+            ) : null}
             {guidance.steps.map((step, index) => (
               <View key={`${task.id}-${index}`} style={styles.stepRow}>
                 <View style={[styles.stepNumber, { backgroundColor: `${colors.primary}18` }]}>
@@ -108,6 +111,10 @@ export function TaskCard({
             <View style={[styles.deliverable, { borderColor: `${colors.success}35`, backgroundColor: `${colors.success}0C` }]}>
               <NexusText variant="mono" color={colors.success}>RESULTADO ESPERADO</NexusText>
               <NexusText variant="caption">{guidance.deliverable}</NexusText>
+            </View>
+            <View style={[styles.deliverable, { borderColor: `${colors.warning}35`, backgroundColor: `${colors.warning}0C` }]}>
+              <NexusText variant="mono" color={colors.warning}>CONCLUÍDO QUANDO</NexusText>
+              <NexusText variant="caption">{guidance.doneWhen}</NexusText>
             </View>
           </View>
         ) : null}

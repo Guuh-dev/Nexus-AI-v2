@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Redirect, Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { NexusText } from "@/components/ui/NexusText";
@@ -17,7 +16,6 @@ const icons = {
 
 export default function TabsLayout() {
   const { data, colors, visuals, ready } = useNexus();
-  useEffect(() => undefined, []);
   if (!ready) return null;
   if (!data.onboardingCompleted || !data.profile)
     return <Redirect href="/onboarding" />;
