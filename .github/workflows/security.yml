@@ -30,7 +30,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Audit dependencies
-        run: pnpm audit --audit-level=moderate
+        run: pnpm audit --audit-level=high
 
       - name: Scan secrets
         run: pnpm run security:secrets

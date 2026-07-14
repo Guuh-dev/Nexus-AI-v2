@@ -38,6 +38,9 @@ jobs:
       - name: Run release check
         run: pnpm run release:check
 
+      - name: Run Expo doctor
+        run: pnpm run doctor
+
       - name: Validate Expo configuration
         run: pnpm exec expo config --type public --json > /tmp/nexus-expo-config.json
 
@@ -46,3 +49,40 @@ jobs:
 
       - name: Check Expo dependencies
         run: pnpm exec expo install --check
+
+      - name: Check patch formatting
+        run: git diff --check
+
+  android-native:
+    name: Android native compile
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Android project
+        env:
+          CI: "1"
+        run: pnpm exec expo prebuild --platform android --clean
+
+      - name: Compile Android debug APK
+        run: ./android/gradlew --no-daemon :app:assembleDebug

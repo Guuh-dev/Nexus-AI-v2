@@ -5,28 +5,24 @@ import { OTA_RELEASE } from "@/constants/release";
 import { getColors, getVisuals } from "@/theme/theme";
 import type { ThemeId } from "@/types";
 
-const themeIds: Exclude<ThemeId, "custom">[] = [
+const themeIds: ThemeId[] = [
   "nexus",
   "amoled",
-  "oneui",
-  "hud",
-  "aurora",
-  "ocean",
-  "ember",
-  "rose",
-  "monochrome",
+  "glass",
   "light",
+  "pixel",
+  "minimal",
 ];
 
 describe("Nexus OTA 2.1.3 regressions", () => {
   it("declares the Companion native runtime consistently", () => {
     const app = JSON.parse(readFileSync("app.json", "utf8")) as { expo?: { version?: string; runtimeVersion?: { policy?: string } } };
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { version?: string };
-    expect(app.expo?.version).toBe("2.4.0");
-    expect(pkg.version).toBe("2.4.0");
+    expect(app.expo?.version).toBe("3.0.0");
+    expect(pkg.version).toBe("3.0.0");
     expect(app.expo?.runtimeVersion?.policy).toBe("appVersion");
-    expect(OTA_RELEASE.label).toBe("2.4.0");
-    expect(OTA_RELEASE.runtime).toBe("2.4.0");
+    expect(OTA_RELEASE.label).toBe("3.0.0");
+    expect(OTA_RELEASE.runtime).toBe("3.0.0");
   });
 
   it("does not replace the themed tab bar with the white default in Focus OS", () => {
@@ -56,11 +52,13 @@ describe("Nexus OTA 2.1.3 regressions", () => {
     expect(new Set(signatures).size).toBe(themeIds.length);
   });
 
-  it("documents the native widget and Companion release scope", () => {
+  it("documents the rebuilt native widget and Companion release scope", () => {
     const releaseNotes = readFileSync("constants/release.ts", "utf8");
     const provider = readFileSync("modules/nexus-widget/android/src/main/java/expo/modules/nexuswidget/NexusWidgetProvider.kt", "utf8");
-    expect(releaseNotes).toContain("Widget Studio 2.2");
+    expect(releaseNotes).toContain("Widgets Android reconstruídos");
     expect(provider).toContain("ACTION_NEXT_PAGE");
-    expect(provider).toContain("MONEY MISSION");
+    expect(provider).toContain("NativeWidgetRenderSpec");
+    expect(provider).toContain('payload?.optJSONObject("renderSpecs")');
+    expect(provider).toContain("NEXUS COMMAND");
   });
 });

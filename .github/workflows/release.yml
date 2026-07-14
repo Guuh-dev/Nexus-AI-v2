@@ -19,6 +19,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
 
@@ -38,9 +40,37 @@ jobs:
             echo "Tag ${GITHUB_REF_NAME} does not match package version v${VERSION}." >&2
             exit 1
           fi
+          git fetch origin main --no-tags
+          TAG_COMMIT="$(git rev-parse "${GITHUB_REF_NAME}^{commit}")"
+          if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+            echo "Release tag must point to a commit contained in origin/main." >&2
+            exit 1
+          fi
 
       - name: Verify release
         run: pnpm run verify && pnpm run release:check && pnpm exec expo install --check
+
+      - name: Gate on the published v3 backend
+        shell: bash
+        env:
+          API_URL: https://nexus-ai-v1.onrender.com
+          EXPECTED_VERSION: 3.0.0
+          PROBE_CLIENT_ID: release-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          STATUS_JSON="$(curl --fail --silent --show-error --retry 3 --retry-all-errors --connect-timeout 10 --max-time 90 "$API_URL/api/status")"
+          STATUS_JSON="$STATUS_JSON" EXPECTED_VERSION="$EXPECTED_VERSION" node -e '
+            const status = JSON.parse(process.env.STATUS_JSON);
+            const required = ["capability-routing", "validated-streaming"];
+            if (status.apiVersion !== process.env.EXPECTED_VERSION) throw new Error(`Backend version ${status.apiVersion ?? "missing"} is not ${process.env.EXPECTED_VERSION}.`);
+            if (status.service !== "nexus-ai-v3") throw new Error("Unexpected backend service identity.");
+            if (status.configured !== true || status.assistantAvailable !== true) throw new Error("Backend assistant is not release-ready.");
+            if (!required.every((capability) => status.capabilities?.includes(capability))) throw new Error("Backend capability contract is incomplete.");
+          '
+          PROBE_JSON="$(curl --fail --silent --show-error --retry 2 --retry-all-errors --connect-timeout 10 --max-time 90 -X POST -H "x-nexus-client-id: $PROBE_CLIENT_ID" "$API_URL/api/status")"
+          PROBE_JSON="$PROBE_JSON" node -e '
+            const status = JSON.parse(process.env.PROBE_JSON);
+            if (status.apiVersion !== "3.0.0" || status.probe?.ok !== true || status.assistantAvailable !== true) throw new Error("Published backend failed the live provider probe.");
+          '
 
       - name: Validate EAS token
         env:
