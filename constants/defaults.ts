@@ -46,7 +46,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   },
   mascot: {
     primary: "nexus",
-    companion: "atlas",
+    companion: "nexus",
     showCompanion: true,
     speechEnabled: true,
     companionMood: "happy",
@@ -88,7 +88,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
     compactTasks: true,
     taskCount: 3,
     progressStyle: "bar",
-    privacyMode: false,
+    privacyMode: true,
     fontScale: "normal",
     opacity: 0.96,
     cornerStyle: "round",

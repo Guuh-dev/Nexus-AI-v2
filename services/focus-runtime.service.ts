@@ -1,53 +1,37 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { z } from "zod";
-import type { AmbientSound, FocusMode } from "@/types";
-import { createId } from "@/utils/ids";
-
+import { focusRuntimeSchema, restoreRuntime, type FocusRuntime } from "@/features/focus/runtime";
+export type { FocusRuntime } from "@/features/focus/runtime";
+export type FocusSetup = Pick<FocusRuntime, "mode" | "ambientSound" | "intention">;
 const KEY = "@nexus-ai/focus-runtime";
-const schema = z.object({
-  sessionId: z.string().min(1).max(120).optional(),
-  taskId: z.string().max(120).optional(),
-  taskTitle: z.string().min(1).max(120),
-  duration: z.number().int().min(5).max(360),
-  mode: z.enum(["pomodoro", "profundo", "fluxo", "sprint", "personalizado"]),
-  intention: z.string().max(300),
-  ambientSound: z.enum(["nenhum", "chuva", "floresta", "cafeteria", "ruido_marrom", "ruido_branco", "espaco"]),
-  status: z.enum(["running", "paused", "completed"]),
-  elapsedBase: z.number().int().min(0).max(86_400),
-  runStartedAt: z.number().int().positive().nullable(),
-  sessionStartedAt: z.string().datetime(),
-  reflection: z.string().max(500).optional(),
-}).strict();
-
-export type FocusRuntime = Omit<z.infer<typeof schema>, "sessionId"> & { sessionId: string };
-
+let epoch = 0;
+export function focusRuntimeEpoch(): number { return epoch; }
 let writeQueue: Promise<void> = Promise.resolve();
-
-export async function saveFocusRuntime(runtime: FocusRuntime): Promise<void> {
-  const parsed = schema.safeParse(runtime);
-  if (!parsed.success) return;
-  writeQueue = writeQueue
-    .catch(() => undefined)
-    .then(() => AsyncStorage.setItem(KEY, JSON.stringify(parsed.data)));
-  await writeQueue;
+function enqueue<T>(operation: () => Promise<T>): Promise<T> {
+  const task = writeQueue.catch(() => undefined).then(operation);
+  writeQueue = task.then(() => undefined, () => undefined);
+  return task;
 }
-
-export async function loadFocusRuntime(): Promise<FocusRuntime | null> {
-  try {
+export function saveFocusRuntime(runtime: FocusRuntime): Promise<void> {
+  const parsed = focusRuntimeSchema.parse(runtime);
+  const expected = runtime.epoch ?? epoch;
+  return enqueue(async () => { if (expected !== epoch) throw new Error("O estado foi substituído. Reabra Foco antes de continuar."); await AsyncStorage.setItem(KEY, JSON.stringify({ ...parsed, epoch })); });
+}
+export function loadFocusRuntime(): Promise<FocusRuntime | null> {
+  return enqueue(async () => {
     const raw = await AsyncStorage.getItem(KEY);
     if (!raw) return null;
-    const parsed = schema.safeParse(JSON.parse(raw) as unknown);
-    if (!parsed.success) { await AsyncStorage.removeItem(KEY); return null; }
-    return {
-      ...parsed.data,
-      sessionId: parsed.data.sessionId ?? createId("focus-session"),
-    };
-  } catch { return null; }
+    // Preserve malformed/future runtime for recovery rather than deleting it.
+    const restored = { ...restoreRuntime(JSON.parse(raw) as unknown), epoch };
+    await AsyncStorage.setItem(KEY, JSON.stringify(restored));
+    return restored;
+  });
 }
-
-export async function clearFocusRuntime(): Promise<void> {
-  await writeQueue.catch(() => undefined);
-  await AsyncStorage.removeItem(KEY);
+export function clearFocusRuntime(): Promise<void> { epoch++; return enqueue(() => AsyncStorage.removeItem(KEY)); }
+export function peekFocusRuntime(): Promise<FocusRuntime | null> {
+  return enqueue(async () => {
+    const raw = await AsyncStorage.getItem(KEY);
+    if (!raw) return null;
+    const parsed = focusRuntimeSchema.parse(JSON.parse(raw) as unknown);
+    return parsed.sessionId ? { ...parsed, sessionId: parsed.sessionId } : null;
+  });
 }
-
-export type FocusSetup = { mode: FocusMode; ambientSound: AmbientSound; intention: string };

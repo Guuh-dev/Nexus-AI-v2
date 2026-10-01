@@ -57,6 +57,7 @@ const storedMissionSchema = aiMissionSchema.extend({
 });
 
 export const storedTaskSchema = aiTaskSchema.extend({
+  lesson: z.object({ roadmapId: z.string().min(1).max(120), lessonId: z.string().min(1).max(120) }).strict().optional(),
   dependsOn: z.array(z.string().min(1).max(120)).max(5).optional(),
   id: z.string().trim().min(1).max(100),
   completed: z.boolean(),

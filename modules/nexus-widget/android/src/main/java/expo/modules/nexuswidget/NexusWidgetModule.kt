@@ -11,6 +11,12 @@ import org.json.JSONObject
 class NexusWidgetModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("NexusWidget")
+    AsyncFunction("pixelCompanionsSupported") { true }
+    AsyncFunction("journalSupported") { true }
+    AsyncFunction("saveJournal") { id: String, text: String -> NexusJournalStore.save(appContext.reactContext ?: throw IllegalStateException("Context unavailable"), id, text) }
+    AsyncFunction("readJournal") { id: String -> NexusJournalStore.read(appContext.reactContext ?: throw IllegalStateException("Context unavailable"), id) }
+    AsyncFunction("deleteJournal") { id: String -> NexusJournalStore.delete(appContext.reactContext ?: throw IllegalStateException("Context unavailable"), id) }
+    AsyncFunction("clearJournal") { NexusJournalStore.clear(appContext.reactContext ?: throw IllegalStateException("Context unavailable")) }
 
     AsyncFunction("updateWidget") { payload: String ->
       require(payload.toByteArray(Charsets.UTF_8).size <= 32_768) { "Widget payload is too large" }
@@ -167,6 +173,9 @@ class NexusWidgetModule : Module() {
     val personality = raw.optString("personality", raw.optString("mood", "happy"))
       .takeIf(personalities::contains) ?: "happy"
     return JSONObject()
+      .put("scene", raw.optString("scene", "none").takeIf { it in setOf("none", "desk", "garden", "night") } ?: "none")
+      .put("showMascot", raw.optBoolean("showMascot", true))
+      .put("showMetric", raw.optBoolean("showMetric", true))
       .put("schemaVersion", 3)
       .put("family", family)
       .put("style", style)

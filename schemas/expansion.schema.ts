@@ -56,6 +56,8 @@ const chatMessageSchema = z.object({
 }).strict();
 
 const chatThreadSchema = z.object({
+  roadmapId: id.optional(),
+  lessonId: id.optional(),
   id,
   kind: z.enum(["brain", "professor"]),
   title: z.string().trim().min(1).max(100),
@@ -148,7 +150,10 @@ export const roadmapSchema = z.object({
   updatedAt: dateTime,
 }).strict();
 
+export const professorDraftSchema = z.object({ intake: professorIntakeSchema.extend({ topic: z.string().max(160), desiredOutcome: z.string().max(800) }), step: z.number().int().min(0).max(4), weekly: z.string().max(5) }).strict();
+
 export const learningStateSchema = z.object({
+  intakeDraft: professorDraftSchema.optional(),
   professorEnabled: z.boolean(),
   roadmaps: z.array(roadmapSchema).max(50),
   pendingTopics: z.array(z.string().trim().min(2).max(160)).max(24),

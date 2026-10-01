@@ -140,6 +140,7 @@ export type MainMission = {
 };
 
 export type Task = {
+  lesson?: { roadmapId: string; lessonId: string };
   dependsOn?: string[];
   id: string;
   title: string;
@@ -197,6 +198,9 @@ export type FocusSession = {
   taskTitle: string;
   plannedMinutes: number;
   elapsedSeconds: number;
+  segments?: { start: string; end: string }[];
+  nextAction?: string;
+  captures?: { id: string; text: string; createdAt: string }[];
   xp: number;
   status: "completed" | "cancelled";
   startedAt: string;
@@ -240,6 +244,8 @@ export type WidgetTextAlign = "left" | "center";
 export type WidgetTapAction = "today" | "brain" | "focus" | "capture" | "progress" | "finance" | "habits" | "week";
 
 export type WidgetPreferences = {
+  scene?: "none" | "desk" | "garden" | "night";
+  showMetric?: boolean;
   preset: WidgetPreset;
   contentMode: WidgetContentMode;
   background: "solid" | "amoled" | "translucent";
@@ -292,7 +298,7 @@ export type DashboardPreferences = {
 
 export type MascotPreferences = {
   primary: "nexus";
-  companion: Exclude<MascotId, "nexus">;
+  companion: MascotId;
   showCompanion: boolean;
   speechEnabled: boolean;
   companionMood: CompanionMood;
@@ -384,6 +390,8 @@ export type ChatMessage = {
 };
 
 export type ChatThread = {
+  roadmapId?: string;
+  lessonId?: string;
   id: string;
   kind: ChatKind;
   title: string;
@@ -471,6 +479,7 @@ export type LearningRoadmap = {
 };
 
 export type LearningState = {
+  intakeDraft?: { intake: ProfessorIntake; step: number; weekly: string };
   professorEnabled: boolean;
   roadmaps: LearningRoadmap[];
   pendingTopics: string[];

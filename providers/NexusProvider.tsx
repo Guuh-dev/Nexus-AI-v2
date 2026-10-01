@@ -1,3 +1,7 @@
+import { clearJournalIfSupported } from "@/services/journal.service";
+import { addEvidence, removeEvidence, reviewDay, draftTomorrow } from "@/features/lock-in/review";
+import type { Evidence, DayReview } from "@/schemas/lock-in.schema";
+import { applyFocusCompletion } from "@/features/focus/completion";
 import { confirmSecondaryGoal, reconcileExecution, projectGoalProfile } from "@/features/lock-in/planning";
 import { lockInDraftSchema, type LockInDraft } from "@/schemas/lock-in.schema";
 import {
@@ -100,6 +104,11 @@ type ConfirmedCommitResult = { data: AppData; widget: WidgetSyncResult };
 
 type NexusContextValue = {
   data: AppData;
+  saveJournalManifest: (id: string, remove: boolean) => Promise<boolean>;
+  saveEvidence: (input: Evidence) => Promise<boolean>;
+  deleteEvidence: (id: string) => Promise<boolean>;
+  saveDayReview: (input: Pick<DayReview, "outcome" | "reason" | "nextAction">, baseRevision: number) => Promise<boolean>;
+  prepareTomorrow: () => Promise<boolean>;
   saveLockInDraft: (draft: LockInDraft) => Promise<boolean>;
   confirmLockIn: (draft: LockInDraft, baseRevision: number) => Promise<boolean>;
   colors: NexusColors;
@@ -131,7 +140,7 @@ type NexusContextValue = {
   updateProfile: (patch: Partial<Profile>) => Promise<boolean>;
   updatePreferences: (patch: Omit<Partial<Preferences>, "widget" | "dashboard" | "mascot"> & { widget?: Partial<Preferences["widget"]>; dashboard?: Partial<Preferences["dashboard"]>; mascot?: Partial<Preferences["mascot"]> }) => Promise<WidgetSyncResult | null>;
   finishFocusSession: (session: FocusSession, markTaskComplete: boolean) => Promise<boolean>;
-  createThread: (kind: ChatKind) => string;
+  createThread: (kind: ChatKind) => Promise<string | undefined>;
   selectThread: (kind: ChatKind, threadId: string) => void;
   renameThread: (threadId: string, title: string) => Promise<boolean>;
   archiveThread: (threadId: string) => Promise<boolean>;
@@ -140,6 +149,7 @@ type NexusContextValue = {
   deleteMemory: (memoryId: string) => Promise<boolean>;
   toggleMemoryPinned: (memoryId: string) => Promise<boolean>;
   applyAssistantAction: (threadId: string, actionId: string, accept: boolean) => Promise<void>;
+  saveProfessorDraft: (intake: ProfessorIntake, step: number, weekly: string) => Promise<boolean>;
   createRoadmap: (topic: string, intake?: ProfessorIntake) => Promise<boolean>;
   setActiveRoadmap: (roadmapId: string) => Promise<boolean>;
   renameRoadmap: (roadmapId: string, title: string) => Promise<boolean>;
@@ -427,6 +437,19 @@ export function NexusProvider({ children }: PropsWithChildren) {
       return null;
     }
   }, [persist, prepareCommit, showToast]);
+
+  const saveJournalManifest = useCallback(async (id: string, remove: boolean) => Boolean(await commitConfirmed((current) => {
+    const entries = current.lockIn.journal ?? [];
+    if (remove) return { ...current, lockIn: { ...current.lockIn, journal: entries.filter((e) => e.id !== id) } };
+    const previous = entries.find((e) => e.id === id);
+    if (!previous && entries.length >= 3660) throw new Error("Limite de registros atingido. Exporte e revise seu diário.");
+    const now = new Date().toISOString();
+    return { ...current, lockIn: { ...current.lockIn, journal: [...entries.filter((e) => e.id !== id), { id, createdAt: previous?.createdAt ?? now, updatedAt: now }] } };
+  })), [commitConfirmed]);
+  const saveEvidence = useCallback(async (input: Evidence) => Boolean(await commitConfirmed((current) => addEvidence(current, input), "Evidência salva.")), [commitConfirmed]);
+  const deleteEvidence = useCallback(async (id: string) => Boolean(await commitConfirmed((current) => removeEvidence(current, id), "Evidência excluída e referências retiradas.")), [commitConfirmed]);
+  const saveDayReview = useCallback(async (input: Pick<DayReview, "outcome" | "reason" | "nextAction">, baseRevision: number) => Boolean(await commitConfirmed((current) => reviewDay(current, input, baseRevision), "Revisão salva.")), [commitConfirmed]);
+  const prepareTomorrow = useCallback(async () => Boolean(await commitConfirmed(draftTomorrow, "Rascunho de amanhã salvo. Janelas ainda precisam de confirmação.")), [commitConfirmed]);
 
   const saveLockInDraft = useCallback(async (draft: LockInDraft): Promise<boolean> => {
     const parsed = lockInDraftSchema.safeParse(draft);
@@ -813,34 +836,22 @@ export function NexusProvider({ children }: PropsWithChildren) {
   }, [commitConfirmed]);
 
   const finishFocusSession = useCallback(async (session: FocusSession, markTaskComplete: boolean): Promise<boolean> => {
-    const result = await commitConfirmed((current) => {
-      if (current.progress.focusSessions.some((item) => item.id === session.id)) return current;
-      let next: AppData = {
-        ...current,
-        progress: {
-          ...current.progress,
-          totalXp: current.progress.totalXp + session.xp,
-          focusSessions: [...current.progress.focusSessions, session].slice(-10_000),
-          attributes: { ...current.progress.attributes, foco: current.progress.attributes.foco + Math.floor(session.elapsedSeconds / 60) },
-        },
-      };
-      const task = session.taskId ? next.activePlan?.tasks.find((item) => item.id === session.taskId) : undefined;
-      if (markTaskComplete && task && !task.completed) next = toggleTaskCompletion(next, task.id);
-      return next;
-    }, session.status === "cancelled" ? "Sessão cancelada registrada." : `Sessão salva. +${session.xp} XP de foco.`);
+    const result = await commitConfirmed((current) => applyFocusCompletion(current, session, markTaskComplete), "Sessão salva. Seu registro de foco foi preservado.");
     return Boolean(result);
   }, [commitConfirmed]);
 
-  const createThread = useCallback((kind: ChatKind): string => {
+  const createThread = useCallback(async (kind: ChatKind): Promise<string | undefined> => {
     const id = createId(`${kind}-chat`);
     const now = new Date().toISOString();
     const greeting = kind === "professor"
       ? "Professor Atlas aqui. O que você quer dominar — uma habilidade específica ou uma combinação de áreas?"
       : "Nexus Brain pronto. Pode falar como seu dia realmente está; quando você enviar, vou usar seu contexto sem fingir que tudo é simples.";
-    const thread: ChatThread = { id, kind, title: kind === "professor" ? "Nova aula" : "Nova conversa", summary: "", createdAt: now, updatedAt: now, archived: false, messages: [{ id: createId("message"), role: "assistant", content: greeting, createdAt: now }] };
-    commit((current) => ({ ...current, brain: { ...current.brain, threads: [thread, ...current.brain.threads], ...(kind === "brain" ? { activeBrainThreadId: id } : { activeProfessorThreadId: id }) } }));
-    return id;
-  }, [commit]);
+    const roadmap = kind === "professor" ? dataRef.current.learning.roadmaps.find((r) => r.id === dataRef.current.learning.activeRoadmapId) : undefined;
+    const lesson = roadmap ? nextRoadmapLesson(roadmap) : undefined;
+    const thread: ChatThread = { id, kind, ...(roadmap ? { roadmapId: roadmap.id, lessonId: lesson?.id } : {}), title: kind === "professor" ? "Nova aula" : "Nova conversa", summary: "", createdAt: now, updatedAt: now, archived: false, messages: [{ id: createId("message"), role: "assistant", content: greeting, createdAt: now }] };
+    const saved = await commitConfirmed((current) => ({ ...current, brain: { ...current.brain, threads: [thread, ...current.brain.threads], ...(kind === "brain" ? { activeBrainThreadId: id } : { activeProfessorThreadId: id }) } }));
+    return saved ? id : undefined;
+  }, [commitConfirmed]);
 
   const selectThread = useCallback((kind: ChatKind, threadId: string) => commit((current) => ({ ...current, brain: { ...current.brain, ...(kind === "brain" ? { activeBrainThreadId: threadId } : { activeProfessorThreadId: threadId }) } })), [commit]);
   const renameThread = useCallback(async (threadId: string, title: string): Promise<boolean> => Boolean(await commitConfirmed((current) => ({ ...current, brain: { ...current.brain, threads: current.brain.threads.map((thread) => thread.id === threadId ? { ...thread, title: sanitizeText(title, 100) || thread.title, updatedAt: new Date().toISOString() } : thread) } }), "Conversa renomeada.")), [commitConfirmed]);
@@ -925,7 +936,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
     try {
       const latestThread = dataRef.current.brain.threads.find((item) => item.id === threadId);
       const response = await askNexus(
-        { data: dataRef.current, mode: thread.kind, message: clean, context: { conversationSummary: latestThread?.summary ?? "" } },
+        { data: thread.roadmapId && thread.kind === "professor" ? { ...dataRef.current, learning: { ...dataRef.current.learning, activeRoadmapId: thread.roadmapId } } : dataRef.current, mode: thread.kind, message: clean, context: { conversationSummary: latestThread?.summary ?? "", lessonId: latestThread?.lessonId } },
         {
           signal: controller.signal,
           messages: conversationMessages,
@@ -1091,6 +1102,8 @@ export function NexusProvider({ children }: PropsWithChildren) {
     }),
   )), [commitConfirmed]);
 
+  const saveProfessorDraft = useCallback(async (intake: ProfessorIntake, step: number, weekly: string) => Boolean(await commitConfirmed((current) => ({ ...current, learning: { ...current.learning, intakeDraft: { intake, step, weekly } } }))), [commitConfirmed]);
+
   const createRoadmap = useCallback(async (topic: string, intake?: ProfessorIntake): Promise<boolean> => {
     const clean = sanitizeText(topic, 160);
     if (!clean || !dataRef.current.profile || assistantBusy) return false;
@@ -1135,6 +1148,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
           roadmaps: [...current.learning.roadmaps, roadmap],
           pendingTopics: current.learning.pendingTopics.filter((item) => item.toLocaleLowerCase("pt-BR") !== clean.toLocaleLowerCase("pt-BR")),
           activeRoadmapId: roadmap.id,
+          intakeDraft: undefined,
         },
       }), "Roadmap criado pelo Professor Atlas.");
       return Boolean(saved);
@@ -1684,6 +1698,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
     try {
       await clearFocusRuntime();
       await configureDailyReminder(false, dataRef.current.preferences.notificationTime);
+      await clearJournalIfSupported();
       await nexusRepository.clearAll();
       const next = cloneDefaultData();
       dataRef.current = next;
@@ -1777,8 +1792,9 @@ export function NexusProvider({ children }: PropsWithChildren) {
   }, [replaceAppState]);
 
   const value = useMemo<NexusContextValue>(() => ({
+    saveProfessorDraft,
     data, colors: getColors(data.preferences), visuals: getVisuals(data.preferences), ready, storageReadOnlyReason, planGenerating, planGenerationError, assistantBusy, assistantStage, lastAssistantMeta, weeklyReviewError, loadingStage: LOADING_STAGES[loadingStageIndex] ?? LOADING_STAGES[0], toast,
-    saveLockInDraft, confirmLockIn, updateOnboardingDraft, completeOnboarding, completeDiscovery,
+    saveJournalManifest, saveEvidence, deleteEvidence, saveDayReview, prepareTomorrow, saveLockInDraft, confirmLockIn, updateOnboardingDraft, completeOnboarding, completeDiscovery,
     cancelPlanGeneration, retryPlanGeneration, recoverPlanLocally, cancelAssistant: () => assistantController.current?.abort(), replanDay,
     toggleTask: handleTaskToggle, toggleMission: handleMissionToggle,
     addTask: async (input) => Boolean(await commitConfirmed((current) => addTask(current, input), "Tarefa adicionada.")),
@@ -1791,8 +1807,8 @@ export function NexusProvider({ children }: PropsWithChildren) {
     resetToday, resetAll, clearTemporary, inspectBackup, importBackup, restoreImportBackup, hasImportRollback, restoreMigrationBackup, hasMigrationBackup, exportBackup: () => nexusRepository.exportJson(data),
     dismissToast: () => setToast(null), dismissWarnings: () => commit((current) => ({ ...current, corruptionWarnings: [] })),
   }), [
-    saveLockInDraft, confirmLockIn, applyAssistantAction, archiveRoadmap, archiveThread, assistantBusy, assistantStage, lastAssistantMeta, weeklyReviewError, cancelPlanGeneration, clearTemporary, commit, commitConfirmed, completeDiscovery, completeOnboarding,
-    createRoadmap, createThread, data, deleteMemory, deleteRoadmap, deleteScheduledCapture, deleteThread, finishFocusSession, generateWeeklyReview, handleMissionToggle, handleTaskToggle, hasImportRollback, importBackup, inspectBackup,
+    saveJournalManifest, saveEvidence, deleteEvidence, saveDayReview, prepareTomorrow, saveLockInDraft, confirmLockIn, applyAssistantAction, archiveRoadmap, archiveThread, assistantBusy, assistantStage, lastAssistantMeta, weeklyReviewError, cancelPlanGeneration, clearTemporary, commit, commitConfirmed, completeDiscovery, completeOnboarding,
+    saveProfessorDraft, createRoadmap, createThread, data, deleteMemory, deleteRoadmap, deleteScheduledCapture, deleteThread, finishFocusSession, generateWeeklyReview, handleMissionToggle, handleTaskToggle, hasImportRollback, importBackup, inspectBackup,
     hasMigrationBackup, loadingStageIndex, planGenerating, planGenerationError, quickCapture, ready, recoverPlanLocally, renameThread, replanDay, resetAll, resetToday, rescheduleCapture, retryPlanGeneration, saveCapture, selectThread,
     regenerateRoadmap, renameRoadmap, restoreImportBackup, restoreMigrationBackup, sendChatMessage, setActiveRoadmap, storageReadOnlyReason, submitRoadmapEvidence, toast, toggleMemoryPinned, updateOnboardingDraft, updatePreferences, updateProfile,
   ]);

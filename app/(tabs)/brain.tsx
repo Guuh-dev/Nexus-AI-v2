@@ -1,3 +1,5 @@
+import { NexusIcon } from "@/components/ui/NexusIcon";
+import { AtlasLessonPanel } from "@/components/AtlasLessonPanel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
@@ -113,8 +115,9 @@ export default function BrainScreen() {
     setMode("chat");
     setMetaThreadId(null);
   };
-  const newThread = () => {
-    const id = createThread(kind);
+  const newThread = async () => {
+    const id = await createThread(kind);
+    if (!id) return;
     activeThreadIdRef.current = id;
     setMessage("");
     setFailedDraft("");
@@ -345,47 +348,12 @@ export default function BrainScreen() {
   return (
     <>
       <Screen>
-        <View style={styles.hero}>
-          <View style={styles.flex}>
-            <NexusText variant="mono" color={colors.primarySoft}>
-              NEXUS INTELLIGENCE
-            </NexusText>
-            <NexusText variant="display">
-              {mode === "memory"
-                ? "Memória sob seu controle."
-                : mode === "roadmaps"
-                  ? "Trilhas de domínio."
-                  : "Um cérebro para sua missão."}
-            </NexusText>
-          </View>
-          {kind === "brain" ? (
-            <PixelMascot state="idle" size={58} />
-          ) : (
-            <CompanionMascot mascot="atlas" state="idle" size={60} />
-          )}
+        <View style={[styles.row, { marginTop: 10, marginBottom: 20 }]}><NexusText variant="title">Brain</NexusText><Pressable accessibilityRole="button" accessibilityLabel="Configurações" onPress={() => router.push("/settings")} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}><NexusIcon name="settings" color={colors.text} size={21} /></Pressable></View>
+        <View style={{ flexDirection: "row", padding: 4, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border }}>
+          {(["brain", "professor"] as const).map((value) => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: kind === value }} accessibilityLabel={value === "brain" ? "Nexus" : "Professor"} onPress={() => changeKind(value)} style={{ flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: kind === value ? value === "professor" ? colors.success : colors.primary : "transparent" }}><NexusText variant="subtitle" color={kind === value ? colors.onPrimary : colors.textSecondary}>{value === "brain" ? "Nexus" : "Professor"}</NexusText></Pressable>)}
         </View>
-        <View style={styles.tabs}>
-          <ChoiceChip
-            label="Copiloto"
-            selected={kind === "brain"}
-            onPress={() => changeKind("brain")}
-          />
-          <ChoiceChip
-            label="Professor"
-            selected={kind === "professor"}
-            onPress={() => changeKind("professor")}
-          />
-          <ChoiceChip
-            label={`Memórias ${data.brain.memories.length}`}
-            selected={mode === "memory"}
-            onPress={() => setMode(mode === "memory" ? "home" : "memory")}
-          />
-          <ChoiceChip
-            label="Roadmaps"
-            selected={mode === "roadmaps"}
-            onPress={() => setMode(mode === "roadmaps" ? "home" : "roadmaps")}
-          />
-        </View>
+        {mode !== "home" && <View style={[styles.hero, { marginTop: 24 }]}><View style={styles.flex}><NexusText variant="display">{mode === "memory" ? "Memória sob seu controle." : "Trilhas de domínio."}</NexusText></View><CompanionMascot mascot={kind === "professor" ? "atlas" : "nexus"} size={72} /></View>}
+        {mode !== "home" && <View style={styles.tabs}><ChoiceChip label="Conversas" selected={false} onPress={() => setMode("home")} /><ChoiceChip label={`Memórias ${data.brain.memories.length}`} selected={mode === "memory"} onPress={() => setMode("memory")} /><ChoiceChip label="Roadmaps" selected={mode === "roadmaps"} onPress={() => setMode("roadmaps")} /></View>}
 
         {mode === "memory" ? (
           <View style={styles.section}>
@@ -527,57 +495,9 @@ export default function BrainScreen() {
 
         {mode === "home" ? (
           <>
-            <Card
-              style={[
-                styles.modeCard,
-                {
-                  backgroundColor:
-                    kind === "brain"
-                      ? `${colors.primary}0E`
-                      : `${colors.warning}0D`,
-                  borderColor:
-                    kind === "brain"
-                      ? `${colors.primary}44`
-                      : `${colors.warning}44`,
-                },
-              ]}
-            >
-              <View style={styles.row}>
-                {kind === "brain" ? (
-                  <PixelMascot state="idle" size={50} />
-                ) : (
-                  <CompanionMascot mascot="atlas" state="idle" size={52} />
-                )}
-                <View style={styles.flex}>
-                  <NexusText
-                    variant="mono"
-                    color={
-                      kind === "brain" ? colors.primarySoft : colors.warning
-                    }
-                  >
-                    {kind === "brain"
-                      ? "COPILOTO PESSOAL"
-                      : "MENTOR DE APRENDIZADO"}
-                  </NexusText>
-                  <NexusText variant="title">
-                    {kind === "brain"
-                      ? "Contexto, não conversa genérica."
-                      : "Aprenda, pratique, prove domínio."}
-                  </NexusText>
-                </View>
-              </View>
-              <NexusText secondary>
-                {kind === "brain"
-                  ? "O Brain conhece sua missão, progresso, adiamentos, foco, energia e memórias aprovadas."
-                  : "O Atlas cria roadmaps, acompanha lições e mantém conversas antigas para continuar exatamente de onde você parou."}
-              </NexusText>
-              <NexusButton
-                label={kind === "brain" ? "Nova conversa" : "Nova aula"}
-                icon="＋"
-                onPress={newThread}
-                fullWidth
-              />
-            </Card>
+            {kind === "professor" && <AtlasLessonPanel onContinue={() => { void newThread(); }} />}
+            {kind === "brain" && <Card elevated style={[styles.modeCard, { padding: 20 }]}><View style={styles.row}><View style={styles.flex}><NexusText variant="mono" color={colors.primary}>NEXUS / COPILOTO</NexusText><NexusText variant="display">Seu próximo passo, com contexto.</NexusText></View><PixelMascot size={72} /></View><NexusText secondary>Revise sua missão, explore uma alternativa ou conte o que mudou no dia.</NexusText><NexusButton label="Nova conversa" onPress={() => { void newThread(); }} fullWidth /></Card>}
+            <View style={[styles.tabs, { marginTop: 16 }]}><ChoiceChip label={`Memórias ${data.brain.memories.length}`} selected={false} onPress={() => setMode("memory")} /><ChoiceChip label="Minhas trilhas" selected={false} onPress={() => setMode("roadmaps")} />{kind === "professor" && <NexusButton label="Nova conversa com Atlas" compact variant="ghost" onPress={() => { void newThread(); }} />}</View>
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <NexusText variant="title">Conversas</NexusText>

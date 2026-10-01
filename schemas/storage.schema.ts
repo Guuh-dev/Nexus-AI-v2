@@ -1,3 +1,4 @@
+import { focusSegmentSchema } from "@/features/focus/runtime";
 import { lockInStateSchema } from "@/schemas/lock-in.schema";
 import { z } from "zod";
 import { dailyPlanSchema, storedTaskSchema } from "@/schemas/daily-plan.schema";
@@ -12,6 +13,8 @@ import {
 import { onboardingDraftSchema, profileSchema } from "@/schemas/profile.schema";
 
 const widgetPreferencesSchema = z.object({
+  scene: z.enum(["none", "desk", "garden", "night"]).optional(),
+  showMetric: z.boolean().optional(),
   preset: z.enum(["mission", "balanced", "tasks", "focus", "learning", "minimal", "companion", "finance", "quote", "xp", "streak", "boss", "next_action", "habits", "roadmap", "freelance", "custom"]),
   contentMode: z.enum(["mission", "tasks", "smart", "focus", "learning", "companion", "finance", "quote", "progress", "habits", "boss"]),
   background: z.enum(["solid", "amoled", "translucent"]),
@@ -64,7 +67,7 @@ const dashboardPreferencesSchema = z.object({
 
 const mascotPreferencesSchema = z.object({
   primary: z.literal("nexus"),
-  companion: z.enum(["atlas", "nova", "byte", "pulse", "orbit", "ember"]),
+  companion: z.enum(["nexus", "atlas", "nova", "byte", "pulse", "orbit", "ember"]),
   showCompanion: z.boolean(),
   speechEnabled: z.boolean(),
   companionMood: z.enum(["happy", "playful", "motivational", "serious", "strict", "calm", "quiet"]),
@@ -94,6 +97,9 @@ export const preferencesSchema = z.object({
 }).strict();
 
 export const focusSessionSchema = z.object({
+  segments: z.array(focusSegmentSchema).max(1000).optional(),
+  nextAction: z.string().max(300).optional(),
+  captures: z.array(z.object({ id: z.string().min(1).max(120), text: z.string().trim().min(1).max(300), createdAt: z.string().datetime() }).strict()).max(100).optional(),
   id: z.string().min(1).max(120),
   taskId: z.string().min(1).max(120).optional(),
   taskTitle: z.string().min(1).max(120),

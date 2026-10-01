@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { View } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { Screen } from "@/components/ui/Screen";
 import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
@@ -13,7 +13,9 @@ import type { LockInDraft } from "@/schemas/lock-in.schema";
 
 export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
   const { data, colors, saveLockInDraft, confirmLockIn } = useNexus();
+  const currentData = useRef(data); currentData.current = data;
   const [draft, setDraft] = useState(() => draftFor(data));
+  useFocusEffect(useCallback(() => { setDraft(draftFor(currentData.current)); }, []));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [reviewRevision, setReviewRevision] = useState<number | null>(null);
@@ -73,7 +75,8 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
           {field("mission", "Resultado da missão de hoje", 120)}
           {field("firstAction", "Primeira ação concreta", 240)}
           {field("acceptance", "Concluído quando…", 300)}
-          {field("estimate", "Estimativa em minutos (5–240)", 4)}
+          {!(draft.taskIds?.length) && field("estimate", "Estimativa em minutos (5–240)", 4)}
+          {data.recurringTasks.length > 0 && <><NexusText variant="subtitle">Retomar pendências nesta missão</NexusText>{data.recurringTasks.map((t) => <ChoiceChip key={t.id} label={`${t.title} · ${t.estimatedMinutes} min`} selected={draft.taskIds?.includes(t.id) ?? false} onPress={() => patch("taskIds", draft.taskIds?.includes(t.id) ? draft.taskIds.filter((id) => id !== t.id) : [...(draft.taskIds ?? []), t.id].slice(0, 5))} />)}<NexusText secondary>Tarefas selecionadas preservam seus IDs e aceites. O esforço é derivado delas.</NexusText></>}
         </Card>}
         <Card style={{ gap: 10 }}>
           <NexusText variant="subtitle">Revise antes de confirmar</NexusText>
@@ -81,7 +84,7 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
           <NexusText secondary>{draft.goalKind === "primary" ? "Uma meta principal" : draft.goalKind === "maintenance" ? `Manutenção: reserva de ${draft.maintenanceBudget} min por dia` : "Backlog: sem alocação de tempo"}. Aceite: {draft.doneWhen || "a definir"}.</NexusText>
           {preview && draft.goalKind === "primary" ? <>
             <NexusText>Capacidade: {preview.activePlan?.execution?.capacityMinutes} min · buffer: {preview.activePlan?.execution?.bufferMinutes} min.</NexusText>
-            <NexusText>Missão: {draft.mission} · {draft.estimate} min, contados uma vez.</NexusText>
+            <NexusText>Missão: {draft.mission} · {preview.activePlan?.mainMission.estimatedMinutes} min, contados uma vez.</NexusText>
             {preview.activePlan?.execution?.blocks.map((b) => <NexusText key={b.taskId} secondary>Bloco: {new Date(b.start).toLocaleTimeString("pt-BR", { timeZone: draft.timezone, hour: "2-digit", minute: "2-digit" })}–{new Date(b.end).toLocaleTimeString("pt-BR", { timeZone: draft.timezone, hour: "2-digit", minute: "2-digit" })}</NexusText>)}
           </> : preview ? <NexusText secondary>{draft.goalKind === "backlog" ? "Esta meta ficará guardada, sem consumir capacidade." : "A reserva reduz a capacidade da missão. Confirmar exige que o plano continue viável."}</NexusText> : <NexusText color={colors.warning}>{previewError}</NexusText>}
           {draft.goalKind === "primary" && pending.length > 0 && <NexusText color={colors.warning}>Esta confirmação substitui o plano atual. Pendências guardadas no backlog: {pending.map((t) => t.title).join("; ")}. Entregas concluídas e versão anterior são preservados.</NexusText>}
@@ -96,7 +99,7 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
         <NexusButton label="Salvar seção" variant="secondary" loading={busy} onPress={() => { void save(); }} />
         {draft.step < 2 && <NexusButton label="Salvar e avançar" disabled={busy} onPress={() => { void save(draft.step === 0 && draft.goalKind !== "primary" ? 2 : draft.step + 1); }} />}
       </View>
-      {data.lockIn.goals.length > 0 && <Card style={{ gap: 8 }}><NexusText variant="subtitle">Metas preservadas</NexusText>{data.lockIn.goals.map((g) => <NexusText key={g.id} secondary>{g.state === "primary" ? "Principal" : g.state === "candidate" ? "A confirmar" : g.state === "archived" ? "Arquivada" : g.state === "maintenance" ? "Manutenção" : "Backlog"}: {g.result}</NexusText>)}</Card>}
+      {data.lockIn.goals.length > 0 && <Card style={{ gap: 8 }}><NexusText variant="subtitle">Metas preservadas</NexusText>{data.lockIn.goals.map((g) => <View key={g.id} style={{ gap: 6 }}><NexusText secondary>{g.state === "primary" ? "Principal" : g.state === "candidate" ? "A confirmar" : g.state === "archived" ? "Arquivada" : g.state === "maintenance" ? "Manutenção" : "Backlog"}: {g.result}</NexusText>{g.state !== "primary" && <NexusButton label="Revisar como meta principal" compact variant="ghost" onPress={() => { setReviewRevision(null); setDraft({ ...draftFor(data), targetGoalId: g.id, result: g.result, why: g.why, doneWhen: g.doneWhen, deadline: g.deadline ?? "", deadlineType: g.deadlineType, goalKind: "primary", step: 0 }); }} />}</View>)}</Card>}
       {data.recurringTasks.length > 0 && <Card style={{ gap: 8 }}><NexusText variant="subtitle">Pendências guardadas</NexusText>{data.recurringTasks.map((t) => <NexusText key={t.id} secondary>{t.title} · {t.estimatedMinutes} min</NexusText>)}<NexusText secondary>Estas pendências não consomem capacidade até serem incluídas conscientemente.</NexusText></Card>}
     </View>
   </Screen>;

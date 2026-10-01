@@ -194,3 +194,13 @@ describe("assistant v3 context boundaries", () => {
     expect(serialized.length).toBeLessThanOrEqual(18_000);
   });
 });
+
+describe("Professor continuity under compaction", () => {
+  it("keeps the active lesson and intent when the context exceeds the budget", () => {
+    const context = { kind: "professor", today: { title: "x".repeat(24000) }, roadmaps: [{ id: "roadmap-nexus", active: true, topic: "React no Nexus", outcome: "Implementar retomada", intent: "technical", currentLevel: "avancado", phases: [{ title: "Persistência", lessons: [{ id: "lesson", title: "Restaurar sessão", completed: false }] }] }] };
+    const compact = compactAssistantContext(context, "professor");
+    expect(JSON.stringify(compact.roadmaps)).toContain("roadmap-nexus");
+    expect(JSON.stringify(compact.roadmaps)).toContain("Restaurar sessão");
+    expect(JSON.stringify(compact.roadmaps)).toContain("technical");
+  });
+});

@@ -108,13 +108,14 @@ export function draftFor(data: AppData, now = new Date()): LockInDraft {
   if (data.lockIn.draft) return data.lockIn.draft;
   const profile = { ...data.onboardingDraft, ...data.profile };
   const goal = data.lockIn.goals.find((g) => g.state === "primary" || g.state === "candidate");
+  const tomorrow = data.lockIn.tomorrow?.date === localDateKey(now, profile.timezone) ? data.lockIn.tomorrow : undefined;
   return { goalKind: "primary", maintenanceBudget: "15", name: profile.name ?? "", result: goal?.result ?? profile.mainGoal ?? "", why: goal?.why ?? profile.goalReason ?? "",
     doneWhen: goal?.doneWhen ?? "", deadline: goal?.deadline ?? "", deadlineType: goal?.deadlineType ?? "unknown",
     timezone: profile.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC",
     date: localDateKey(now, profile.timezone), windows: "", reservations: "", buffer: "15",
-    mission: "", firstAction: "", acceptance: "", estimate: "25", step: 0 };
+    mission: tomorrow?.mission ?? "", firstAction: tomorrow?.firstAction ?? "", acceptance: tomorrow?.acceptance ?? "", estimate: String(tomorrow?.estimatedMinutes ?? 25), taskIds: tomorrow?.pendingTaskIds.slice(0, 1), step: 0 };
 }
-function wallStamp(date: string, clock: string, timezone: string): string {
+export function wallStamp(date: string, clock: string, timezone: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(clock)) throw new Error("Use data AAAA-MM-DD e horários HH:MM.");
   const target = `${date}T${clock}`;
   const format = new Intl.DateTimeFormat("sv-SE", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -144,9 +145,10 @@ export function confirmExecution(data: AppData, input: LockInDraft, baseRevision
     throw new Error("Informe seu nome, objetivo, motivo e critério verificável.");
   if (draft.mission.trim().length < 2 || draft.firstAction.trim().length < 2 || draft.acceptance.trim().length < 2)
     throw new Error("Informe resultado de hoje, primeira ação e aceite da missão.");
-  const execution = { ...executionFromDraft(draft), maintenanceMinutes: data.lockIn.goals.filter((g) => g.state === "maintenance").reduce((s, g) => s + (g.budgetMinutes ?? 0), 0) };
+  const execution = { ...executionFromDraft(draft), maintenanceMinutes: data.lockIn.goals.filter((g) => g.state === "maintenance" && g.id !== draft.targetGoalId).reduce((s, g) => s + (g.budgetMinutes ?? 0), 0) };
   if (localDateKey(now, execution.timezone) !== execution.date) throw new Error("Confirme uma janela para hoje. Dias futuros serão planejados em uma próxima fatia.");
-  const oldGoal = data.lockIn.goals.find((g) => g.state === "primary" || g.state === "candidate");
+  const oldGoal = draft.targetGoalId ? data.lockIn.goals.find((g) => g.id === draft.targetGoalId) : data.lockIn.goals.find((g) => g.state === "primary" || g.state === "candidate");
+  if (draft.targetGoalId && !oldGoal) throw new Error("A meta escolhida não está mais disponível.");
   const prefix = data.installationId.slice(0, 80);
   const id = oldGoal && oldGoal.result === draft.result.trim() ? oldGoal.id : `${prefix}:goal:${data.lockIn.revision + 1}`;
   const goal = { id, result: draft.result.trim(), why: draft.why.trim(), doneWhen: draft.doneWhen.trim(), state: "primary" as const,
@@ -155,31 +157,37 @@ export function confirmExecution(data: AppData, input: LockInDraft, baseRevision
   if (goals.length >= 100) throw new Error("Limite de metas atingido. Exporte e revise seu histórico antes de continuar.");
   const completed = data.activePlan?.date === execution.date ? data.activePlan.tasks.filter((t) => t.completed) : [];
   if (completed.length >= 5) throw new Error("O dia já possui cinco entregas registradas. Preserve-as e confirme a próxima missão em outro dia.");
-  const task: Task = { id: `${prefix}:task:${data.lockIn.revision + 1}`, title: draft.mission.trim(),
+  const task: Task = { ...(draft.lesson ? { lesson: draft.lesson } : {}), id: `${prefix}:task:${data.lockIn.revision + 1}`, title: draft.mission.trim(),
     context: goal.result.slice(0, 300), firstStep: draft.firstAction.trim(), expectedResult: draft.mission.trim(), doneWhen: draft.acceptance.trim(),
     category: previousCategory(data), priority: "alta", estimatedMinutes: Number(draft.estimate), xp: 50, recurring: false, completed: false };
-  const allocation = allocate([...completed, task], execution, now);
+  const selected = draft.taskIds ?? [];
+  if (new Set(selected).size !== selected.length) throw new Error("Selecione cada tarefa uma única vez.");
+  const backlog = [...data.recurringTasks, ...data.activePlan?.tasks.filter((t) => !t.completed) ?? []];
+  const missionTasks = selected.length ? selected.map((id) => { const found = backlog.find((t) => t.id === id); if (!found) throw new Error("A pendência escolhida não está disponível."); return { ...found, completed: false, completedAt: undefined }; }) : [task];
+  if (completed.length + missionTasks.length > 5) throw new Error("O dia comporta até cinco tarefas; entregas anteriores serão preservadas.");
+  const allocation = allocate([...completed, ...missionTasks], execution, now);
   const previous = data.profile;
   const profile = { ...createProfileDefaults(), ...previous, name: draft.name.trim(), nickname: previous?.nickname ?? draft.name.trim(),
     timezone: execution.timezone, mainGoal: goal.result, goalReason: goal.why, deadline: goal.deadline,
     availableMinutes: Math.max(15, Math.min(720, allocation.minutes)), createdAt: previous?.createdAt ?? now.toISOString(), updatedAt: now.toISOString() } as NonNullable<AppData["profile"]>;
   const pending = data.activePlan?.date === execution.date ? data.activePlan.tasks.filter((t) => !t.completed) : [];
-  const recurringTasks = [...data.recurringTasks, ...pending.filter((t) => !data.recurringTasks.some((r) => r.id === t.id))];
+  const admitted = new Set(missionTasks.map((t) => t.id));
+  const recurringTasks = [...data.recurringTasks.filter((t) => t.recurring || !admitted.has(t.id)), ...pending.filter((t) => !admitted.has(t.id) && !data.recurringTasks.some((r) => r.id === t.id))];
   if (recurringTasks.length > 100) throw new Error("Limite de pendências atingido. Revise-as antes de mudar a missão.");
   if (data.activePlan && data.planSnapshots.length >= 1000) throw new Error("Limite de revisões atingido. Exporte e revise seu histórico.");
   const planSnapshots = data.activePlan ? [...data.planSnapshots, data.activePlan] : data.planSnapshots;
   const revision = baseRevision + 1;
   const activePlan: DailyPlan = dailyPlanSchema.parse({ date: execution.date,
-    mainMission: { title: task.title, description: goal.result.slice(0, 360), firstStep: task.firstStep, expectedResult: task.expectedResult,
-      doneWhen: task.doneWhen, estimatedMinutes: task.estimatedMinutes, priority: "alta", completed: false, xp: 0, taskIds: [task.id] },
-    tasks: [...completed, task], totalEstimatedMinutes: completed.reduce((s, t) => s + t.estimatedMinutes, task.estimatedMinutes),
+    mainMission: { title: draft.mission.trim(), description: goal.result.slice(0, 360), firstStep: task.firstStep, expectedResult: task.expectedResult,
+      doneWhen: task.doneWhen, estimatedMinutes: missionTasks.reduce((s, t) => s + t.estimatedMinutes, 0), priority: "alta", completed: false, xp: 0, taskIds: missionTasks.map((t) => t.id) },
+    tasks: [...completed, ...missionTasks], totalEstimatedMinutes: [...completed, ...missionTasks].reduce((s, t) => s + t.estimatedMinutes, 0),
     focusMessage: "Execute a próxima ação dentro da janela confirmada.", avoidToday: [], source: "offline",
     warning: "Plano determinístico confirmado por você. A missão agrega as tarefas; o tempo é contado uma vez.",
     createdAt: data.activePlan?.date === execution.date ? data.activePlan.createdAt : now.toISOString(), requestId: `lock-in-${revision}`,
     execution: { goalId: id, revision, status: "confirmed", capacityMinutes: allocation.minutes, bufferMinutes: allocation.bufferMinutes,
       blocks: allocation.blocks, confirmedAt: now.toISOString() } });
   return { ...data, profile, onboardingCompleted: true, discoveryCompleted: true, onboardingDraft: {},
-    activePlan, recurringTasks, planSnapshots, lockIn: { goals: [...goals, goal], execution, revision }, lastGeneratedDate: execution.date };
+    activePlan, recurringTasks, planSnapshots, lockIn: { ...data.lockIn, goals: [...goals, goal], execution, revision, draft: undefined, tomorrow: undefined }, lastGeneratedDate: execution.date };
 }
 
 export function confirmSecondaryGoal(data: AppData, draft: LockInDraft, baseRevision: number, now = new Date()): AppData {

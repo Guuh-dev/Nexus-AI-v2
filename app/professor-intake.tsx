@@ -40,18 +40,18 @@ const STEP_META = [
 
 export default function ProfessorIntakeScreen() {
   const { topic: topicParam } = useLocalSearchParams<{ topic?: string }>();
-  const { data, colors, assistantBusy, createRoadmap } = useNexus();
+  const { data, colors, assistantBusy, createRoadmap, saveProfessorDraft } = useNexus();
   const profile = data.profile;
   const initialTopic =
     typeof topicParam === "string" ? topicParam : data.learning.pendingTopics[0] ?? "";
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(data.learning.intakeDraft?.step ?? 0);
   const [errors, setErrors] = useState<ProfessorIntakeErrors>({});
   const [roadmapError, setRoadmapError] = useState("");
   const [weekly, setWeekly] = useState(
-    String(profile?.evolution?.weeklyLearningMinutes ?? 180),
+    data.learning.intakeDraft?.weekly ?? String(profile?.evolution?.weeklyLearningMinutes ?? 180),
   );
   const [intake, setIntake] = useState<ProfessorIntake>(() =>
-    profile
+    data.learning.intakeDraft?.intake ?? (profile
       ? createProfessorIntake(profile, initialTopic)
       : createProfessorIntake(
           {
@@ -74,7 +74,7 @@ export default function ProfessorIntakeScreen() {
             updatedAt: new Date().toISOString(),
           },
           initialTopic,
-        ),
+        )),
   );
   const suggestions = useMemo(() => (profile ? suggestedTopicsFor(profile) : []), [profile]);
 
@@ -118,6 +118,8 @@ export default function ProfessorIntakeScreen() {
       return;
     }
 
+    if (!await saveProfessorDraft(intake, Math.min(4, step + 1), weekly)) { setRoadmapError("Não foi possível salvar o diagnóstico. Seu rascunho continua aqui."); return; }
+
     if (step < STEP_META.length - 1) {
       clearError();
       setStep((current) => current + 1);
@@ -157,6 +159,7 @@ export default function ProfessorIntakeScreen() {
       return;
     }
 
+    if (!await saveProfessorDraft(parsed.data, step, weekly)) { setRoadmapError("Não foi possível salvar suas respostas. Tente novamente."); return; }
     const created = await createRoadmap(parsed.data.topic, parsed.data);
     if (!created) {
       setRoadmapError("A IA não conseguiu gerar uma trilha confiável agora. Suas respostas continuam aqui; tente novamente.");
@@ -168,14 +171,17 @@ export default function ProfessorIntakeScreen() {
   const meta = STEP_META[step] ?? STEP_META[0];
   const footer = (
     <View style={styles.footer}>
+      <NexusButton label="Salvar diagnóstico" variant="secondary" onPress={() => { void saveProfessorDraft(intake, step, weekly).then((ok) => setRoadmapError(ok ? "Diagnóstico salvo. Você pode retomar depois." : "Não foi possível salvar.")); }} />
       <NexusButton
         label={step > 0 ? "Voltar" : "Agora não"}
         variant="ghost"
-        onPress={() => {
+        onPress={() => { void (async () => {
+          const previous = Math.max(0, step - 1);
+          if (!await saveProfessorDraft(intake, previous, weekly)) { setRoadmapError("Não foi possível salvar. Tente novamente antes de sair."); return; }
           clearError();
-          if (step > 0) setStep((current) => current - 1);
+          if (step > 0) setStep(previous);
           else router.replace("/(tabs)/brain");
-        }}
+        })(); }}
         style={styles.back}
       />
       <NexusButton

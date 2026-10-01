@@ -1,3 +1,4 @@
+import { LockInProgress } from "@/components/LockInProgress";
 import { useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { Card } from "@/components/ui/Card";
@@ -20,7 +21,7 @@ export { RouteErrorBoundary as ErrorBoundary };
 type ProgressView = "resumo" | "desafios" | "historico";
 const CATEGORY_LABELS = { desenvolvimento: "Desenvolvimento", estudos: "Estudos", dinheiro: "Dinheiro", saude: "Saúde", organizacao: "Organização", pessoal: "Pessoal" } as const;
 
-export default function ProgressScreen() {
+function LegacyProgressScreen() {
   const { data, colors, assistantBusy, weeklyReviewError, generateWeeklyReview } = useNexus();
   const [view, setView] = useState<ProgressView>("resumo");
   const weekly = weeklyStats(data);
@@ -243,3 +244,5 @@ const styles = StyleSheet.create({
   reviewList: { gap: 5 },
   challenge: { gap: 7 },
 });
+
+export default function ProgressScreen() { const { data } = useNexus(); return data.lockIn.goals.some((g) => g.state === "primary") ? <LockInProgress /> : <LegacyProgressScreen />; }

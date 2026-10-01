@@ -230,6 +230,24 @@ function compactRoadmapEvidenceReview(
   };
 }
 
+function boundedLearningContext(value: unknown): Record<string, unknown>[] {
+  return arrayValue(value).slice(0, 1).filter((r) => r && typeof r === "object").map((raw) => {
+    const r = raw as Record<string, unknown>;
+    const text = (key: string, max = 300) => typeof r[key] === "string" ? sanitizeText(r[key] as string, max) : undefined;
+    return { id: text("id", 120), active: r.active === true, topic: text("topic", 160), outcome: text("outcome"), currentLevel: text("currentLevel", 40), intent: text("intent", 40),
+      nextLesson: r.nextLesson && typeof r.nextLesson === "object" ? (() => { const lesson = r.nextLesson as Record<string, unknown>; return { id: typeof lesson.id === "string" ? sanitizeText(lesson.id, 120) : "", title: typeof lesson.title === "string" ? sanitizeText(lesson.title, 160) : "", objective: typeof lesson.objective === "string" ? sanitizeText(lesson.objective, 400) : "", deliverable: typeof lesson.deliverable === "string" ? sanitizeText(lesson.deliverable, 400) : "", successCriteria: typeof lesson.successCriteria === "string" ? sanitizeText(lesson.successCriteria, 400) : "" }; })() : undefined,
+      phases: arrayValue(r.phases).slice(0, 8).filter((p) => p && typeof p === "object").map((raw) => {
+        const phase = raw as Record<string, unknown>;
+        return { title: typeof phase.title === "string" ? sanitizeText(phase.title, 120) : "",
+          lessons: arrayValue(phase.lessons).filter((l) => l && typeof l === "object" && (l as Record<string, unknown>).completed !== true).slice(0, 1).map((raw) => {
+            const lesson = raw as Record<string, unknown>;
+            return { id: typeof lesson.id === "string" ? sanitizeText(lesson.id, 120) : "", title: typeof lesson.title === "string" ? sanitizeText(lesson.title, 120) : "", objective: typeof lesson.objective === "string" ? sanitizeText(lesson.objective, 300) : "", completed: lesson.completed === true };
+          }) };
+      }),
+    };
+  });
+}
+
 export function compactAssistantContext(
   context: Record<string, unknown>,
   mode: AssistantRequest["mode"],
@@ -307,6 +325,7 @@ export function compactAssistantContext(
     kind: compact.kind,
     today: compact.today,
     progress: compact.progress,
+    roadmaps: boundedLearningContext(compact.roadmaps),
     memories: compactMemories.slice(-6),
     conversation: compact.conversation.slice(-6),
     ...(experience ? { experience } : {}),
@@ -347,6 +366,7 @@ export function buildAssistantContext(
   data: AppData,
   kind: ChatKind,
   messages: ChatMessage[] = [],
+  boundLessonId?: string,
 ): Record<string, unknown> {
   const recentHistory = data.history.slice(-10).map((day) => ({
     date: day.date,
@@ -375,7 +395,7 @@ export function buildAssistantContext(
   );
   const activeRoadmapId = data.learning.activeRoadmapId;
   const roadmapCandidates = data.learning.roadmaps
-    .filter((roadmap) => roadmap.status === "active")
+    .filter((roadmap) => roadmap.status === "active" || roadmap.id === activeRoadmapId)
     .sort((first, second) => {
       if (first.id === activeRoadmapId) return -1;
       if (second.id === activeRoadmapId) return 1;
@@ -414,7 +434,7 @@ export function buildAssistantContext(
         content: sanitizeText(content, 1200),
       })),
     roadmaps: roadmapCandidates.map((roadmap) => {
-      const nextLesson = nextRoadmapLesson(roadmap);
+      const nextLesson = (boundLessonId ? roadmap.phases.flatMap((p) => p.lessons).find((l) => l.id === boundLessonId) : undefined) ?? nextRoadmapLesson(roadmap);
       return {
         id: roadmap.id,
         active: roadmap.id === activeRoadmapId,
@@ -448,6 +468,7 @@ export function buildAssistantContext(
         ...(nextLesson
           ? {
               nextLesson: {
+                id: nextLesson.id,
                 title: sanitizeText(nextLesson.title, 160),
                 objective: sanitizeText(
                   nextLesson.objective ?? nextLesson.description,
@@ -798,6 +819,7 @@ export async function askNexus(
             ? "professor"
             : "brain",
           options.messages,
+          typeof input.context?.lessonId === "string" ? input.context.lessonId : undefined,
         ),
         experience: {
           assistantVerbosity: input.data.preferences.mascot.assistantVerbosity,
