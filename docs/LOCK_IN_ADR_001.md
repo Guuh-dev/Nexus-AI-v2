@@ -1,6 +1,8 @@
 # ADR 001 — Nexus Lock-In: base, autoridade de dados e migração
 
-Status: aprovado pelo usuário em 2026-10-01. Fatia 1 implementada; demais fatias continuam incrementais.
+Status: aprovado pelo usuário em 2026-10-01. O desenho inicial abaixo registra a
+fatia 1; o [adendo de ciclo e pixels](LOCK_IN_CYCLE_AND_PIXEL_QA.md) registra foco,
+revisão/amanhã, reparo Atlas e a extensão nativa posteriormente aprovada.
 Data: 2026-10-01.
 
 ## Decisão aprovada

@@ -1,5 +1,9 @@
 # Nexus Lock-In — fatia 1
 
+Registro da entrega inicial. Foco, revisão/amanhã, Atlas e Pixel Companions foram
+implementados posteriormente: consulte o [relatório atual](LOCK_IN_CYCLE_AND_PIXEL_QA.md)
+para resultados e bloqueios atuais. As pendências abaixo pertencem à fatia 1.
+
 Decisão aprovada: [ADR 001](LOCK_IN_ADR_001.md). Base preservada e gates externos:
 [baseline de 2026-10-01](LOCK_IN_BASELINE_2026_10_01.md).
 

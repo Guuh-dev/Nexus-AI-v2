@@ -47,6 +47,11 @@ Removidos da superfície e das rotas de produto:
 - Command Center e layouts de dashboard;
 - excesso de skins, acessórios, presets e opções de widget.
 
+Exceção aprovada em 2026-10-01: Pixel Companions (Nexus/Atlas, estados em pixels,
+paletas, livro e cenários por widget). Leia `docs/LOCK_IN_CYCLE_AND_PIXEL_QA.md`
+para a implementação atual, contratos de dados e gates ainda pendentes. Isso não
+reativa as superfícies legadas removidas nem autoriza publicação.
+
 Os tipos e dados legados continuam no storage para migração. Não apague seções antigas só porque a UI não as exibe, mas também não exponha novas mutações no Provider nem recrie links para módulos retirados sem uma decisão explícita de produto.
 
 ## Mapa do repositório
@@ -193,6 +198,13 @@ Não mostre sucesso antes da Promise resolver. Captura, perfil, mensagens antes 
 Cancelar um stream do Brain/Atlas sempre remove a mensagem assistente transitória e mantém a mensagem do usuário marcada para retry; cancelamento intencional não exibe falso erro. Actions são propostas discriminadas. Em especial, `update_goal` exige `payload.mainGoal` entre 10 e 600 caracteres no Zod, JSON Schema, prompt e Provider; payload inválido permanece pendente com aviso, nunca é aceito silenciosamente.
 
 Uma sessão de foco recebe `sessionId` estável quando nasce e mantém esse ID no runtime persistido. Registro/retry deduplica por esse ID; o runtime só é limpo depois que a sessão concluída e seus efeitos foram gravados. Reset cancela geração ativa, reminder e runtime em ordem coordenada com a fila do repositório.
+
+Runtime de foco v2 registra segmentos, pausas, checkpoint e inbox. Nunca conte
+uma lacuna sem observação; alvo e fim da janela pausam, e continuidade além do
+alvo é explícita. Campos novos de v7 exigem leitor atualizado: rollback para
+fatias v7 anteriores também não é transparente. Diário Android usa Keystore/
+AES-GCM e arquivos separados; JSON contém somente manifesto. Web/APK sem suporte
+não gravam diário em texto puro. Revise filas de exclusão/reset ao editar esse fluxo.
 
 Desafios diários usam um ledger por ID. O XP de um desafio concluído é imutável e só pode ser concedido uma vez; reabrir e concluir a mesma tarefa não permite farm. O progresso de desafio concluído permanece no alvo, e desativar desafios remove o desafio gerado atual.
 
