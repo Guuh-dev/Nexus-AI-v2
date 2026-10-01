@@ -19,12 +19,12 @@ Nexus AI é um Personal Mission OS local-first em Expo Router, React Native, Rea
 A navegação principal tem exatamente cinco abas:
 
 1. Hoje;
-2. Brain;
+2. Plano;
 3. Foco;
-4. Progresso;
-5. Perfil.
+4. Brain;
+5. Progresso.
 
-Professor Atlas e roadmaps vivem no Brain. Aparência e Widget Studio partem do Perfil. Não reintroduza dashboards paralelos ou uma nova aba sem uma decisão explícita de produto.
+Professor Atlas e roadmaps vivem no Brain. Perfil, aparência, Widget Studio, dados e updates vivem em `/settings`. Não reintroduza dashboards paralelos ou uma nova aba sem uma decisão explícita de produto.
 
 ## Escopo mantido e legado
 
@@ -156,7 +156,7 @@ Capturas futuras vivem em uma fila agendada, preservando título, descrição, c
 
 Existem somente seis temas selecionáveis: Nexus Dark, AMOLED, Glass, Light, Pixel e Minimal. Cada entrada em `NEXUS_THEMES` deve conter todos os tokens de cor e visuais.
 
-Componentes básicos consomem tokens; não criam paletas paralelas. Texto de ação usa `onPrimary`; check sobre sucesso usa `onSuccess`. Preserve contraste AA. Identificadores antigos são convertidos por `resolveThemeId` e pelo storage v6.
+Componentes básicos consomem tokens; não criam paletas paralelas. Texto de ação usa `onPrimary`; check sobre sucesso usa `onSuccess`. Preserve contraste AA. Identificadores antigos são convertidos por `resolveThemeId` e pelo storage v7.
 
 ## Widgets
 
@@ -178,13 +178,13 @@ Cada `appWidgetId` mantém configuração própria. Salvar deve persistir, sincr
 
 ## Persistência
 
-Storage atual: v6 na chave estável `@nexus-ai/state`. Backup pré-migração: `@nexus-ai/pre-v3.0-backup`.
+Storage atual: v7 na chave estável `@nexus-ai/state`. Backup pré-Lock-In: `@nexus-ai/pre-lock-in-v7-backup`; preserve também `@nexus-ai/pre-v3.0-backup`. Leia `docs/LOCK_IN_ADR_001.md` e `docs/LOCK_IN_SLICE_1.md` para mapping, autoridade única e recuperação. Leitor v6 bloqueia v7; rollback OTA não restaura os dados transparentemente.
 
 Preserve perfil, objetivo, plano, tarefas, progresso, histórico, chats, roadmaps e preferências. Recupere coleções item a item. Um campo inválido não deve apagar toda a seção. Converta temas e widgets legados. Storage com versão futura fica bloqueado contra escrita para impedir downgrade.
 
 Todo import passa por limite de 8 MB, bloqueio de versão futura, identidade material, migração, schema e normalização. Um backup importável precisa trazer `installationId` válido, onboarding concluído e perfil completo; objetos vazios, wrappers vazios, chaves alheias ou estado sem perfil concluído não podem virar defaults. Não altere o storage version sem migração e teste.
 
-O Undo de import é um snapshot interno v6 estrito: corrupção não pode ser recuperada tolerantemente nem aparecer como Undo disponível, mas a chave deve permanecer intacta para diagnóstico. A restauração pré-migração percorre candidatos e ignora cópias corrompidas ou sem identidade material.
+O Undo de import é um snapshot interno estrito v7 (ou v6 validado estritamente e migrado): corrupção não pode ser recuperada tolerantemente nem aparecer como Undo disponível, mas a chave deve permanecer intacta para diagnóstico. A restauração pré-migração percorre candidatos e ignora cópias corrompidas ou sem identidade material.
 
 `nexusRepository.enqueueWrite` serializa `save`, limpeza temporária, reset total, import e rollback. Um save lento anterior não pode ressuscitar dados depois de reset. Import, Undo e reset total adquirem o lock de substituição, abortam e aguardam geração, assistente e sincronização ativa, reconciliam reminder/foco/widget e só então publicam o novo estado. Commits comuns, nova geração, retomada diária e fila do widget não atravessam esse lock.
 

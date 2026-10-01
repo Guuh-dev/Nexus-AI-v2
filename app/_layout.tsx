@@ -61,6 +61,7 @@ function Navigation() {
         <Stack.Screen name="discovery" />
         <Stack.Screen name="professor-intake" />
         <Stack.Screen name="loading-plan" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="settings" />
         <Stack.Screen name="customize" />
         <Stack.Screen name="widget-studio" />
         <Stack.Screen name="privacy" />

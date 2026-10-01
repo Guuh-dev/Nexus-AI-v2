@@ -51,7 +51,7 @@ const RESPONSE_LENGTH: readonly (readonly [AssistantVerbosity, string])[] = [
 
 function back() {
   if (router.canGoBack()) router.back();
-  else router.replace("/(tabs)/profile");
+  else router.replace("/settings");
 }
 
 export default function CustomizeScreen() {

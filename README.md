@@ -33,9 +33,11 @@ A versão 3.0 remove a ideia de um “super app” cheio de painéis incompletos
 | Brain | Conversa contextual, Professor Atlas e roadmaps. |
 | Foco | Sessões de execução com restauração de estado. |
 | Progresso | Evidências, métricas e revisão semanal. |
-| Perfil | Preferências, dados, atualização e backup. |
+| Plano | Meta principal, janelas autorizadas, capacidade e missão confirmada. |
 
-Operações, hábitos, semana e finanças saíram da superfície principal porque duplicavam o núcleo ou ainda não tinham profundidade suficiente. Seus dados legados continuam preservados no storage v6 para evitar perda durante a atualização.
+Perfil, preferências, dados, atualização e backup ficam em Configurações.
+
+Operações, hábitos, semana e finanças saíram da superfície principal porque duplicavam o núcleo ou ainda não tinham profundidade suficiente. Seus dados legados continuam preservados no storage v7 para evitar perda durante a atualização.
 
 ## Princípios do Core Reborn
 
@@ -107,9 +109,9 @@ Mudanças em Kotlin, XML, Manifest ou plugin exigem um novo APK; não podem ser 
 
 ## Dados locais e migração
 
-O storage v6 preserva perfil, objetivos, plano, tarefas, progresso, histórico, roadmaps, chats e preferências. Antes de migrar, o app grava um backup versionado. Coleções são recuperadas item a item: uma entrada inválida não apaga todas as entradas válidas da mesma seção.
+O storage v7 preserva perfil, objetivos, plano, tarefas, progresso, histórico, roadmaps, chats e preferências. Antes de migrar, o app grava um backup versionado. Coleções são recuperadas item a item: uma entrada inválida não apaga todas as entradas válidas da mesma seção.
 
-Dados produzidos por uma versão futura ficam bloqueados contra sobrescrita. Imports passam por limites de tamanho, migração e schemas Zod. O usuário pode exportar e importar um backup JSON pelo Perfil.
+Dados produzidos por uma versão futura ficam bloqueados contra sobrescrita. Imports passam por limites de tamanho, migração e schemas Zod. O usuário pode exportar e importar um backup JSON pelas Configurações.
 
 ## Arquitetura
 
@@ -185,3 +187,7 @@ branch de release → pull request → CI + segurança + detector nativo
 ```
 
 Consulte [docs/RELEASE_3_0.md](docs/RELEASE_3_0.md), [docs/ANDROID_QA.md](docs/ANDROID_QA.md) e [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Nexus Lock-In — primeira fatia
+
+Perfil retomável, meta principal, metas de manutenção/backlog, capacidade por janelas e missão ligada às tarefas estão implementados. A migração preserva o v6 em backup dedicado e não inventa disponibilidade ou evidência histórica. Foco com segmentos e revisão/adaptação pertencem às próximas fatias. Consulte [decisão aprovada](docs/LOCK_IN_ADR_001.md) e [entrega e validação](docs/LOCK_IN_SLICE_1.md).

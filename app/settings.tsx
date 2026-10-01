@@ -39,7 +39,7 @@ const DAYS: readonly { value: Weekday; label: string }[] = [
   { value: 6, label: "S" },
 ];
 
-export default function ProfileScreen() {
+export default function SettingsScreen() {
   const {
     data,
     colors,
@@ -256,8 +256,9 @@ export default function ProfileScreen() {
           <Section title="Seu contexto" subtitle="Somente informações que melhoram missão, tarefas e orientação.">
             <Field label="Nome" value={name} onChangeText={setName} maxLength={80} />
             <Field label="Como o Nexus chama você" value={nickname} onChangeText={setNickname} maxLength={40} />
-            <Field label="Missão de longo prazo" value={goal} onChangeText={setGoal} multiline maxLength={600} />
-            <Field label="Minutos disponíveis por dia" value={minutes} onChangeText={setMinutes} keyboardType="number-pad" maxLength={3} />
+            {data.lockIn.goals.some((g) => g.state === "primary") && <NexusButton label="Revisar meta e horários no Plano" variant="secondary" onPress={() => router.push("/(tabs)/plan")} />}
+            <Field editable={!data.lockIn.goals.some((g) => g.state === "primary")} label="Missão de longo prazo" value={goal} onChangeText={setGoal} multiline maxLength={600} />
+            <Field editable={!data.lockIn.goals.some((g) => g.state === "primary")} label="Minutos disponíveis por dia" value={minutes} onChangeText={setMinutes} keyboardType="number-pad" maxLength={3} />
             <Field label="Rotina relevante" value={schedule} onChangeText={setSchedule} multiline maxLength={600} />
             <Choice title="Dias ativos">
               {DAYS.map((day) => {
@@ -357,12 +358,12 @@ export default function ProfileScreen() {
                 <NexusButton label="Desfazer última importação" variant="ghost" disabled={dataBusy} onPress={() => setRestoreImportOpen(true)} fullWidth />
               ) : null}
               {hasMigrationBackup ? (
-                <NexusButton label="Restaurar cópia anterior à v3" variant="ghost" disabled={dataBusy} onPress={() => setRestoreMigrationOpen(true)} fullWidth />
+                <NexusButton label="Restaurar cópia pré-migração" variant="ghost" disabled={dataBusy} onPress={() => setRestoreMigrationOpen(true)} fullWidth />
               ) : null}
               <NexusButton label="Política de privacidade" variant="ghost" onPress={() => router.push("/privacy" as never)} fullWidth />
             </Section>
             <Section title="Controle" subtitle="Ações destrutivas sempre exigem confirmação.">
-              <NexusButton label="Recriar plano de hoje" variant="ghost" onPress={() => setResetTodayOpen(true)} fullWidth />
+              {data.lockIn.goals.some((g) => g.state === "primary") ? <NexusButton label="Revisar plano de hoje" variant="ghost" onPress={() => router.push("/(tabs)/plan")} fullWidth /> : <NexusButton label="Recriar plano de hoje" variant="ghost" onPress={() => setResetTodayOpen(true)} fullWidth />}
               <NexusButton label="Apagar todos os dados" variant="danger" onPress={() => setResetAllOpen(true)} fullWidth />
             </Section>
           </>
@@ -424,7 +425,7 @@ export default function ProfileScreen() {
       <ConfirmDialog
         visible={restoreMigrationOpen}
         title="Restaurar a cópia anterior à migração?"
-        message="Os dados preservados antes da conversão para a v3 voltarão ao estado atual. O estado de agora será salvo para permitir desfazer."
+        message="Esta restauração substitui os dados atuais pela cópia anterior à migração, inclusive metas e registros mais recentes. Exporte o estado atual antes de continuar. Ele também será salvo para permitir desfazer; a cópia antiga será convertida ao formato atual. Voltar a uma versão antiga do aplicativo não é um rollback transparente."
         confirmLabel="Restaurar cópia anterior"
         loading={dataBusy}
         onCancel={() => setRestoreMigrationOpen(false)}

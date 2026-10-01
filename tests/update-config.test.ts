@@ -25,7 +25,7 @@ describe("EAS Update configuration", () => {
 
   it("exposes update controls without exposing a secret", () => {
     const service = readFileSync("services/update.service.ts", "utf8");
-    const profile = readFileSync("app/(tabs)/profile.tsx", "utf8");
+    const profile = readFileSync("app/settings.tsx", "utf8");
     expect(service).toContain("checkForUpdateAsync");
     expect(service).toContain("fetchUpdateAsync");
     expect(service).toContain("reloadAsync");

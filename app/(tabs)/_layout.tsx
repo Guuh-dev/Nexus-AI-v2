@@ -11,7 +11,7 @@ const icons = {
   brain: "✦",
   focus: "◎",
   progress: "▥",
-  profile: "●",
+  plan: "▤",
 } as const;
 
 export default function TabsLayout() {
@@ -70,10 +70,10 @@ export default function TabsLayout() {
         })}
       >
         <Tabs.Screen name="today" options={{ title: "Hoje" }} />
-        <Tabs.Screen name="brain" options={{ title: "Brain" }} />
+        <Tabs.Screen name="plan" options={{ title: "Plano" }} />
         <Tabs.Screen name="focus" options={{ title: "Foco" }} />
+        <Tabs.Screen name="brain" options={{ title: "Brain" }} />
         <Tabs.Screen name="progress" options={{ title: "Progresso" }} />
-        <Tabs.Screen name="profile" options={{ title: "Perfil" }} />
       </Tabs>
       <View
         pointerEvents="none"

@@ -12,6 +12,9 @@ const requiredFiles = [
   "app/(tabs)/brain.tsx",
   "app/(tabs)/today.tsx",
   "app/(tabs)/progress.tsx",
+  "app/(tabs)/plan.tsx",
+  "app/settings.tsx",
+  "schemas/lock-in.schema.ts",
   "app/api/assistant+api.ts",
   "app/api/status+api.ts",
   "constants/defaults.ts",
@@ -134,7 +137,7 @@ if (eas.build?.production?.channel !== "production" || eas.build?.release?.chann
 if (eas.build?.release?.android?.buildType !== "apk") fail("Release profile must produce an APK.");
 
 const tabs = [...read("app/(tabs)/_layout.tsx").matchAll(/<Tabs\.Screen name="([^"]+)"/g)].map((match) => match[1]);
-if (JSON.stringify(tabs) !== JSON.stringify(["today", "brain", "focus", "progress", "profile"])) {
+if (JSON.stringify(tabs) !== JSON.stringify(["today", "plan", "focus", "brain", "progress"])) {
   fail(`The core tab contract changed: ${tabs.join(", ")}`);
 }
 const rootLayout = read("app/_layout.tsx");
@@ -151,7 +154,7 @@ for (const token of ["onPrimary", "onSuccess", "surfaceRaised", "borderStrong", 
 const defaults = read("constants/defaults.ts");
 const storage = read("services/storage.service.ts");
 const storageSchema = read("schemas/storage.schema.ts");
-if (!defaults.includes("export const STORAGE_VERSION = 6")) fail("Storage v6 is required.");
+if (!defaults.includes("export const STORAGE_VERSION = 7")) fail("Storage v7 with a dedicated migration backup is required.");
 if (!defaults.includes('@nexus-ai/pre-v3.0-backup')) fail("The pre-v3 migration backup key is missing.");
 for (const marker of ["recoverArray", "writeLockReason", "hasPreMigrationBackup", "migrateWidgetPreferences", "LEGACY_MIGRATION_BACKUP_KEYS"]) {
   if (!storage.includes(marker)) fail(`Storage migration capability missing: ${marker}`);
