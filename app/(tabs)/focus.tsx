@@ -37,7 +37,7 @@ export default function FocusScreen() {
   const [tick, setTick] = useState(Date.now());
   const [taskId, setTaskId] = useState<string | undefined>(params.taskId ?? data.activePlan?.tasks.find((t) => !t.completed)?.id);
   const [mode, setMode] = useState<FocusMode>("profundo");
-  const [duration, setDuration] = useState("50");
+  const [duration, setDuration] = useState(() => String(data.activePlan?.tasks.find((t) => t.id === (params.taskId ?? data.activePlan?.tasks.find((task) => !task.completed)?.id))?.estimatedMinutes ?? data.profile?.evolution?.sessionLength ?? 25));
   const [intention, setIntention] = useState("");
   const [nextAction, setNextAction] = useState("");
   const [reflection, setReflection] = useState("");
@@ -60,7 +60,11 @@ export default function FocusScreen() {
     return () => { mounted = false; };
   }, []);
   useEffect(() => {
-    if (typeof params.taskId === "string" && !latest.current) setTaskId(params.taskId);
+    if (typeof params.taskId === "string" && !latest.current) {
+      setTaskId(params.taskId);
+      const selected = currentData.current.activePlan?.tasks.find((t) => t.id === params.taskId);
+      if (selected) setDuration(String(selected.estimatedMinutes));
+    }
   }, [params.taskId]);
   useEffect(() => {
     const ticker = setInterval(() => { if (latest.current && latest.current.epoch !== undefined && latest.current.epoch !== focusRuntimeEpoch()) { publish(null); setError("O estado foi substituído. A sessão anterior foi encerrada pelo reset ou importação."); } setTick(Date.now()); }, 500);
