@@ -6,7 +6,10 @@ export async function configureDailyReminder(enabled: boolean, time: string): Pr
   if (Platform.OS === "web") return { supported: false, enabled: false, reason: "Lembretes nativos ficam disponíveis no aplicativo Android." };
   try {
     const Notifications = await import("expo-notifications");
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+    for (const item of scheduled) {
+      if (item.content.data?.category === "daily" || (item.content.title === "Nexus online" && item.content.data?.route === "/today")) await Notifications.cancelScheduledNotificationAsync(item.identifier);
+    }
     if (!enabled) return { supported: true, enabled: false };
 
     let permission = await Notifications.getPermissionsAsync();
@@ -30,9 +33,9 @@ export async function configureDailyReminder(enabled: boolean, time: string): Pr
     }
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: "Nexus online",
-        body: "Sua missão de hoje está pronta.",
-        data: { route: "/today" },
+        title: "Nexus",
+        body: "Reserve um momento para revisar sua próxima ação.",
+        data: { route: "/today", category: "daily" },
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,
