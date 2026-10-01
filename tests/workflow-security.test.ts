@@ -48,6 +48,14 @@ describe("GitHub workflow security", () => {
     expect(readWorkflow("security.yml")).toContain("pnpm audit --audit-level=high");
   });
 
+  it("runs secret scanning and security regressions independently of the dependency audit", () => {
+    const workflow = readWorkflow("security.yml");
+    const independent = workflow.split("  security-regressions:")[1]?.split("  codeql:")[0];
+    expect(independent).toBeTruthy();expect(independent).toContain("pnpm run security:secrets");expect(independent).toContain("assistant-api-security.test.ts");
+    expect(independent).not.toMatch(/needs:|continue-on-error:/);
+    expect(workflow.split("  security-regressions:")[0]).toContain("pnpm audit --audit-level=high");
+  });
+
   it("does not interpolate workflow_dispatch text directly into shell commands", () => {
     for (const file of workflowFiles) {
       const workflow = readWorkflow(file);
