@@ -1,3 +1,5 @@
+import { confirmSecondaryGoal, reconcileExecution, projectGoalProfile } from "@/features/lock-in/planning";
+import { lockInDraftSchema, type LockInDraft } from "@/schemas/lock-in.schema";
 import {
   createContext,
   useCallback,
@@ -98,6 +100,8 @@ type ConfirmedCommitResult = { data: AppData; widget: WidgetSyncResult };
 
 type NexusContextValue = {
   data: AppData;
+  saveLockInDraft: (draft: LockInDraft) => Promise<boolean>;
+  confirmLockIn: (draft: LockInDraft, baseRevision: number) => Promise<boolean>;
   colors: NexusColors;
   visuals: NexusVisuals;
   ready: boolean;
@@ -356,7 +360,25 @@ export function NexusProvider({ children }: PropsWithChildren) {
 
   const prepareCommit = useCallback((update: (current: AppData) => AppData): AppData | null => {
     if (stateReplacementInProgressRef.current) return null;
-    const next = unlockAchievements(update(dataRef.current));
+    let next: AppData;
+    try {
+      const candidate = update(dataRef.current);
+      const planningChanged = JSON.stringify(candidate.activePlan?.tasks.map((t) => [t.id, t.estimatedMinutes, t.dependsOn])) !== JSON.stringify(dataRef.current.activePlan?.tasks.map((t) => [t.id, t.estimatedMinutes, t.dependsOn]));
+      next = unlockAchievements(projectGoalProfile(candidate.activePlan === dataRef.current.activePlan ? candidate : reconcileExecution(candidate, planningChanged ? new Date() : undefined)));
+      if (next.activePlan?.execution && next.activePlan !== dataRef.current.activePlan) {
+        const revision = Math.max(next.lockIn.revision, dataRef.current.lockIn.revision + 1);
+        let planSnapshots = next.planSnapshots;
+        const previousPlan = dataRef.current.activePlan;
+        if (planningChanged && previousPlan?.execution && planSnapshots === dataRef.current.planSnapshots) {
+          if (planSnapshots.length >= 1000) throw new Error("Exporte e revise o histórico de planos antes de continuar.");
+          planSnapshots = [...planSnapshots, previousPlan];
+        }
+        next = { ...next, planSnapshots, activePlan: { ...next.activePlan, execution: { ...next.activePlan.execution, revision } }, lockIn: { ...next.lockIn, revision } };
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Revise o plano antes de continuar.");
+      return null;
+    }
     const validation = appDataSchema.safeParse(next);
     if (!validation.success) {
       showToast("Esta alteração produziria dados inválidos e não foi aplicada.");
@@ -406,6 +428,18 @@ export function NexusProvider({ children }: PropsWithChildren) {
     }
   }, [persist, prepareCommit, showToast]);
 
+  const saveLockInDraft = useCallback(async (draft: LockInDraft): Promise<boolean> => {
+    const parsed = lockInDraftSchema.safeParse(draft);
+    if (!parsed.success) return false;
+    return Boolean(await commitConfirmed((current) => ({ ...current, lockIn: { ...current.lockIn, draft: parsed.data } })));
+  }, [commitConfirmed]);
+  const confirmLockIn = useCallback(async (draft: LockInDraft, baseRevision: number): Promise<boolean> => {
+    if (generationPromise.current || assistantFlightRef.current) {
+      showToast("Aguarde a operação em andamento antes de confirmar o plano."); return false;
+    }
+    return Boolean(await commitConfirmed((current) => confirmSecondaryGoal(current, draft, baseRevision), "Missão e janelas confirmadas."));
+  }, [commitConfirmed, showToast]);
+
   const syncWidgetActions = useCallback(async () => {
     if (stateReplacementInProgressRef.current || !hydratedRef.current || nexusRepository.readOnlyReason()) return;
     const batch = await peekAndroidWidgetActions();
@@ -439,7 +473,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
             if (!mounted) return;
             if (rollover.rolledOver) {
               setRolloverRevision((value) => value + 1);
-              showToast("Novo dia detectado. Sua missão foi preparada sem duplicar tarefas.");
+              showToast(previous.lockIn.goals.some((g) => g.state === "primary") ? "Dia anterior preservado. Confirme as janelas e a missão de hoje em Plano." : "Novo dia detectado. Sua missão foi preparada sem duplicar tarefas.");
             }
           } catch {
             dataRef.current = previous;
@@ -467,7 +501,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
         try {
           await persist(dailyState);
           if (rollover.rolledOver) {
-            showToast("Novo dia detectado. Sua missão foi preparada sem duplicar tarefas.");
+            showToast(loaded.lockIn.goals.some((g) => g.state === "primary") ? "Dia anterior preservado. Confirme as janelas e a missão de hoje em Plano." : "Novo dia detectado. Sua missão foi preparada sem duplicar tarefas.");
           }
         } catch {
           initial = loaded;
@@ -510,6 +544,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
   }, [planGenerating]);
 
   const commitLocalPlan = useCallback(async (profile: Profile, message: string): Promise<boolean> => {
+    if (dataRef.current.lockIn.goals.some((g) => g.state === "primary")) { showToast("Confirme a próxima missão no Plano."); return false; }
     const date = localDateKey(new Date(), profile.timezone);
     return Boolean(await commitConfirmed((current) => {
       const replacement = generateLocalPlan(
@@ -527,10 +562,13 @@ export function NexusProvider({ children }: PropsWithChildren) {
         lastAiAttemptDate: date,
       }, profile);
     }, message));
-  }, [commitConfirmed]);
+  }, [commitConfirmed, showToast]);
 
   const runGeneration = useCallback((profile: Profile, mode: "onboarding" | "replan" | "rollover", context?: { reason?: string; minutesRemaining?: number; currentEnergy?: Profile["energyLevel"]; preserveTaskIds?: string[] }): Promise<boolean> => {
     if (stateReplacementInProgressRef.current) return Promise.resolve(false);
+    if (dataRef.current.lockIn.goals.some((g) => g.state === "primary")) {
+      showToast("Revise as janelas e o impacto no Plano antes de confirmar outra missão."); return Promise.resolve(false);
+    }
     if (generationPromise.current) return generationPromise.current;
     const controller = new AbortController();
     generationController.current = controller;
@@ -723,7 +761,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
     const completed = !dataRef.current.activePlan.mainMission.completed;
     const result = await commitConfirmed(
       toggleMainMission,
-      completed ? "Missão principal concluída. +75 XP." : "Missão principal reaberta.",
+      completed ? (dataRef.current.activePlan?.execution ? "Tarefas da missão concluídas." : "Missão principal concluída. +75 XP.") : "Missão principal reaberta.",
     );
     if (!result) return false;
     if (result.data.preferences.haptics) {
@@ -735,13 +773,16 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const updateProfile = useCallback(async (patch: Partial<Profile>): Promise<boolean> => {
     const currentProfile = dataRef.current.profile;
     if (!currentProfile) return false;
+    if (dataRef.current.lockIn.goals.some((g) => g.state === "primary") && ((patch.mainGoal !== undefined && patch.mainGoal !== currentProfile.mainGoal) || (patch.goalReason !== undefined && patch.goalReason !== currentProfile.goalReason) || (patch.deadline !== undefined && patch.deadline !== currentProfile.deadline) || (patch.timezone !== undefined && patch.timezone !== currentProfile.timezone))) {
+      showToast("Revise objetivo, prazo e fuso no Plano para confirmar o impacto."); return false;
+    }
     const parsed = profileSchema.safeParse({ ...currentProfile, ...patch, updatedAt: new Date().toISOString() });
     if (!parsed.success) return false;
     return Boolean(await commitConfirmed(
       (current) => ({ ...current, profile: parsed.data }),
       "Perfil atualizado.",
     ));
-  }, [commitConfirmed]);
+  }, [commitConfirmed, showToast]);
 
   const updatePreferences = useCallback(async (patch: Omit<Partial<Preferences>, "widget" | "dashboard" | "mascot"> & { widget?: Partial<Preferences["widget"]>; dashboard?: Partial<Preferences["dashboard"]>; mascot?: Partial<Preferences["mascot"]> }): Promise<WidgetSyncResult | null> => {
     const result = await commitConfirmed((current) => {
@@ -1587,6 +1628,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
       return;
     }
     if (selected.type === "update_goal") {
+      if (dataRef.current.lockIn.goals.some((g) => g.state === "primary")) { showToast("A proposta permanece pendente. Revise e confirme a meta no Plano."); return; }
       const rawPayload = selected.payload as Record<string, unknown>;
       const mainGoal = typeof rawPayload.mainGoal === "string"
         ? sanitizeText(rawPayload.mainGoal, 600)
@@ -1620,6 +1662,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
   }, [commitConfirmed, createRoadmap, replanDay, showToast]);
 
   const resetToday = useCallback(async (): Promise<boolean> => {
+    if (dataRef.current.lockIn.goals.some((g) => g.state === "primary")) { showToast("Revise o Plano para mudar a missão sem apagar entregas."); return false; }
     const profile = dataRef.current.profile;
     if (!profile) return false;
     const date = localDateKey(new Date(), profile.timezone);
@@ -1634,7 +1677,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
         lastGeneratedDate: date,
       };
     }, "Plano de hoje recriado sem apagar o que já foi concluído."));
-  }, [commitConfirmed]);
+  }, [commitConfirmed, showToast]);
 
   const resetAll = useCallback(async () => {
     if (!await beginStateReplacement()) return;
@@ -1735,7 +1778,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
 
   const value = useMemo<NexusContextValue>(() => ({
     data, colors: getColors(data.preferences), visuals: getVisuals(data.preferences), ready, storageReadOnlyReason, planGenerating, planGenerationError, assistantBusy, assistantStage, lastAssistantMeta, weeklyReviewError, loadingStage: LOADING_STAGES[loadingStageIndex] ?? LOADING_STAGES[0], toast,
-    updateOnboardingDraft, completeOnboarding, completeDiscovery,
+    saveLockInDraft, confirmLockIn, updateOnboardingDraft, completeOnboarding, completeDiscovery,
     cancelPlanGeneration, retryPlanGeneration, recoverPlanLocally, cancelAssistant: () => assistantController.current?.abort(), replanDay,
     toggleTask: handleTaskToggle, toggleMission: handleMissionToggle,
     addTask: async (input) => Boolean(await commitConfirmed((current) => addTask(current, input), "Tarefa adicionada.")),
@@ -1748,7 +1791,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
     resetToday, resetAll, clearTemporary, inspectBackup, importBackup, restoreImportBackup, hasImportRollback, restoreMigrationBackup, hasMigrationBackup, exportBackup: () => nexusRepository.exportJson(data),
     dismissToast: () => setToast(null), dismissWarnings: () => commit((current) => ({ ...current, corruptionWarnings: [] })),
   }), [
-    applyAssistantAction, archiveRoadmap, archiveThread, assistantBusy, assistantStage, lastAssistantMeta, weeklyReviewError, cancelPlanGeneration, clearTemporary, commit, commitConfirmed, completeDiscovery, completeOnboarding,
+    saveLockInDraft, confirmLockIn, applyAssistantAction, archiveRoadmap, archiveThread, assistantBusy, assistantStage, lastAssistantMeta, weeklyReviewError, cancelPlanGeneration, clearTemporary, commit, commitConfirmed, completeDiscovery, completeOnboarding,
     createRoadmap, createThread, data, deleteMemory, deleteRoadmap, deleteScheduledCapture, deleteThread, finishFocusSession, generateWeeklyReview, handleMissionToggle, handleTaskToggle, hasImportRollback, importBackup, inspectBackup,
     hasMigrationBackup, loadingStageIndex, planGenerating, planGenerationError, quickCapture, ready, recoverPlanLocally, renameThread, replanDay, resetAll, resetToday, rescheduleCapture, retryPlanGeneration, saveCapture, selectThread,
     regenerateRoadmap, renameRoadmap, restoreImportBackup, restoreMigrationBackup, sendChatMessage, setActiveRoadmap, storageReadOnlyReason, submitRoadmapEvidence, toast, toggleMemoryPinned, updateOnboardingDraft, updatePreferences, updateProfile,

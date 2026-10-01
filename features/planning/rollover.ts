@@ -169,6 +169,20 @@ export function rolloverIfNeeded(data: AppData, now = new Date()): { data: AppDa
   const today = localDateKey(now, data.profile.timezone);
   if (data.activePlan?.date === today) return { data, rolledOver: false };
 
+  if (data.lockIn.goals.some((g) => g.state === "primary")) {
+    if (!data.activePlan) return { data, rolledOver: false };
+    const finalDay = archivePlan(data, data.activePlan);
+    const blocked = (message: string) => ({ rolledOver: false, data: { ...data, corruptionWarnings: [...new Set([...data.corruptionWarnings, message])].slice(-20) } });
+    if (data.history.length >= 3660 && !data.history.some((d) => d.date === finalDay.date)) return blocked("Exporte o histórico antes de preparar outro dia.");
+    const history = [...data.history.filter((d) => d.date !== finalDay.date), finalDay];
+    const streak = calculateStreak(history);
+    const pending = data.activePlan.tasks.filter((t) => !t.completed);
+    const recurringTasks = [...data.recurringTasks, ...pending.filter((t) => !data.recurringTasks.some((r) => r.id === t.id))];
+    if (recurringTasks.length > 100) return blocked("Revise as pendências antes de preparar outro dia.");
+    return { rolledOver: true, data: { ...data, activePlan: undefined, history, recurringTasks,
+      lockIn: { ...data.lockIn, revision: data.lockIn.revision + 1 },
+      progress: { ...data.progress, currentStreak: streak.current, bestStreak: Math.max(data.progress.bestStreak, streak.best) } } };
+  }
   const dueItems = data.weeklyPlan.filter((item) => item.date <= today && !item.completed);
   const scheduled: Task[] = dueItems.map((item) => ({
     id: item.id,

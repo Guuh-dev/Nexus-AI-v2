@@ -1,3 +1,5 @@
+import { seedLockIn, reconcileExecution, projectGoalProfile } from "@/features/lock-in/planning";
+import { lockInStateSchema } from "@/schemas/lock-in.schema";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   DEFAULT_APP_DATA,
@@ -7,6 +9,7 @@ import {
   IMPORT_ROLLBACK_KEY,
   LEGACY_MIGRATION_BACKUP_KEYS,
   MIGRATION_BACKUP_KEY,
+  LOCK_IN_BACKUP_KEY,
   STORAGE_KEY,
   STORAGE_VERSION,
   TEMP_STORAGE_KEYS,
@@ -110,10 +113,12 @@ function hasMaterialAppData(value: unknown): value is Record<string, unknown> {
 function parseStrictImportRollback(json: string): AppData | null {
   try {
     const parsed = JSON.parse(json) as unknown;
-    if (!isRecord(parsed) || parsed.storageVersion !== STORAGE_VERSION) return null;
-    const validation = appDataSchema.safeParse(parsed);
+    if (!isRecord(parsed) || (parsed.storageVersion !== STORAGE_VERSION && parsed.storageVersion !== 6)) return null;
+    const validation = parsed.storageVersion === 6
+      ? appDataSchema.omit({ lockIn: true, planSnapshots: true }).safeParse(parsed)
+      : appDataSchema.safeParse(parsed);
     if (!validation.success || !hasMaterialAppData(validation.data)) return null;
-    return validation.data;
+    return parsed.storageVersion === 6 ? recoverAppData(validation.data) : validation.data as AppData;
   } catch {
     return null;
   }
@@ -495,7 +500,12 @@ function recoverAppData(raw: unknown): AppData {
       ? source.lastAiAttemptDate
       : undefined;
 
+  const lockIn = incomingVersion < 7
+    ? seedLockIn(typeof source.installationId === "string" ? source.installationId.slice(0, 80) : defaults.installationId, profileState.profile)
+    : lockInStateSchema.parse(source.lockIn);
   const recovered: AppData = {
+    lockIn,
+    planSnapshots: recoverArray("snapshots do plano", source.planSnapshots, dailyPlanSchema, 1000, warnings),
     storageVersion: STORAGE_VERSION,
     installationId:
       typeof source.installationId === "string" && source.installationId.length >= 8
@@ -557,7 +567,7 @@ function recoverAppData(raw: unknown): AppData {
     ].slice(-20),
   };
 
-  const validation = appDataSchema.safeParse(recovered);
+  const validation = appDataSchema.safeParse(incomingVersion >= 7 ? projectGoalProfile(reconcileExecution(recovered)) : recovered);
   if (!validation.success) {
     throw new Error("A migração local não produziu um estado válido.");
   }
@@ -568,11 +578,11 @@ class AsyncStorageRepository implements NexusRepository {
   private saveQueue: Promise<void> = Promise.resolve();
   private writeLockReason: string | null = null;
 
-  private enqueueWrite(operation: () => Promise<void>): Promise<void> {
+  private enqueueWrite<T>(operation: () => Promise<T>): Promise<T> {
     const queued = this.saveQueue
       .catch(() => undefined)
       .then(operation);
-    this.saveQueue = queued;
+    this.saveQueue = queued.then(() => undefined, () => undefined);
     return queued;
   }
 
@@ -581,6 +591,10 @@ class AsyncStorageRepository implements NexusRepository {
   }
 
   async load(): Promise<AppData> {
+    return this.enqueueWrite(() => this.loadSerialized());
+  }
+
+  private async loadSerialized(): Promise<AppData> {
     let json: string | null;
     try {
       json = await AsyncStorage.getItem(STORAGE_KEY);
@@ -634,15 +648,14 @@ class AsyncStorageRepository implements NexusRepository {
 
     if (version < STORAGE_VERSION) {
       try {
-        await AsyncStorage.setItem(
-          MIGRATION_BACKUP_KEY,
-          JSON.stringify({
-            savedAt: new Date().toISOString(),
-            fromVersion: version,
-            toVersion: STORAGE_VERSION,
-            data: parsed,
-          }),
-        );
+        const snapshot = JSON.stringify({ savedAt: new Date().toISOString(), fromVersion: version, toVersion: STORAGE_VERSION, data: parsed });
+        if (!await AsyncStorage.getItem(LOCK_IN_BACKUP_KEY)) {
+          await AsyncStorage.setItem(LOCK_IN_BACKUP_KEY, snapshot);
+        }
+        if (version < 6 && !await AsyncStorage.getItem(MIGRATION_BACKUP_KEY)) {
+          await AsyncStorage.setItem(MIGRATION_BACKUP_KEY, snapshot);
+        }
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(recovered));
       } catch {
         this.writeLockReason = "Não foi possível criar a cópia de segurança anterior à migração. Os dados originais foram mantidos e esta instalação ficou somente leitura.";
         return {
@@ -669,6 +682,7 @@ class AsyncStorageRepository implements NexusRepository {
       throw new Error("O estado local não passou pela validação de segurança.");
     }
     const json = JSON.stringify(validation.data);
+    if (utf8ByteLength(JSON.stringify(validation.data, null, 2)) > BACKUP_MAX_BYTES - 1000) throw new Error("Limite de dados atingido. Exporte e revise seus dados antes de continuar.");
     return this.enqueueWrite(() => AsyncStorage.setItem(STORAGE_KEY, json));
   }
 
@@ -681,6 +695,7 @@ class AsyncStorageRepository implements NexusRepository {
       await AsyncStorage.multiRemove([
         STORAGE_KEY,
         MIGRATION_BACKUP_KEY,
+        LOCK_IN_BACKUP_KEY,
         IMPORT_ROLLBACK_KEY,
         ...LEGACY_MIGRATION_BACKUP_KEYS,
         ...TEMP_STORAGE_KEYS,
@@ -775,6 +790,7 @@ class AsyncStorageRepository implements NexusRepository {
 
   async restorePreMigrationBackup(): Promise<AppData | null> {
     const entries = await AsyncStorage.multiGet([
+      LOCK_IN_BACKUP_KEY,
       MIGRATION_BACKUP_KEY,
       ...LEGACY_MIGRATION_BACKUP_KEYS,
     ]);

@@ -1,3 +1,4 @@
+import { lockInStateSchema } from "@/schemas/lock-in.schema";
 import { z } from "zod";
 import { dailyPlanSchema, storedTaskSchema } from "@/schemas/daily-plan.schema";
 import {
@@ -168,6 +169,8 @@ const financeSchema = z.object({
 }).strict();
 
 export const appDataSchema = z.object({
+  lockIn: lockInStateSchema,
+  planSnapshots: z.array(dailyPlanSchema).max(1000),
   storageVersion: z.number().int().min(1).max(100),
   installationId: z.string().min(8).max(120),
   profile: profileSchema.optional(),

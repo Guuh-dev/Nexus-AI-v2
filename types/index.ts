@@ -1,3 +1,6 @@
+import type { LockInState } from "@/schemas/lock-in.schema";
+import type { z } from "zod";
+import type { planExecutionSchema } from "@/schemas/lock-in.schema";
 export const CATEGORIES = [
   "desenvolvimento",
   "estudos",
@@ -123,6 +126,7 @@ export type Profile = {
 export type OnboardingDraft = Partial<Profile>;
 
 export type MainMission = {
+  taskIds?: string[];
   title: string;
   description: string;
   firstStep?: string;
@@ -136,6 +140,7 @@ export type MainMission = {
 };
 
 export type Task = {
+  dependsOn?: string[];
   id: string;
   title: string;
   description?: string;
@@ -161,6 +166,7 @@ export type Task = {
 };
 
 export type DailyPlan = {
+  execution?: z.infer<typeof planExecutionSchema>;
   date: string;
   mainMission: MainMission;
   tasks: Task[];
@@ -556,6 +562,8 @@ export type FinanceState = {
 };
 
 export type AppData = {
+  lockIn: LockInState;
+  planSnapshots: DailyPlan[];
   storageVersion: number;
   installationId: string;
   profile?: Profile;

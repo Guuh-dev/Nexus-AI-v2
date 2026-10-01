@@ -1,7 +1,8 @@
 import type { AppData, EvolutionProfile, Preferences, Profile } from "@/types";
 
-export const STORAGE_VERSION = 6;
+export const STORAGE_VERSION = 7;
 export const STORAGE_KEY = "@nexus-ai/state";
+export const LOCK_IN_BACKUP_KEY = "@nexus-ai/pre-lock-in-v7-backup";
 export const MIGRATION_BACKUP_KEY = "@nexus-ai/pre-v3.0-backup";
 export const LEGACY_MIGRATION_BACKUP_KEYS = ["@nexus-ai/pre-v2.1-backup"] as const;
 export const TEMP_STORAGE_KEYS = ["@nexus-ai/onboarding-request", "@nexus-ai/loading", "@nexus-ai/focus-runtime"];
@@ -100,6 +101,8 @@ export const DEFAULT_PREFERENCES: Preferences = {
 };
 
 export const DEFAULT_APP_DATA: AppData = {
+  lockIn: { goals: [], revision: 0 },
+  planSnapshots: [],
   storageVersion: STORAGE_VERSION,
   installationId: "",
   onboardingCompleted: false,
