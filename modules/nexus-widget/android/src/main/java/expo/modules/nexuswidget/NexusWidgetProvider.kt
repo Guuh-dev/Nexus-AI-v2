@@ -307,6 +307,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       if (family == NexusWidgetFamily.MINI && !spec.showMetric) views.setViewVisibility(R.id.nexus_widget_streak, View.GONE)
       val showScene = spec.scene != "none" && (family == NexusWidgetFamily.COMPANION || family == NexusWidgetFamily.COMMAND)
       views.setViewVisibility(R.id.nexus_widget_scene, if (showScene) View.VISIBLE else View.GONE)
+      if (showScene) views.setViewVisibility(R.id.nexus_widget_mascot_stage, View.VISIBLE)
       if (showScene) views.setImageViewResource(R.id.nexus_widget_scene, when (spec.scene) {
         "garden" -> R.drawable.nexus_scene_garden
         "night" -> R.drawable.nexus_scene_night
