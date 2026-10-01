@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from "react-native";
+import { NexusIcon } from "@/components/ui/NexusIcon";
 import { NexusText } from "@/components/ui/NexusText";
 import { useNexus } from "@/providers/NexusProvider";
 
@@ -54,8 +55,8 @@ export function NexusButton({
       ]}
     >
       <View style={styles.content}>
-        {loading ? <ActivityIndicator size="small" color={textColor} /> : icon ? <NexusText color={textColor}>{icon}</NexusText> : null}
-        <NexusText variant="subtitle" color={textColor} numberOfLines={1}>
+        {loading ? <ActivityIndicator size="small" color={textColor} /> : icon === "▶" ? <NexusIcon name="play" color={textColor} size={21} /> : icon ? <NexusText color={textColor}>{icon}</NexusText> : null}
+        <NexusText variant="subtitle" color={textColor} style={{ textAlign: "center", flexShrink: 1 }}>
           {label}
         </NexusText>
       </View>

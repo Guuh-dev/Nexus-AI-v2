@@ -6,7 +6,7 @@ const configure = readFileSync("modules/nexus-widget/android/src/main/java/expo/
 const companionLayout = readFileSync("modules/nexus-widget/android/src/main/res/layout/nexus_widget_companion.xml", "utf8");
 
 describe("native Companion widgets 3.0", () => {
-  it("supports the seven personalities and per-instance speech without unrelated dashboards", () => {
+  it("preserves personality and speech settings with the approved decorative habitat", () => {
     for (const value of ["happy", "playful", "motivational", "serious", "strict", "calm", "quiet", "contextual", "silent"]) {
       expect(configure).toContain(`"${value}"`);
     }
@@ -14,7 +14,8 @@ describe("native Companion widgets 3.0", () => {
     expect(configure).not.toContain('"habits" to');
     expect(configure).not.toContain('"boss" to');
     expect(provider).toContain("companionLine");
-    expect(companionLayout).toContain('android:maxLines="3"');
+    expect(companionLayout).toContain('android:maxLines="2"');
+    expect(companionLayout).toContain("Um passo por vez");
     expect(companionLayout).toContain('android:ellipsize="end"');
   });
 

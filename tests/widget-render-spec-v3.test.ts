@@ -22,9 +22,9 @@ describe("WidgetRenderSpec v3", () => {
   it("defines one deterministic contract per useful family", () => {
     const expected = {
       mini: { size: "1x1", taskLimit: 0, mascotVisible: true },
-      strip: { size: "2x1", taskLimit: 0, mascotVisible: false },
+      strip: { size: "2x1", taskLimit: 0, mascotVisible: true },
       companion: { size: "2x2", taskLimit: 0, mascotVisible: true },
-      mission: { size: "4x2", taskLimit: 2, mascotVisible: false },
+      mission: { size: "4x2", taskLimit: 2, mascotVisible: true },
       command: { size: "4x4", taskLimit: 4, mascotVisible: true },
     } as const;
     for (const family of WIDGET_FAMILIES) {
@@ -69,17 +69,17 @@ describe("WidgetRenderSpec v3", () => {
     expect(spec.mascot.speech).toBe("silent");
   });
 
-  it("keeps Mission content variants mutually exclusive and previewable", () => {
-    const mission = createWidgetRenderSpec(DEFAULT_PREFERENCES.widget, colors, {
+  it("shows the approved Mission title with two tasks, or tasks alone", () => {
+    const mission = createWidgetRenderSpec({ ...DEFAULT_PREFERENCES.widget, privacyMode: false }, colors, {
       family: "mission",
       content: "mission",
     });
-    const tasks = createWidgetRenderSpec(DEFAULT_PREFERENCES.widget, colors, {
+    const tasks = createWidgetRenderSpec({ ...DEFAULT_PREFERENCES.widget, privacyMode: false }, colors, {
       family: "mission",
       content: "tasks",
     });
-    expect(mission.fields).toMatchObject({ mission: true, tasks: false, progress: true });
-    expect(mission.actions.taskToggle).toBe(false);
+    expect(mission.fields).toMatchObject({ mission: true, tasks: true, progress: true });
+    expect(mission.actions.taskToggle).toBe(true);
     expect(tasks.fields).toMatchObject({ mission: false, tasks: true, progress: true });
     expect(tasks.actions.taskToggle).toBe(true);
   });

@@ -1,48 +1,13 @@
 import type { AppData, CompanionMood } from "@/types";
 
 const LINES: Record<CompanionMood, { idle: string[]; progress: string[]; stalled: string[]; done: string[] }> = {
-  happy: {
-    idle: ["Bora deixar hoje um pouco melhor?", "Uma ação pequena já muda o placar.", "Tô online. Escolhe a primeira peça do dominó."],
-    progress: ["Boa! O dia já saiu do zero.", "Isso aí. Continua que tá encaixando.", "Progresso confirmado. A cobrinha aprovou."],
-    stalled: ["Tá parado, mas não perdido. Faz só 10 minutos.", "Vamos destravar com uma tarefa ridiculamente pequena.", "Sem drama: abre, faz o primeiro passo e volta."],
-    done: ["Missão cumprida. Hoje foi seu.", "GG. O Nexus está oficialmente orgulhoso.", "Dia fechado com chave roxa."],
-  },
-  playful: {
-    idle: ["O botão não vai apertar sozinho, chefe 😭", "Seu futuro mandou mensagem: começa logo.", "A primeira tarefa abriu o lobby. Bora entrar."],
-    progress: ["Olha ele executando 👀", "XP pingando. Continua.", "Um task a menos, um monstro a mais."],
-    stalled: ["Você e essa tarefa estão num relacionamento complicado.", "Prometo não julgar... muito. Faz 10 min.", "A missão está te encarando faz tempo, viu?"],
-    done: ["GG EZ. Próximo boss.", "Terminou mesmo? Cinema absoluto.", "O dia tentou. Você venceu."],
-  },
-  motivational: {
-    idle: ["O próximo passo não precisa ser perfeito, só real.", "Disciplina pequena, resultado grande.", "Comece com o que você tem, daqui mesmo."],
-    progress: ["Você está construindo evidência de que consegue.", "Cada conclusão fortalece sua identidade.", "Continue. A consistência já apareceu."],
-    stalled: ["Reduza a meta, não abandone a missão.", "Volte ao básico: uma ação, um resultado.", "Você não precisa de motivação para começar."],
-    done: ["Você fez o que disse que faria.", "Mais um dia alinhado com quem você quer ser.", "Conclusão registrada. Evolução real."],
-  },
-  serious: {
-    idle: ["Defina a prioridade e execute.", "Seu próximo passo está disponível.", "Menos planejamento. Mais evidência."],
-    progress: ["Progresso registrado.", "Execução consistente.", "Mantenha o ritmo atual."],
-    stalled: ["Atraso detectado. Inicie um bloco de 15 minutos.", "Remova distrações e execute a primeira etapa.", "Escolha uma entrega verificável."],
-    done: ["Objetivo diário concluído.", "Execução encerrada com sucesso.", "Missão finalizada."],
-  },
-  strict: {
-    idle: ["Chega de negociar. Comece.", "A meta não se move sem você.", "Faça a tarefa antes de procurar outra ideia."],
-    progress: ["Melhor. Não quebre o ritmo.", "Continue até existir uma entrega.", "Bom começo. Termine."],
-    stalled: ["Há tarefas adiadas no plano. Abra a primeira agora.", "Sem outra aba. Sem outro plano. Execute.", "Quinze minutos. Agora."],
-    done: ["Concluído. Era isso que precisava acontecer.", "Resultado entregue.", "Missão cumprida. Pode descansar."],
-  },
-  calm: {
-    idle: ["Respira. Escolhe só uma coisa.", "Vamos no seu ritmo, sem abandonar o caminho.", "Um bloco tranquilo já é suficiente para começar."],
-    progress: ["Boa. Mantém esse ritmo leve.", "Você está avançando sem se atropelar.", "Passo concluído. Continua com calma."],
-    stalled: ["Tudo bem reduzir. Escolhe a menor etapa.", "Volta quando puder e faz apenas o essencial.", "Sem culpa. Recomeça pequeno."],
-    done: ["Pronto. Agora descansa de verdade.", "Dia concluído com equilíbrio.", "Você fez o suficiente por hoje."],
-  },
-  quiet: {
-    idle: ["Próxima ação pronta.", "Nexus ativo.", "Missão disponível."],
-    progress: ["Progresso salvo.", "Em andamento.", "Continue."],
-    stalled: ["Comece por 10 min.", "Retome a missão.", "Ação pendente."],
-    done: ["Concluído.", "Missão cumprida.", "Tudo certo."],
-  },
+  happy: { idle: ["Um passo por vez.", "Sua próxima ação está aqui."], progress: ["Um passo registrado. Vamos ao próximo?"], stalled: ["Há pendências para revisar. Podemos começar pequeno."], done: ["Conclusões registradas. Hora de revisar a entrega."] },
+  playful: { idle: ["Seu próximo passo abriu o lobby.", "Pequeno passo, pixels felizes."], progress: ["Mais um ✓ salvo no plano."], stalled: ["As pendências pediram uma nova janela."], done: ["Checklist registrado. Bora conferir a entrega?"] },
+  motivational: { idle: ["Comece com o que você tem.", "O próximo passo pode ser pequeno."], progress: ["Avanço registrado. Preserve o que importa."], stalled: ["Reveja o essencial e escolha uma janela real."], done: ["Conclusões registradas. Você decide o próximo passo."] },
+  serious: { idle: ["Uma prioridade. Uma próxima ação."], progress: ["Progresso registrado no plano."], stalled: ["Revise as pendências e a capacidade restante."], done: ["Tarefas concluídas no registro. Revise as evidências."] },
+  strict: { idle: ["Prioridade primeiro. Comece pela próxima ação."], progress: ["Avanço salvo. Confira o que falta."], stalled: ["Decida o que cabe, o que muda e o que sai."], done: ["Conclusões registradas. Confira o resultado."] },
+  calm: { idle: ["Um passo por vez.", "Escolha só uma coisa para começar."], progress: ["Um passo registrado. Siga no seu ritmo."], stalled: ["Retome pelo essencial, quando houver espaço."], done: ["Registros concluídos. Você pode revisar ou encerrar."] },
+  quiet: { idle: ["Próxima ação.", "Nexus presente."], progress: ["Avanço salvo."], stalled: ["Pendências para revisar."], done: ["Conclusões registradas."] },
 };
 
 function deterministicPick(lines: string[], seed: string): string {
@@ -92,8 +57,8 @@ export function companionLines(data: AppData): Partial<Record<CompanionMood, str
 
 export function nexusQuote(data: AppData): string {
   const status = companionStatus(data);
-  if (status === "done") return "Você fez o que prometeu para si mesmo.";
-  if (status === "progress") return "Não interrompa uma sequência que acabou de nascer.";
-  if (status === "stalled") return "Reduza o tamanho da ação, não o tamanho do sonho.";
-  return "Disciplina hoje. Liberdade amanhã.";
+  if (status === "done") return "Conclusões registradas. Revise o resultado.";
+  if (status === "progress") return "Avanço registrado. Escolha o próximo passo.";
+  if (status === "stalled") return "Revise as pendências dentro da capacidade real.";
+  return "Seu espaço. Sua próxima ação.";
 }

@@ -43,6 +43,9 @@ private data class NativeWidgetRenderSpec(
   val emptyBody: String,
   val emptyAction: String,
   val privateMode: Boolean,
+  val scene: String,
+  val showMascot: Boolean,
+  val showMetric: Boolean,
 )
 
 open class NexusWidgetProvider : AppWidgetProvider() {
@@ -297,6 +300,23 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         )
       }
 
+      if (!spec.showMascot) {
+        views.setViewVisibility(R.id.nexus_widget_mascot_stage, View.GONE)
+        views.setViewVisibility(R.id.nexus_widget_mascot, View.GONE)
+      }
+      if (family == NexusWidgetFamily.MINI && !spec.showMetric) views.setViewVisibility(R.id.nexus_widget_streak, View.GONE)
+      val showScene = spec.scene != "none" && (family == NexusWidgetFamily.COMPANION || family == NexusWidgetFamily.COMMAND)
+      views.setViewVisibility(R.id.nexus_widget_scene, if (showScene) View.VISIBLE else View.GONE)
+      if (showScene) views.setImageViewResource(R.id.nexus_widget_scene, when (spec.scene) {
+        "garden" -> R.drawable.nexus_scene_garden
+        "night" -> R.drawable.nexus_scene_night
+        else -> R.drawable.nexus_scene_desk
+      })
+      if ((family == NexusWidgetFamily.MISSION || family == NexusWidgetFamily.COMMAND) && !spec.privateMode && total > 0) {
+        views.setViewVisibility(R.id.nexus_widget_progress, View.VISIBLE)
+        views.setProgressBar(R.id.nexus_widget_progress, 100, progressPercentage, false)
+        views.setTextViewText(R.id.nexus_widget_progress_text, "$completed de $total tarefas")
+      }
       bindRootAction(context, views, widgetId, spec.tapAction)
       if (legacyPageCycle) {
         views.setViewVisibility(R.id.nexus_widget_page, View.VISIBLE)
@@ -376,6 +396,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       val privateMode = globalPrivateMode || instancePrivateMode
 
       return NativeWidgetRenderSpec(
+        scene = instance.optString("scene", shared.optString("scene", "none")).takeIf { it in setOf("none", "desk", "garden", "night") } ?: "none",
+        showMascot = instance.optBoolean("showMascot", shared.optJSONObject("mascot")?.optBoolean("visible", true) ?: true),
+        showMetric = instance.optBoolean("showMetric", shared.optJSONObject("fields")?.isNull("metric") != true),
         family = family,
         style = style,
         content = content,
@@ -452,7 +475,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       ).forEach { views.setTextColor(it, spec.secondaryTextColor) }
 
       views.setImageViewResource(R.id.nexus_widget_mascot, when (spec.mascot) {
-        "atlas" -> R.drawable.ic_nexus_atlas
+        "atlas" -> atlasMascotPose(payload, spec)
         "nova" -> R.drawable.ic_nexus_nova
         "byte" -> R.drawable.ic_nexus_byte
         "pulse" -> R.drawable.ic_nexus_pulse
@@ -466,7 +489,6 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       val accessory = instance.optString("accessory", appearance?.optString("accessory", "") ?: "")
       views.setTextViewText(R.id.nexus_widget_accessory, accessoryGlyph(accessory))
       views.setViewVisibility(R.id.nexus_widget_accessory, if (accessory.isBlank()) View.GONE else View.VISIBLE)
-      views.setInt(R.id.nexus_widget_mascot_stage, "setGravity", Gravity.CENTER)
       views.setViewPadding(R.id.nexus_widget_mascot_stage, 0, 0, 0, 0)
 
       val gravity = if (spec.family in listOf(NexusWidgetFamily.MINI, NexusWidgetFamily.COMPANION)) {
@@ -492,12 +514,25 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       val completed = payload?.optInt("completedCount", 0) ?: 0
       val total = payload?.optInt("totalCount", 0) ?: 0
       return when {
+        spec.privateMode -> R.drawable.ic_nexus_mascot
+        payload?.optString("focusStatus") == "paused" -> R.drawable.ic_nexus_mascot_resting
+        payload?.optString("focusStatus") == "running" -> R.drawable.ic_nexus_mascot_watching
         total > 0 && completed >= total -> R.drawable.ic_nexus_mascot_celebrating
         spec.personality == "quiet" || spec.speech == "silent" -> R.drawable.ic_nexus_mascot_resting
         spec.personality == "strict" -> R.drawable.ic_nexus_mascot_watching
-        (widgetId + completed).mod(4) == 0 -> R.drawable.ic_nexus_mascot_celebrating
+        spec.family == NexusWidgetFamily.COMPANION && spec.scene != "none" -> R.drawable.ic_nexus_mascot_reading
         else -> R.drawable.ic_nexus_mascot
       }
+    }
+
+    private fun atlasMascotPose(payload: JSONObject?, spec: NativeWidgetRenderSpec): Int = when {
+      spec.privateMode -> R.drawable.ic_atlas_mascot
+      payload?.optString("focusStatus") == "paused" -> R.drawable.ic_atlas_mascot_resting
+      payload?.optString("focusStatus") == "running" -> R.drawable.ic_atlas_mascot_watching
+      (payload?.optInt("totalCount", 0) ?: 0) > 0 && payload?.optInt("completedCount", 0) == payload?.optInt("totalCount", 0) -> R.drawable.ic_atlas_mascot_celebrating
+      spec.personality == "quiet" || spec.speech == "silent" -> R.drawable.ic_atlas_mascot_resting
+      spec.personality == "strict" -> R.drawable.ic_atlas_mascot_watching
+      else -> R.drawable.ic_atlas_mascot
     }
 
     private fun renderMini(
@@ -539,7 +574,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         R.id.nexus_widget_mission,
         View.VISIBLE,
       )
-      views.setViewVisibility(R.id.nexus_widget_progress_text, View.VISIBLE)
+      views.setViewVisibility(R.id.nexus_widget_mascot_stage, if (spec.showMascot) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_mascot, if (spec.showMascot) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_progress_text, View.GONE)
       if (spec.privateMode) {
         views.setTextViewText(R.id.nexus_widget_brand, "PRIVACIDADE")
         views.setTextViewText(R.id.nexus_widget_mission, "Próxima ação protegida")
@@ -569,11 +606,11 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_mascot, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_brand, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_feature_title, View.VISIBLE)
-      views.setViewVisibility(R.id.nexus_widget_feature_body, View.VISIBLE)
-      views.setTextViewText(R.id.nexus_widget_brand, "NEXUS COMPANION")
+      views.setViewVisibility(R.id.nexus_widget_feature_body, View.GONE)
+      views.setTextViewText(R.id.nexus_widget_brand, if (spec.privateMode || spec.speech == "silent" || !planAvailable) "Um passo por vez" else companionLine(payload, spec))
       views.setTextViewText(
         R.id.nexus_widget_feature_title,
-        spec.personality.uppercase(Locale.getDefault()),
+        "Toque para abrir",
       )
       views.setTextViewText(
         R.id.nexus_widget_feature_body,
@@ -594,6 +631,8 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       completed: Int,
       total: Int,
     ) {
+      views.setViewVisibility(R.id.nexus_widget_mascot_stage, if (spec.showMascot) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_mascot, if (spec.showMascot) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_brand, View.VISIBLE)
       views.setViewVisibility(
         R.id.nexus_widget_mission,
@@ -631,11 +670,13 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_mascot, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_brand, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_mission, View.VISIBLE)
-      views.setViewVisibility(R.id.nexus_widget_feature_title, View.VISIBLE)
-      views.setViewVisibility(R.id.nexus_widget_feature_body, View.VISIBLE)
+      views.setViewVisibility(R.id.nexus_widget_feature_title, View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_feature_body, View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_capture, View.VISIBLE)
+      views.setTextViewText(R.id.nexus_widget_capture, if (spec.tapAction == "focus") "›  Abrir foco" else "›  Abrir Nexus")
       views.setViewVisibility(R.id.nexus_widget_metrics, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_progress_text, View.VISIBLE)
-      views.setTextViewText(R.id.nexus_widget_brand, "NEXUS COMMAND")
+      views.setTextViewText(R.id.nexus_widget_brand, "Seu dia, com direção.")
       views.setTextViewText(R.id.nexus_widget_mission, mission)
       views.setTextViewText(
         R.id.nexus_widget_feature_title,
@@ -650,7 +691,12 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       )
       views.setTextViewText(
         R.id.nexus_widget_metrics,
-        if (spec.privateMode) "PRIVADO" else "${payload?.optInt("focusMinutes", 0) ?: 0}m foco • $completed/$total tarefas",
+        if (spec.privateMode) "PRIVADO" else when (payload?.optString("focusStatus")) {
+          "paused" -> "Ⅱ Sessão pausada · ${payload?.optInt("sessionMinutes", 0) ?: 0} min"
+          "running" -> "▶ Sessão em andamento · ${payload?.optInt("sessionMinutes", 0) ?: 0} min confirmados"
+          "completed" -> "Revisar entrega da sessão"
+          else -> "${payload?.optInt("focusMinutes", 0) ?: 0} min de foco registrado"
+        },
       )
       views.setTextViewText(
         R.id.nexus_widget_progress_text,
@@ -673,7 +719,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
     ) {
       val tasks = payload?.optJSONArray("tasks")
       val familyShowsTasks = spec.family == NexusWidgetFamily.COMMAND ||
-        (spec.family == NexusWidgetFamily.MISSION && spec.content == "tasks")
+        spec.family == NexusWidgetFamily.MISSION
       val visibleLimit = if (planAvailable && familyShowsTasks && !spec.privateMode) {
         spec.taskLimit.coerceAtMost(spec.family.taskLimit)
       } else 0

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AppState, Pressable, StyleSheet, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { AppState, Platform, Pressable, StyleSheet, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { CompanionMascot } from "@/components/CompanionMascot";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
@@ -29,6 +30,7 @@ import {
 } from "@/features/widgets/widget-style";
 import { useNexus } from "@/providers/NexusProvider";
 import {
+  pixelWidgetCapabilities,
   listAndroidWidgetInstances,
   saveAndroidWidgetInstance,
   updateAndroidWidget,
@@ -40,14 +42,14 @@ import { normalizeHexColor } from "@/utils/text";
 export { RouteErrorBoundary as ErrorBoundary };
 
 const STYLE_LABELS: Record<WidgetVisualStyle, { label: string; description: string }> = {
-  nexus: { label: "Nexus", description: "Fundo escuro e acento oficial." },
+  nexus: { label: "Carvão", description: "Fundo escuro e acento oficial." },
   amoled: { label: "AMOLED", description: "Preto absoluto, sem brilho falso." },
   transparent: { label: "Transparente", description: "Sem placa: só conteúdo sobre o wallpaper." },
   pixel: { label: "Pixel", description: "Contorno quadrado retrô." },
   minimal: { label: "Minimal", description: "Superfície limpa e pouco ruído." },
 };
 
-const COLOR_PRESETS = ["#8B5CF6", "#38BDF8", "#10B981", "#F59E0B", "#EC4899"];
+const COLOR_PRESETS = ["#A99CFF", "#9FE4CE", "#F6C453", "#38BDF8", "#EC4899"];
 const OPACITY_OPTIONS = [
   { value: 100, label: "Sólido" },
   { value: 96, label: "Padrão 96%" },
@@ -92,6 +94,9 @@ export default function WidgetStudioScreen() {
     () => widgetConfigurationFromPreferences(widget, colors.primary),
     [colors.primary, widget],
   );
+  const pixelPreview = Platform.OS === "web";
+  const [pixelSupported, setPixelSupported] = useState(false);
+  useEffect(() => { void pixelWidgetCapabilities().then(setPixelSupported); }, []);
   const [draft, setDraft] = useState<WidgetInstanceConfiguration>(baseConfiguration);
   const [target, setTarget] = useState<"default" | number>("default");
   const [instances, setInstances] = useState<AndroidWidgetInstance[]>([]);
@@ -259,27 +264,29 @@ export default function WidgetStudioScreen() {
       <View style={styles.header}>
         <NexusButton label="Voltar" variant="ghost" onPress={() => router.back()} />
         <View style={styles.flex}>
-          <NexusText variant="mono" color={colors.primarySoft}>WIDGET STUDIO 3.0</NexusText>
-          <NexusText variant="display">Cinco widgets. Opções que funcionam.</NexusText>
+          <NexusText variant="mono" color={colors.primarySoft}>PIXEL COMPANIONS</NexusText>
+          <NexusText variant="display">Pequenos companheiros. Grandes próximos passos.</NexusText>
         </View>
-        <CompanionMascot mascot="byte" size={56} />
+        <CompanionMascot mascot="nexus" size={72} />
       </View>
       <NexusText secondary>
-        O preview e o Android usam o mesmo WidgetRenderSpec: família, conteúdo, limite de tarefas, cores, Companion, ação e estado vazio.
+        Decore sua tela inicial com missão, próxima ação e um companheiro em pixels. Cada widget pode ter sua própria aparência.
       </NexusText>
 
-      <Card style={[styles.previewShell, { borderColor: `${colors.primary}55` }]}>
+      <Card style={[styles.previewShell, { borderColor: `${colors.primary}55`, overflow: "hidden" }]}>
+        {spec.style === "transparent" && <LinearGradient pointerEvents="none" colors={["#271C40", "#705397", "#33204E"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} />}
         <View style={styles.rowBetween}>
           <View style={styles.flex}>
-            <NexusText variant="mono" color={colors.primarySoft}>PREVIEW HONESTO</NexusText>
+            <NexusText variant="mono" color={colors.primarySoft}>SUA TELA INICIAL</NexusText>
             <NexusText variant="caption" secondary>{familyLabel(spec.family)} {spec.size} • {STYLE_LABELS[spec.style].label} • limite de {spec.taskLimit} tarefas</NexusText>
           </View>
           <View style={[styles.liveDot, { backgroundColor: colors.success }]} />
         </View>
         <WidgetPreview spec={spec} />
+        {spec.style === "transparent" && <NexusText variant="caption" secondary>Fundo ilustrativo da prévia. No celular, aparece seu papel de parede.</NexusText>}
       </Card>
 
-      <Section title="Onde salvar" subtitle="O padrão alimenta novos widgets. Uma instância mantém sua própria configuração por appWidgetId.">
+      <Section title="Onde salvar" subtitle="O padrão alimenta novos widgets. Cada widget instalado mantém sua própria configuração.">
         <NexusButton
           label="Atualizar widgets instalados"
           variant="ghost"
@@ -306,6 +313,9 @@ export default function WidgetStudioScreen() {
         ) : null}
       </Section>
 
+      <Section title="Pixel Companions" subtitle={pixelPreview ? "Prévia web. Os widgets são instalados no Android." : pixelSupported ? "Cenários e controles disponíveis." : "Os novos cenários precisam de uma atualização Android. As opções compatíveis continuam disponíveis."}>
+        {(pixelSupported || pixelPreview) && <><View style={styles.chips}><ChoiceChip label="Mostrar mascote" selected={draft.showMascot !== false} onPress={() => patchDraft({ showMascot: draft.showMascot === false })} /><ChoiceChip label="Mostrar métrica no Mini" selected={draft.showMetric !== false} onPress={() => patchDraft({ showMetric: draft.showMetric === false })} /></View>{(draft.family === "companion" || draft.family === "command") && <View style={styles.chips}>{(["none", "desk", "garden", "night"] as const).map((scene) => <ChoiceChip key={scene} label={{ none: "Sem cenário", desk: "Escritório", garden: "Jardim", night: "Céu noturno" }[scene]} selected={(draft.scene ?? "none") === scene} onPress={() => patchDraft({ scene })} />)}</View>}</>}
+      </Section>
       <Section title="Comece por uma família" subtitle="Cada preset corresponde a uma família Android real.">
         <View style={styles.presetGrid}>
           {WIDGET_PRESETS.map((preset) => (
@@ -379,7 +389,7 @@ export default function WidgetStudioScreen() {
         </View>
       </Section>
 
-      <Section title="Visual" subtitle="Nexus, AMOLED, transparente, Pixel e Minimal são reproduzíveis pelo RemoteViews.">
+      <Section title="Visual" subtitle="Escolha o fundo, a cor de destaque e a transparência.">
         <View style={styles.styleGrid}>
           {WIDGET_VISUAL_STYLES.map((style) => (
             <Pressable
@@ -505,7 +515,7 @@ export default function WidgetStudioScreen() {
         </View>
       </Section>
 
-      <Section title="Ao tocar" subtitle="A mesma ação é usada no preview do contrato e no PendingIntent nativo.">
+      <Section title="Ao tocar" subtitle="Escolha o destino que será aberto ao tocar no widget.">
         <View style={styles.chips}>
           {TAP_ACTIONS.map((item) => (
             <ChoiceChip
@@ -528,14 +538,14 @@ export default function WidgetStudioScreen() {
         <View style={styles.flex}>
           <NexusText variant="title">{target === "default" ? "Salvar como padrão" : `Salvar ${familyLabel(draft.family)} #${target}`}</NexusText>
           <NexusText variant="caption" color={status.kind === "error" ? colors.danger : status.kind === "success" ? colors.success : colors.textSecondary}>
-            {status.message || "Persistir, sincronizar payload, notificar provider e redesenhar agora."}
+            {status.message || "Sua aparência será salva e aplicada ao widget escolhido."}
           </NexusText>
         </View>
         <NexusButton label="Salvar e sincronizar" onPress={() => { void save(); }} loading={saving} />
       </Card>
 
       <NexusText variant="caption" secondary style={styles.note}>
-        Para trocar a família ou ver as cinco entradas pela primeira vez, pode ser necessário remover e adicionar o widget novamente. Alterações em Kotlin/XML exigem um novo APK; não chegam apenas por OTA.
+        Para trocar a família ou ver as cinco entradas pela primeira vez, pode ser necessário remover e adicionar o widget novamente. Os novos mascotes e cenários precisam de um novo APK; não chegam apenas por OTA.
       </NexusText>
     </Screen>
   );

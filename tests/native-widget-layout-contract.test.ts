@@ -45,14 +45,16 @@ describe("native widget minimum-size contract", () => {
     const command = readFileSync(`${root}/res/layout/nexus_widget.xml`, "utf8");
     const styles = readFileSync(`${root}/res/values/styles.xml`, "utf8");
 
-    expect(mini).toMatch(/nexus_widget_mascot"[\s\S]*?layout_width="24dp"[\s\S]*?layout_height="24dp"/);
+    expect(mini).toMatch(/nexus_widget_mascot_stage"[\s\S]*?layout_height="0dp"[\s\S]*?layout_weight="1"[\s\S]*?minHeight="16dp"/);
+    expect(mini).toMatch(/nexus_widget_mascot"[\s\S]*?layout_width="match_parent"[\s\S]*?layout_height="match_parent"/);
+    expect(mini).toMatch(/nexus_widget_streak"[\s\S]*?textSize="9sp"[\s\S]*?maxLines="1"/);
     expect(strip).toContain('android:paddingTop="3dp"');
     expect(strip).toContain('android:paddingBottom="3dp"');
     expect(strip).toContain('android:textSize="10sp"');
-    expect(companion).toMatch(/nexus_widget_mascot"[\s\S]*?layout_width="44dp"[\s\S]*?layout_height="44dp"/);
+    expect(companion).toContain('android:layout_weight="1" android:minHeight="40dp"');
     expect(companion).toContain('android:padding="8dp"');
     expect(mission).toContain('android:paddingTop="8dp"');
-    expect(mission).toContain('android:maxLines="1"');
+    expect(mission).toContain('android:maxLines="2"');
     expect(command).toContain('android:padding="12dp"');
     expect(command).toContain('android:maxLines="2"');
     expect(styles).toMatch(/name="NexusWidgetTaskRow"[\s\S]*?layout_height">20dp</);
@@ -84,6 +86,8 @@ describe("native widget minimum-size contract", () => {
     expect(referencedIds.length).toBeGreaterThan(10);
     for (const family of families) {
       const layout = readFileSync(`${root}/res/layout/${family.layout}`, "utf8");
+      const ids = [...layout.matchAll(/@\+id\/([A-Za-z0-9_]+)/g)].map((m) => m[1]);
+      expect(new Set(ids).size, `${family.name} contains duplicate view IDs`).toBe(ids.length);
       for (const id of referencedIds) {
         expect(layout, `${family.name} is missing ${id}`).toContain(`@+id/${id}`);
       }

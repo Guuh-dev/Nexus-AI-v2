@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Animated, StyleSheet, View } from "react-native";
-import { PixelMascot, type MascotState } from "@/components/PixelMascot";
+import { PixelCharacter, PixelMascot, type MascotState } from "@/components/PixelMascot";
 import { useNexus } from "@/providers/NexusProvider";
 import type { MascotId, ProfessorVariant } from "@/types";
 
@@ -18,14 +18,14 @@ const EMBER: Pixel[] = [[6,0,"accent"],[5,1,"accent"],[6,1,"soft"],[7,1,"accent"
 const SHAPES: Record<Exclude<MascotId, "nexus">, Pixel[]> = { atlas: ATLAS, nova: NOVA, byte: BYTE, pulse: PULSE, orbit: ORBIT, ember: EMBER };
 const LABELS: Record<MascotId, string> = { nexus: "Nexus", atlas: "Professor Atlas", nova: "Nova", byte: "Byte", pulse: "Pulse", orbit: "Orbit", ember: "Ember" };
 
-export function CompanionMascot({ mascot, state = "idle", size = 48, variant }: { mascot: MascotId; state?: MascotState; size?: number; variant?: ProfessorVariant }) {
+export function CompanionMascot({ mascot, state = "idle", size = 48 }: { mascot: MascotId; state?: MascotState; size?: number; variant?: ProfessorVariant }) {
   const { colors, data } = useNexus();
   const lift = useRef(new Animated.Value(0)).current;
   const pixels = useMemo(() => mascot === "nexus" ? [] : SHAPES[mascot], [mascot]);
   const pixel = size / 12;
 
   useEffect(() => {
-    if (mascot === "nexus" || data.preferences.reducedMotion || state === "sleeping") return;
+    if ((mascot === "nexus" || mascot === "atlas") || data.preferences.reducedMotion || state === "sleeping") return;
     const animation = Animated.loop(Animated.sequence([
       Animated.timing(lift, { toValue: -2, duration: 700, useNativeDriver: true }),
       Animated.timing(lift, { toValue: 0, duration: 700, useNativeDriver: true }),
@@ -34,10 +34,9 @@ export function CompanionMascot({ mascot, state = "idle", size = 48, variant }: 
     return () => animation.stop();
   }, [data.preferences.reducedMotion, lift, mascot, state]);
 
+  if (mascot === "atlas") return <PixelCharacter kind="atlas" state={state} size={size} />;
   if (mascot === "nexus") return <PixelMascot state={state} size={size} />;
-  const professorVariant = variant ?? data.preferences.mascot.professorVariant;
-  const professorColor = { classic: colors.primary, emerald: colors.success, gold: colors.warning, ice: colors.primarySoft, rose: colors.danger }[professorVariant];
-  const mascotColor = mascot === "atlas" ? professorColor : ({
+  const mascotColor = ({
     nova: colors.warning,
     byte: colors.primarySoft,
     pulse: colors.danger,
@@ -55,11 +54,7 @@ export function CompanionMascot({ mascot, state = "idle", size = 48, variant }: 
 
   return <Animated.View accessibilityRole="image" accessibilityLabel={`${LABELS[mascot]} ${state}`} style={[styles.container, { width: size, height: size, transform: [{ translateY: lift }] }]}>
     {pixels.map(([x, y, kind], index) => <View key={`${x}-${y}-${index}`} style={{ position: "absolute", left: x * pixel, top: y * pixel, width: pixel, height: pixel, backgroundColor: color(kind) }} />)}
-    {mascot === "atlas" ? <>
-      <View style={{ position: "absolute", left: 2.8 * pixel, top: 2.6 * pixel, width: 2.4 * pixel, height: 1.6 * pixel, borderWidth: Math.max(1, pixel * .22), borderColor: colors.text, borderRadius: pixel * .2 }} />
-      <View style={{ position: "absolute", left: 6.7 * pixel, top: 2.6 * pixel, width: 2.4 * pixel, height: 1.6 * pixel, borderWidth: Math.max(1, pixel * .22), borderColor: colors.text, borderRadius: pixel * .2 }} />
-      <View style={{ position: "absolute", left: 5.15 * pixel, top: 3.2 * pixel, width: 1.55 * pixel, height: Math.max(1, pixel * .2), backgroundColor: colors.text }} />
-    </> : null}
+
   </Animated.View>;
 }
 

@@ -7,7 +7,7 @@ describe("Widget Studio 3.0", () => {
 
   it("keeps the editor intentionally small", () => {
     expect(WIDGET_PRESETS).toHaveLength(5);
-    expect(studio).toContain("WIDGET STUDIO 3.0");
+    expect(studio).toContain("PIXEL COMPANIONS");
     expect(studio).toContain("Salvar e sincronizar");
     expect(studio).not.toContain("Glass");
     expect(studio).not.toContain("Gamer");

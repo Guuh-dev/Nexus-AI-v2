@@ -1,18 +1,10 @@
 import { Redirect, Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
-import { NexusText } from "@/components/ui/NexusText";
+import { NexusIcon, type NexusIconName } from "@/components/ui/NexusIcon";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { useNexus } from "@/providers/NexusProvider";
 
 export { RouteErrorBoundary as ErrorBoundary };
-
-const icons = {
-  today: "◆",
-  brain: "✦",
-  focus: "◎",
-  progress: "▥",
-  plan: "▤",
-} as const;
 
 export default function TabsLayout() {
   const { data, colors, visuals, ready } = useNexus();
@@ -62,9 +54,7 @@ export default function TabsLayout() {
                 },
               ]}
             >
-              <NexusText color={String(color)} variant="caption">
-                {icons[route.name as keyof typeof icons] ?? "•"}
-              </NexusText>
+              <NexusIcon name={route.name as NexusIconName} color={String(color)} size={23} />
             </View>
           ),
         })}

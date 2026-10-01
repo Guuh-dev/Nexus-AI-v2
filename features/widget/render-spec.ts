@@ -28,7 +28,11 @@ export type WidgetContent =
   | "command"
   | "focus";
 
+export type WidgetScene = "none" | "desk" | "garden" | "night";
 export type WidgetInstanceConfiguration = {
+  scene?: WidgetScene;
+  showMascot?: boolean;
+  showMetric?: boolean;
   family: WidgetFamily;
   style: WidgetVisualStyle;
   accentColor: string;
@@ -42,6 +46,7 @@ export type WidgetInstanceConfiguration = {
 };
 
 export type WidgetRenderSpec = {
+  scene: WidgetScene;
   schemaVersion: typeof WIDGET_RENDER_SPEC_VERSION;
   family: WidgetFamily;
   size: WidgetSupportedSize;
@@ -194,6 +199,7 @@ export function widgetConfigurationFromPreferences(
   const family = familyFromWidgetSize(preferences.preferredSize);
   const style = normalizeWidgetStyle(preferences.style);
   return {
+    scene: preferences.scene ?? "none", showMascot: preferences.showMascot, showMetric: preferences.showMetric ?? true,
     family,
     style,
     accentColor: preferences.accentColor ?? fallbackAccent,
@@ -223,9 +229,12 @@ export function createWidgetRenderSpec(
   const visual = getWidgetStyleTokens(style, colors, accentColor, opacityPercent);
   const taskLimit = family === "mission" ? 2 : family === "command" ? 4 : 0;
   const fields = fieldsForFamily(family, content);
-  const mascotVisible = fields.mascot;
+  const mascotVisible = fields.mascot && (override.showMascot ?? base.showMascot) !== false;
+  fields.mascot = mascotVisible;
+  if ((override.showMetric ?? base.showMetric) === false) fields.metric = null;
 
   return {
+    scene: family === "companion" || family === "command" ? normalizeWidgetScene(override.scene ?? base.scene) : "none",
     schemaVersion: WIDGET_RENDER_SPEC_VERSION,
     family,
     size: SIZE_BY_FAMILY[family],
@@ -264,6 +273,7 @@ export function widgetPreferencesPatchFromConfiguration(
   const family = config.family;
   const content = normalizeWidgetContent(family, config.content);
   return {
+    scene: normalizeWidgetScene(config.scene), showMetric: config.showMetric !== false,
     preferredSize: SIZE_BY_FAMILY[family],
     style: config.style,
     background: config.style === "amoled" ? "amoled" : config.style === "transparent" ? "translucent" : "solid",
@@ -286,7 +296,7 @@ export function widgetPreferencesPatchFromConfiguration(
           : family === "mission" && content === "tasks"
             ? "tasks"
             : "mission",
-    showMascot: family === "mini" || family === "companion" || family === "command",
+    showMascot: config.showMascot !== false && (family === "mini" || family === "strip" || family === "companion" || family === "mission" || family === "command"),
     showMission: family === "mission" || family === "command",
     showTasks: family === "mission" || family === "command",
     showProgress: family === "strip" || family === "mission" || family === "command",
@@ -334,7 +344,7 @@ function fieldsForFamily(family: WidgetFamily, content: WidgetContent): WidgetRe
       };
     case "strip":
       return {
-        mascot: false,
+        mascot: true,
         metric: null,
         nextAction: content !== "progress",
         mission: false,
@@ -356,11 +366,11 @@ function fieldsForFamily(family: WidgetFamily, content: WidgetContent): WidgetRe
       };
     case "mission":
       return {
-        mascot: false,
+        mascot: true,
         metric: null,
         nextAction: false,
         mission: content !== "tasks",
-        tasks: content === "tasks",
+        tasks: true,
         focus: false,
         progress: true,
         companion: false,
@@ -393,3 +403,5 @@ function emptyStateForFamily(family: WidgetFamily): WidgetRenderSpec["emptyState
       return { title: "Command pronto", body: "Gere o plano de hoje para ativar sua central.", actionLabel: "Abrir Hoje" };
   }
 }
+
+export function normalizeWidgetScene(value: unknown): WidgetScene { return value === "desk" || value === "garden" || value === "night" ? value : "none"; }

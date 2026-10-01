@@ -94,7 +94,7 @@ export function getWidgetStyleTokens(
     default:
       return {
         style: "nexus",
-        backgroundColor: `#111114${alpha}`,
+        backgroundColor: `#171A24${alpha}`,
         borderColor: nexusBorderForOpacity(opacityPercent),
         borderWidth: 1,
         accent: requestedAccent,
@@ -109,9 +109,9 @@ export function getWidgetStyleTokens(
 }
 
 function nexusBorderForOpacity(opacityPercent: number): string {
-  if (opacityPercent <= 50) return "#8B5CF666";
-  if (opacityPercent <= 70) return "#8B5CF673";
-  if (opacityPercent <= 85) return "#8B5CF680";
-  if (opacityPercent <= 96) return "#8B5CF68C";
-  return "#8B5CF64D";
+  if (opacityPercent <= 50) return "#39405366";
+  if (opacityPercent <= 70) return "#39405373";
+  if (opacityPercent <= 85) return "#39405380";
+  if (opacityPercent <= 96) return "#3940538C";
+  return "#3940534D";
 }

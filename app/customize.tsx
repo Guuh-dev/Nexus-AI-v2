@@ -15,6 +15,8 @@ import type {
   CompanionMood,
   CompanionPresence,
   Preferences,
+  MascotSkin,
+  ProfessorVariant,
 } from "@/types";
 
 export { RouteErrorBoundary as ErrorBoundary };
@@ -68,7 +70,7 @@ export default function CustomizeScreen() {
         <NexusButton label="Voltar" variant="ghost" onPress={back} />
         <View style={styles.flex}>
           <NexusText variant="mono" color={colors.primarySoft}>APARÊNCIA E VOZ</NexusText>
-          <NexusText variant="display">Um Nexus, seis identidades.</NexusText>
+          <NexusText variant="display">Seu espaço. Seu próximo passo.</NexusText>
         </View>
         <CompanionMascot mascot={mascot.companion} size={54} />
       </View>
@@ -108,10 +110,18 @@ export default function CustomizeScreen() {
         </View>
       </Section>
 
+      <Section title="Pixel Companions" subtitle="Nexus lavanda e Atlas menta. Escolha a companhia do Hoje; o Professor permanece no Brain.">
+        <View style={{ flexDirection: "row", gap: 12 }}>{(["nexus", "atlas"] as const).map((id) => <Card key={id} style={{ flex: 1, alignItems: "center", gap: 10, borderColor: mascot.companion === id ? colors.primary : colors.border }}><CompanionMascot mascot={id} size={96} /><NexusText variant="subtitle">{id === "nexus" ? "Nexus" : "Atlas"}</NexusText><NexusButton label={mascot.companion === id ? "Escolhido" : `Escolher ${id === "nexus" ? "Nexus" : "Atlas"}`} compact variant="secondary" onPress={() => { void updatePreferences({ mascot: { companion: id } }); }} /></Card>)}</View>
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>{([["idle", "Pronto"], ["thinking", "Foco"], ["sleeping", "Pausa"], ["celebrating", "Concluído"]] as const).map(([pose, label]) => <View key={pose} style={{ alignItems: "center", gap: 4 }}><CompanionMascot mascot={mascot.companion} state={pose} size={48} /><NexusText variant="caption" secondary>{label}</NexusText></View>)}</View>
+        <Choice title="Paleta do Nexus" options={[["classic", "Lavanda"], ["emerald", "Menta"], ["gold", "Âmbar"]]} value={mascot.skin} onChange={(value) => { void updatePreferences({ mascot: { skin: value as MascotSkin } }); }} />
+        <Choice title="Paleta do Atlas" options={[["classic", "Menta"], ["ice", "Lavanda"], ["gold", "Âmbar"]]} value={mascot.professorVariant} onChange={(value) => { void updatePreferences({ mascot: { professorVariant: value as ProfessorVariant } }); }} />
+        <Choice title="Detalhe do Nexus no app" options={[["none", "Clássico"], ["book", "Com livro"]]} value={mascot.equippedAccessory ?? "none"} onChange={(value) => { void updatePreferences({ mascot: { equippedAccessory: value === "book" ? "book" : undefined } }); }} />
+      </Section>
+
       <Section title="Companion" subtitle="Personalidade e presença; sem inferir emoções que você não registrou.">
         <Toggle
           label="Mostrar Companion no Hoje"
-          description="Permite a presença visual; o nível abaixo decide quando ela aparece."
+          description="Mostra o mascote. A preferência de presença abaixo controla suas falas."
           value={mascot.showCompanion}
           onChange={(value) => void updatePreferences({ mascot: { showCompanion: value } })}
         />

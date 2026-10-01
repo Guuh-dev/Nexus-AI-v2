@@ -1,3 +1,4 @@
+import { peekFocusRuntime } from "@/services/focus-runtime.service";
 import { Platform } from "react-native";
 import type { AppData, WidgetPayload } from "@/types";
 import {
@@ -34,6 +35,8 @@ export type WidgetPendingActionBatch = {
 export type WidgetPayloadV3 = WidgetPayload & {
   schemaVersion: 3;
   planAvailable: boolean;
+  focusStatus?: "running" | "paused" | "completed";
+  sessionMinutes?: number;
   renderSpec: WidgetRenderSpec;
   renderSpecs: Record<WidgetFamily, WidgetRenderSpec>;
 };
@@ -112,7 +115,7 @@ function createPayload(data: AppData): WidgetPayloadV3 {
     totalXp: privateWidget ? 0 : data.progress.totalXp,
     level: privateWidget ? 0 : calculateLevel(data.progress.totalXp).level,
     focusMinutes: privateWidget ? 0 : focusMinutes,
-    ...(nextTask ? { nextAction: privateWidget ? "Próxima ação protegida" : nextTask.title } : {}),
+    ...(nextTask ? { nextAction: privateWidget ? "Próxima ação protegida" : nextTask.firstStep?.trim() || nextTask.title } : {}),
     quote: privateWidget ? "Direção protegida." : nexusQuote(data),
     companionLines: privateWidget ? { quiet: "Nexus ativo." } : companionLines(data),
     appearance: widgetAppearance(data),
@@ -169,24 +172,28 @@ function createFamilyRenderSpecs(data: AppData): Record<WidgetFamily, WidgetRend
   return Object.fromEntries(entries) as Record<WidgetFamily, WidgetRenderSpec>;
 }
 
-export async function updateAndroidWidget(data: AppData): Promise<WidgetSyncResult> {
-  if (Platform.OS !== "android") {
-    return { supported: false, updated: false, instanceCount: 0 };
-  }
-  const payload = createPayload(data);
-  try {
-    const nativeModule = await import("@/modules/nexus-widget/src/NexusWidgetModule");
-    await nativeModule.default.updateWidget(JSON.stringify(payload));
-    const instances = await listAndroidWidgetInstances();
-    return { supported: true, updated: true, instanceCount: instances.length };
-  } catch (error) {
-    return {
-      supported: true,
-      updated: false,
-      instanceCount: 0,
-      error: error instanceof Error ? error.message : "Falha ao sincronizar widgets.",
-    };
-  }
+let widgetEpoch = 0;
+let widgetWrites: Promise<void> = Promise.resolve();
+export function updateAndroidWidget(data: AppData): Promise<WidgetSyncResult> {
+  if (Platform.OS !== "android") return Promise.resolve({ supported: false, updated: false, instanceCount: 0 });
+  const expected = ++widgetEpoch;
+  const task = widgetWrites.catch(() => undefined).then(async (): Promise<WidgetSyncResult> => {
+    try {
+      if (expected !== widgetEpoch) return { supported: true, updated: false, instanceCount: 0, error: "Uma configuração mais recente substituiu esta sincronização." };
+      const payload = createPayload(data);
+      const runtime = await peekFocusRuntime();
+      if (runtime && !data.preferences.widget.privacyMode) { payload.focusStatus = runtime.status; payload.sessionMinutes = Math.floor(runtime.elapsedBase / 60); }
+      const nativeModule = await import("@/modules/nexus-widget/src/NexusWidgetModule");
+      if (expected !== widgetEpoch) return { supported: true, updated: false, instanceCount: 0, error: "Uma configuração mais recente substituiu esta sincronização." };
+      await nativeModule.default.updateWidget(JSON.stringify(payload));
+      const instances = await listAndroidWidgetInstances();
+      return { supported: true, updated: true, instanceCount: instances.length };
+    } catch (error) {
+      return { supported: true, updated: false, instanceCount: 0, error: error instanceof Error ? error.message : "Falha ao sincronizar widgets." };
+    }
+  });
+  widgetWrites = task.then(() => undefined, () => undefined);
+  return task;
 }
 
 export async function listAndroidWidgetInstances(): Promise<AndroidWidgetInstance[]> {
@@ -280,6 +287,9 @@ function normalizeInstanceConfig(
   const raw = value as Record<string, unknown>;
   const hasLegacyPrivateMode = raw.style === "privacy" || raw.content === "private";
   return {
+    ...(typeof raw.showMascot === "boolean" ? { showMascot: raw.showMascot } : {}),
+    ...(typeof raw.showMetric === "boolean" ? { showMetric: raw.showMetric } : {}),
+    ...(raw.scene === "none" || raw.scene === "desk" || raw.scene === "garden" || raw.scene === "night" ? { scene: raw.scene } : {}),
     // The provider class is the source of truth. A stale stored family must
     // never make Studio save a configuration for a different widget class.
     family,
@@ -320,3 +330,8 @@ function isCompanionPersonality(value: unknown): value is WidgetInstanceConfigur
 }
 
 export { createPayload as createWidgetPayload };
+
+export async function pixelWidgetCapabilities(): Promise<boolean> {
+  if (Platform.OS !== "android") return false;
+  try { const module = await import("@/modules/nexus-widget/src/NexusWidgetModule"); return Boolean(await module.default.pixelCompanionsSupported?.()); } catch { return false; }
+}

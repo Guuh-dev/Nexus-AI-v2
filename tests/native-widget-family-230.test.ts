@@ -55,7 +55,7 @@ describe("native Widget Family 3.0", () => {
     expect(provider).toContain("renderCompanion");
     expect(provider).toContain("renderMission");
     expect(provider).toContain("renderCommand");
-    expect(provider).toContain('(spec.family == NexusWidgetFamily.MISSION && spec.content == "tasks")');
+    expect(provider).toContain('spec.family == NexusWidgetFamily.MISSION');
     expect(provider).toContain('if (spec.content == "tasks" && !spec.privateMode) View.GONE else View.VISIBLE');
     expect(provider).toContain('views.setTextViewText(R.id.nexus_widget_mission, "Missão protegida")');
 
@@ -114,9 +114,9 @@ describe("native Widget Family 3.0", () => {
   it("ships honest launcher previews without orphaned legacy backgrounds", () => {
     const previews = ["nexus_widget", "nexus_widget_mini", "nexus_widget_strip", "nexus_widget_companion", "nexus_widget_mission"]
       .map((layoutName) => readFileSync(`${root}/res/layout/${layoutName}.xml`, "utf8"));
-    expect(previews.join("\n")).toContain("NEXUS COMMAND");
-    expect(previews.join("\n")).toContain("NEXUS COMPANION");
-    expect(previews.join("\n")).toContain("●●●○○○○○  2/5");
+    expect(previews.join("\n")).toContain("Seu dia, com direção.");
+    expect(previews.join("\n")).toContain("Um passo por vez");
+    expect(previews.join("\n")).toContain("@+id/nexus_widget_progress");
     for (const orphan of ["gamer", "light", "neon", "translucent"]) {
       expect(existsSync(`${root}/res/drawable/nexus_widget_background_${orphan}.xml`)).toBe(false);
     }

@@ -178,6 +178,9 @@ class NexusWidgetConfigureActivity : Activity() {
         val selectedOpacity = selected(opacity, "96").toIntOrNull()?.coerceIn(0, 100) ?: 96
         val selectedStyle = if (selectedOpacity == 0) "transparent" else requestedStyle
         val config = JSONObject()
+          .put("scene", saved.optString("scene", "none"))
+          .put("showMascot", saved.optBoolean("showMascot", true))
+          .put("showMetric", saved.optBoolean("showMetric", true))
           .put("schemaVersion", 3)
           .put("family", family)
           .put("style", selectedStyle)
@@ -312,6 +315,9 @@ class NexusWidgetConfigureActivity : Activity() {
           ),
         ),
       )
+      .put("scene", instance.optString("scene", shared.optString("scene", "none")))
+      .put("showMascot", instance.optBoolean("showMascot", true))
+      .put("showMetric", instance.optBoolean("showMetric", true))
       .put("privateMode", isPrivate)
       .put("privacyFloor", globalPrivateMode)
   }
