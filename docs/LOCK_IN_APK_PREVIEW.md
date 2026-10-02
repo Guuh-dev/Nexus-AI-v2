@@ -39,7 +39,7 @@ O patch de query-string continua necessário.
   sem pasta Android gerada. Proxy/mirror oficial Google aplicados somente ali.
   APK debug SHA-256: `0771151b71927443968cd85071ccd856eadfdb31b12e207985204f78f2ac4339`.
   Não é o APK EAS assinado de distribuição.
-- Build assinado: aguarda conclusão remota.
+- Build EAS assinado: PASS, preview/build 13; conferência abaixo.
 
 ## Alerta de assinatura nas ferramentas de build
 
@@ -111,3 +111,36 @@ Execução [36947524304](https://github.com/Guuh-dev/Nexus-AI-v2/actions/runs/36
 frozen/335 testes/Doctor 20/20/export passaram; falhou somente na tentativa
 de cancelar o EAS anterior já FINISHED. Não gerou novo APK, nem foi declarada
 PASS. A correção de estado acima conserva todos os gates.
+
+## APK concluído e conferido
+
+Execução [36948225339](https://github.com/Guuh-dev/Nexus-AI-v2/actions/runs/36948225339):
+**SUCCESS**. Frozen, 335 testes/typecheck/lint/secrets, Expo dependency check,
+Doctor 20/20, export e token passaram. O estado anterior FINISHED foi preservado.
+A metadata original e a anterior estão no artifact `nexus-eas-build-metadata-preview`.
+
+- EAS [64e31722-f4f0-493a-a9bf-e3fbf6d100e1](https://expo.dev/accounts/littleguhh/projects/nexus-ai/builds/64e31722-f4f0-493a-a9bf-e3fbf6d100e1),
+  FINISHED em 2026-10-02 01:10:37 UTC.
+- Commit compilado: `b301396bcad21f7fbdc96e0fa60b86ec3d73fef3`.
+  Alteração posterior apenas documental não muda o código desse APK.
+- Android, distribuição INTERNAL, perfil/canal preview, SDK 57, produto/runtime
+  3.0.0, versionCode 13. Logs do builder confirmam Node 22.14.0 e pnpm 10.0.0.
+- [Download do APK](https://expo.dev/artifacts/eas/xqpcHmQ72Ms5s27MGHlZSR10_m89Rdx-oEFRKIKzozk.apk).
+- SHA-256: `58fa7f27d17b8b93c82bfe546912f35e2861061bbd97a45e1f5a6a61e61d1d2e`.
+- `apksigner verify`: PASS, assinatura v2, um signer. SHA-256 do certificado:
+  `cad14635ac1c7d5765385f98acb7fc730761cab3607a9c077abd6cf5c7e98d66`.
+- `aapt`: pacote `com.gustavoaraujo.nexusai`, 3.0.0/build 13, min SDK 24,
+  target/compile SDK 36. Quatro ABIs; bundle embarcado, sem dependência de Metro.
+- Manifest release sem debug, overlay, gravação de áudio, UsageStats ou permissões
+  legadas de armazenamento. Canal preview presente no request header de updates;
+  runtime também confirmado no manifesto embarcado.
+- Recursos compilados contêm Nexus/Atlas e estados/livro/cenários desk/garden/night.
+  Bundle/manifest/resources passaram na busca de padrões de chave OpenRouter,
+  token GitHub e chave privada, sem registrar conteúdo ou valores.
+
+Este é um APK de teste pessoal, não uma release pública aprovada. Audit continua
+1 high mitigado pelo patch, API pública ainda precisa de autenticação/quotas/gasto,
+e QA físico/Keystore/múltiplas instâncias/launcher permanece pendente. Fazer backup
+pelo app antes de instalar. Não presumir assinatura/canal/origem do APK já instalado;
+essa comparação exige o aparelho. Não usar rollback para leitor v6/v7 anterior como
+restauração transparente. Sem tag, merge, OTA ou publicação de release.
