@@ -142,7 +142,8 @@ export function Screen({
         { backgroundColor: colors.background, paddingBottom: keyboardInset },
       ]}
       keyboardShouldPersistTaps="handled"
-      keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+      // Web emits scroll when focusing an input; on-drag would blur it mid-typing.
+      keyboardDismissMode={Platform.OS === "web" ? "none" : Platform.OS === "ios" ? "interactive" : "on-drag"}
       automaticallyAdjustKeyboardInsets={Platform.OS === "ios"}
       contentInsetAdjustmentBehavior="automatic"
       onScroll={(event) => { scrollOffset.current = event.nativeEvent.contentOffset.y; }}
