@@ -1,3 +1,4 @@
+import { consultationSchema } from "@/schemas/consultation.schema";
 import { seedLockIn, reconcileExecution, projectGoalProfile } from "@/features/lock-in/planning";
 import { lockInStateSchema } from "@/schemas/lock-in.schema";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -360,7 +361,11 @@ function recoverBrain(raw: unknown, warnings: string[]): BrainState {
   const source = isRecord(raw) ? { ...raw } : {};
   const threads = recoverArray<BrainState["threads"][number]>(
     "conversas do Brain",
-    source.threads,
+    Array.isArray(source.threads) ? source.threads.map((raw) => {
+      if (!isRecord(raw) || raw.consultation === undefined || consultationSchema.safeParse(raw.consultation).success) return raw;
+      addWarning(warnings, "O diagnóstico de uma conversa estava inválido. As mensagens foram preservadas; revise uma nova proposta antes de começar.");
+      return { ...raw, consultation: { stage: "understanding", revision: 0 } };
+    }) : source.threads,
     brainStateSchema.shape.threads.element,
     200,
     warnings,

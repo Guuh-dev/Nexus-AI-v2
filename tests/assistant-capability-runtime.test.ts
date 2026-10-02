@@ -415,3 +415,37 @@ describe("assistant runtime capability enforcement", () => {
     });
   });
 });
+
+it("returns a validated diagnostic proposal without leaking JSON into the stream or starting help", async () => {
+  const proposal = { understanding: "Aprender React", context: "Nível intermediário declarado", outcome: "Construir uma aplicação", uncertainties: ["Janela ainda desconhecida"], approach: "Escolher uma primeira tela", deliverable: "Um protótipo testado", timeFit: "Confirmar disponibilidade" };
+  send.mockResolvedValueOnce(streamOf({ model: PRIMARY_MODEL, choices: [{ delta: { content: JSON.stringify({ message: "Revise e aprove para começarmos.", assistanceProposal: proposal }) } }] }));
+  const delta = vi.fn();
+  const input = request("Quero aprender React para criar um app.");
+  const result = await runAssistant({ ...input, context: { ...input.context, consultation: { stage: "understanding", revision: 0 } } }, new AbortController().signal, delta);
+  expect(result.assistanceProposal).toEqual(proposal);
+  expect(delta).not.toHaveBeenCalled();
+  const call = send.mock.calls[0]![0];
+  expect(call.chatRequest.responseFormat.type).toBe("json_schema");
+  expect(call.chatRequest.maxCompletionTokens).toBe(900);
+  expect(result.actions).toBeUndefined();
+});
+
+it("disables optional default high reasoning on DeepSeek conversation requests", async () => {
+  send.mockResolvedValueOnce(streamOf({ model: PRIMARY_MODEL, choices: [{ delta: { content: "Agora, abra o projeto e escolha sua primeira tela." } }] }));
+  await runAssistant(request("Qual a primeira ação?"), new AbortController().signal);
+  expect(send.mock.calls[0]![0].chatRequest.reasoning).toEqual({ effort: "none" });
+  const { chatRequestToJSON } = await import("@openrouter/sdk/models");
+  expect(JSON.parse(chatRequestToJSON(send.mock.calls[0]![0].chatRequest)).reasoning).toEqual({ effort: "none" });
+});
+
+it("does not send an unsupported reasoning flag to non-thinking Qwen", async () => {
+  const old = process.env.OPENROUTER_FAST_MODELS;
+  try {
+    process.env.OPENROUTER_FAST_MODELS = SECONDARY_MODEL;
+    send.mockResolvedValueOnce(streamOf({ model: SECONDARY_MODEL, choices: [{ delta: { content: "Agora, abra o projeto e escolha sua primeira tela." } }] }));
+    await runAssistant(request("Qual a primeira ação?"), new AbortController().signal);
+    expect(send.mock.calls[0]![0].chatRequest.reasoning).toBeUndefined();
+  } finally {
+    if (old === undefined) delete process.env.OPENROUTER_FAST_MODELS; else process.env.OPENROUTER_FAST_MODELS = old;
+  }
+});

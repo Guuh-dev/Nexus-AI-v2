@@ -1,3 +1,4 @@
+import { consultationSchema } from "@/schemas/consultation.schema";
 import { PRIORITY_XP } from "@/constants/defaults";
 import { assistantClientResponseSchema } from "@/schemas/assistant.schema";
 import { nextRoadmapLesson } from "@/features/learning/roadmap";
@@ -282,7 +283,9 @@ export function compactAssistantContext(
   const roadmapEvidenceReview = mode === "evidence_review"
     ? compactRoadmapEvidenceReview(context.roadmapEvidenceReview)
     : undefined;
+  const consultation = consultationSchema.safeParse(context.consultation);
   const compact = {
+    ...(consultation.success ? { consultation: consultation.data } : {}),
     kind: context.kind,
     today: context.today,
     progress: context.progress,
@@ -322,6 +325,7 @@ export function compactAssistantContext(
   const serialized = JSON.stringify(compact);
   if (serialized.length <= 22_000) return compact;
   return {
+    ...(consultation.success ? { consultation: consultation.data } : {}),
     kind: compact.kind,
     today: compact.today,
     progress: compact.progress,
@@ -756,6 +760,7 @@ function errorCode(error: unknown): string {
 }
 
 function actionableMessage(error: unknown): string {
+  if (error instanceof AssistantRemoteError && error.code === "diagnosis_unavailable") return "O diagnóstico ainda não está disponível no servidor. Sua conversa está salva; a atualização do backend é necessária para este fluxo.";
   if (error instanceof AssistantRemoteError) {
     if (error.code === "missing_key")
       return "A IA ainda não foi configurada no servidor. Tente novamente mais tarde.";
@@ -824,7 +829,7 @@ export async function askNexus(
         experience: {
           assistantVerbosity: input.data.preferences.mascot.assistantVerbosity,
           atlasPersonality: input.data.preferences.mascot.atlasPersonality,
-          companionMood: input.data.preferences.mascot.companionMood,
+          companionMood: input.mode === "professor" ? input.data.preferences.mascot.atlasMood ?? input.data.preferences.mascot.companionMood : input.data.preferences.mascot.companionMood,
         },
         ...(input.context ?? {}),
       },
@@ -874,6 +879,11 @@ export async function askNexus(
               options.onDelta?.(delta);
             })
           : await remote(request, controller.signal);
+        const consultation = request.context.consultation as { stage?: string } | undefined;
+        if (consultation && consultation.stage !== "approved") {
+          if (result.actions?.length || result.roadmap || result.memories?.length) throw new AssistantRemoteError("diagnosis_unavailable", "O servidor ainda não entregou o diagnóstico seguro desta versão.");
+          if (!result.assistanceProposal && !result.message.includes("?")) throw new AssistantRemoteError("diagnosis_unavailable", "O servidor precisa da atualização de diagnóstico para concluir esta proposta.");
+        }
         options.onStage?.("finalizing");
         return {
           ...result,

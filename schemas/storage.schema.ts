@@ -66,6 +66,7 @@ const dashboardPreferencesSchema = z.object({
 }).strict();
 
 const mascotPreferencesSchema = z.object({
+  atlasMood: z.enum(["happy", "playful", "motivational", "serious", "strict", "calm", "quiet"]).optional(),
   primary: z.literal("nexus"),
   companion: z.enum(["nexus", "atlas", "nova", "byte", "pulse", "orbit", "ember"]),
   showCompanion: z.boolean(),

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { assistanceProposalSchema } from "@/schemas/consultation.schema";
 import { CATEGORIES, type AssistantRequest } from "@/types";
 import { roadmapSchema, weeklyReviewSchema } from "@/schemas/expansion.schema";
 
@@ -84,6 +85,7 @@ const lessonReviewDraftSchema = z.object({
 });
 
 export const assistantAiResponseSchema = z.object({
+  assistanceProposal: assistanceProposalSchema.optional(),
   message: z.string().trim().min(1).max(6000),
   title: z.string().trim().min(1).max(100).optional(),
   memories: z.array(memoryDraftSchema).max(8).optional(),
@@ -95,6 +97,7 @@ export const assistantAiResponseSchema = z.object({
 }).strict();
 
 export const assistantClientResponseSchema = z.object({
+  assistanceProposal: assistanceProposalSchema.optional(),
   message: z.string().trim().min(1).max(6000),
   title: z.string().trim().min(1).max(100).optional(),
   memories: z.array(memoryDraftSchema).max(8).optional(),
@@ -121,6 +124,19 @@ export const ASSISTANT_JSON_SCHEMA = {
   additionalProperties: false,
   required: ["message"],
   properties: {
+    assistanceProposal: {
+      type: "object", additionalProperties: false,
+      required: ["understanding", "context", "outcome", "uncertainties", "approach", "deliverable", "timeFit"],
+      properties: {
+        understanding: { type: "string", minLength: 2, maxLength: 500 },
+        context: { type: "string", minLength: 2, maxLength: 500 },
+        outcome: { type: "string", minLength: 2, maxLength: 500 },
+        uncertainties: { type: "array", maxItems: 5, items: { type: "string", minLength: 2, maxLength: 200 } },
+        approach: { type: "string", minLength: 2, maxLength: 500 },
+        deliverable: { type: "string", minLength: 2, maxLength: 500 },
+        timeFit: { type: "string", minLength: 2, maxLength: 300 },
+      },
+    },
     message: { type: "string", maxLength: 6000 },
     title: { type: "string", maxLength: 100 },
     memories: {
@@ -223,7 +239,11 @@ const REQUIRED_OUTPUT_BY_MODE: Partial<
   evidence_review: "lessonReview",
 };
 
-export function assistantJsonSchemaForMode(mode: AssistantRequest["mode"]) {
+export function assistantJsonSchemaForMode(mode: AssistantRequest["mode"], diagnosis = false) {
+  if (diagnosis) return {
+    type: "object", additionalProperties: false, required: ["message"],
+    properties: { message: ASSISTANT_JSON_SCHEMA.properties.message, assistanceProposal: ASSISTANT_JSON_SCHEMA.properties.assistanceProposal },
+  };
   const requiredOutput = REQUIRED_OUTPUT_BY_MODE[mode];
   return {
     ...ASSISTANT_JSON_SCHEMA,

@@ -297,6 +297,8 @@ export type DashboardPreferences = {
 };
 
 export type MascotPreferences = {
+  /** Atlas visual/speech personality; old backups inherit companionMood. */
+  atlasMood?: CompanionMood;
   primary: "nexus";
   companion: MascotId;
   showCompanion: boolean;
@@ -390,6 +392,7 @@ export type ChatMessage = {
 };
 
 export type ChatThread = {
+  consultation?: import("@/schemas/consultation.schema").Consultation;
   roadmapId?: string;
   lessonId?: string;
   id: string;
@@ -711,6 +714,7 @@ export type AssistantRequest = {
 };
 
 export type AssistantResponse = {
+  assistanceProposal?: import("@/schemas/consultation.schema").AssistanceProposal;
   message: string;
   title?: string;
   memories?: Pick<MemoryItem, "kind" | "content" | "confidence">[];

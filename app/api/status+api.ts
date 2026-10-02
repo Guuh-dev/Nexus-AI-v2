@@ -39,6 +39,7 @@ function baseStatus() {
       "roadmap",
       "weekly-review",
       "validated-streaming",
+      "diagnostic-approval",
       "live-probe",
     ],
     serverTime: new Date().toISOString(),

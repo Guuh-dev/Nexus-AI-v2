@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { consultationSchema } from "@/schemas/consultation.schema";
 import { CATEGORIES, EVOLUTION_AREAS } from "@/types";
 
 const id = z.string().trim().min(1).max(120);
@@ -56,6 +57,7 @@ const chatMessageSchema = z.object({
 }).strict();
 
 const chatThreadSchema = z.object({
+  consultation: consultationSchema.optional(),
   roadmapId: id.optional(),
   lessonId: id.optional(),
   id,

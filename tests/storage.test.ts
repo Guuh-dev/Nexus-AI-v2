@@ -472,3 +472,14 @@ describe("storage recovery", () => {
   });
 
 });
+
+it("preserves chat messages when a new diagnosis is corrupt and requires a fresh review", () => {
+  const data = makeAppData();
+  data.brain.threads = [{ id: "corrupt-consultation", kind: "brain", title: "Conversa preservada", messages: [{ id: "m1", role: "user", content: "Quero construir um app.", createdAt: "2026-10-02T12:00:00.000Z" }], summary: "", archived: false, createdAt: "2026-10-02T12:00:00.000Z", updatedAt: "2026-10-02T12:00:00.000Z" }];
+  const raw = structuredClone(data) as unknown as { brain: { threads: { consultation?: unknown }[] } };
+  raw.brain.threads[0]!.consultation = { stage: "approved", revision: -10 };
+  const recovered = recoverAppData(raw);
+  expect(recovered.brain.threads[0]?.messages).toEqual(data.brain.threads[0]?.messages);
+  expect(recovered.brain.threads[0]?.consultation).toEqual({ stage: "understanding", revision: 0 });
+  expect(recovered.corruptionWarnings.join(" ")).toContain("diagnóstico");
+});
