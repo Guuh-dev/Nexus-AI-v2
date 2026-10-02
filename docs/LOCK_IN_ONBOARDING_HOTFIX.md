@@ -61,14 +61,43 @@ publicada. Produto/runtime permanecem 3.0.0; EAS incrementa versionCode remoto.
 [Android Build 37007970668](https://github.com/Guuh-dev/Nexus-AI-v2/actions/runs/37007970668)
 compila o commit `0ce121f5465a700d6dbed08f0283b5ad3b965e8e`. Os gates de frozen,
 verify, release check, dependency check, Doctor e export passaram no Actions;
-a etapa EAS permanece em andamento no checkpoint 13:04 UTC. Os logs completos
-não estão disponíveis antes do encerramento do job (BlobNotFound).
+a etapa EAS terminou FINISHED em 13:10:57 UTC e o Actions terminou SUCCESS.
+O checkpoint de 13:04 UTC ainda estava em andamento, com logs parciais
+indisponíveis (BlobNotFound); não foi interpretado como falha de compilação.
 A correção web `eba79c0` é posterior ao checkout da build e mantém exatamente
 o mesmo ramo Android de keyboardDismissMode. Não alegar que o APK contém esse
 commit adicional nem distribuir um APK debug como substituto.
 
-APK corrigido ainda depende da conclusão da execução Android Build. Aceite físico
+APK corrigido gerado e verificado. Aceite físico
 pendente: instalar por cima sem apagar dados, completar o rascunho existente,
 abrir teclado no último campo de cada seção, rolar até as ações, comparar launcher
 circular/quadrado e splash. Confirmar com o teclado aberto e depois reabrir o app.
 As pendências de API pública/audit registradas em LOCK_IN_APK_PREVIEW.md permanecem.
+
+
+## APK preview corrigido — build 14
+
+- [Download](https://expo.dev/artifacts/eas/UrfmxoObiQWg79zLDy02s0dI0-OtkZMSS_JziEgyCXs.apk).
+- EAS `fe786cb2-7d15-4d14-bbf4-fb51c4ec0f57`, FINISHED; artifact GitHub
+  `11227791588` (`nexus-eas-build-metadata-preview`).
+- Android/internal, perfil/canal preview, produto/runtime 3.0.0, versionCode 14.
+- Pacote `com.gustavoaraujo.nexusai`, mesmo certificado SHA-256 da build 13:
+  `cad14635ac1c7d5765385f98acb7fc730761cab3607a9c077abd6cf5c7e98d66`.
+- Assinatura APK verificada; bundle embarcado contém o editor de compromissos
+  e o acesso de correção do rascunho. Recursos compilados têm foreground pixel
+  e fundo #101218. Não depende de Metro.
+- 113.273.174 bytes; SHA-256:
+  `26e3dcba4d5d317b7faf32a9efc9b2cfe4082939329f22652c5b2702fcfe7a25`.
+- Manifest sem overlay/UsageStats/áudio; runtime 3.0.0 verificado no recurso
+  Android, canal preview no header. Bundle/manifest/resources sem padrões de
+  chaves OpenRouter, GitHub ou privadas.
+
+Instalar por cima da build 13, sem desinstalar, para manter o rascunho salvo.
+Salvar a seção antes de sair do app: campos ainda não salvos ficam só em memória.
+Na etapa final, usar “Corrigir horários e compromissos”, completar início/fim
+para cada reserva e revisar a confirmação. Não requer limpar dados/reset/import.
+QA de IME/launcher no aparelho continua pendente; não alegar ausência de bugs.
+A tentativa de consulta auxiliar de status não iniciou outra build: o GitHub
+não registra um workflow dispatch novo somente na feature branch (404).
+O arquivo auxiliar foi removido; nenhuma mudança em main foi usada para contornar
+isso. A build original concluiu normalmente e forneceu toda a metadata.

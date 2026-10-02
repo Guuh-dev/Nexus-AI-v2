@@ -4,6 +4,12 @@
 automação Android para obter um APK de teste. Isso não autoriza merge, OTA,
 tag/release público ou monitoramento do aparelho.
 
+## APK corrigido mais recente
+
+A build 14 corrige cadastro/teclado/logo: leia [LOCK_IN_ONBOARDING_HOTFIX.md](LOCK_IN_ONBOARDING_HOTFIX.md).
+[Download do APK build 14](https://expo.dev/artifacts/eas/UrfmxoObiQWg79zLDy02s0dI0-OtkZMSS_JziEgyCXs.apk).
+A evidência da build 13 abaixo é histórica e não inclui essas correções.
+
 ## SDK e validação
 
 Expo permanece no SDK 57, alinhado ao patch 57.0.26 e suas versões recomendadas;
