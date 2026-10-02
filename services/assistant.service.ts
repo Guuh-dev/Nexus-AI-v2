@@ -432,6 +432,7 @@ export function buildAssistantContext(
       }),
     ),
     conversation: messages
+      .filter((message) => !message.failed)
       .slice(-12)
       .map(({ role, content }) => ({
         role,

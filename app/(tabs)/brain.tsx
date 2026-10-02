@@ -1,3 +1,4 @@
+import { pickChatTextAttachment } from "@/services/chat-attachment.service";
 import { NexusIcon } from "@/components/ui/NexusIcon";
 import { AtlasLessonPanel } from "@/components/AtlasLessonPanel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -58,6 +59,8 @@ export default function BrainScreen() {
   const [kind, setKind] = useState<ChatKind>("brain");
   const [mode, setMode] = useState<ViewMode>("home");
   const [message, setMessage] = useState("");
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [attachmentError, setAttachmentError] = useState("");
   const [failedDraft, setFailedDraft] = useState("");
   const [metaThreadId, setMetaThreadId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -124,6 +127,18 @@ export default function BrainScreen() {
     selectThread(kind, id);
     setMode("chat");
     setMetaThreadId(null);
+  };
+  const attachTextFile = async () => {
+    if (assistantBusy || attachmentBusy) return;
+    const threadId = activeThreadIdRef.current;
+    setAttachmentBusy(true);
+    setAttachmentError("");
+    try {
+      const draft = await pickChatTextAttachment(message);
+      if (draft !== null && threadId === activeThreadIdRef.current) setMessage(draft);
+    } catch (error) {
+      if (threadId === activeThreadIdRef.current) setAttachmentError(error instanceof Error ? error.message : "Não foi possível abrir o arquivo.");
+    } finally { setAttachmentBusy(false); }
   };
   const send = () => {
     const clean = message.trim();
@@ -310,6 +325,11 @@ export default function BrainScreen() {
               },
             ]}
           >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <NexusButton label="+" variant="secondary" compact loading={attachmentBusy} disabled={assistantBusy} accessibilityLabel="Anexar arquivo de texto à conversa" onPress={() => { void attachTextFile(); }} />
+              <NexusText variant="caption" style={{ flex: 1 }}>Arquivo de texto até 3 KB. Revise antes de enviar à IA.</NexusText>
+            </View>
+            {attachmentError ? <NexusText variant="caption" color={colors.danger} accessibilityLiveRegion="polite">{attachmentError}</NexusText> : null}
             <Field
               label={
                 kind === "professor"
@@ -340,7 +360,7 @@ export default function BrainScreen() {
               }
               icon="↑"
               onPress={send}
-              disabled={assistantBusy || !message.trim()}
+              disabled={assistantBusy || attachmentBusy || !message.trim()}
               compact
               fullWidth
             />
