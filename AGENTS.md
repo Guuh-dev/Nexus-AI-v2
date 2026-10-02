@@ -123,6 +123,19 @@ Atlas ensina uma etapa por vez. Estrutura padrão: Agora, passos, Entrega, Concl
 
 Falha remota no Brain ou Atlas não pode gerar conversa local fingindo ser IA. Planejamento determinístico offline é permitido para manter o app utilizável, sempre com `source: "offline"` e aviso visível.
 
+### Diagnóstico aprovado (2026-10-02)
+
+Novas conversas entendem o pedido natural, perguntam uma coisa por vez e mostram
+uma proposta persistida antes de iniciar a ajuda. Aprovar exige revisão-base e
+mensagem de origem; ajustar mantém as partes anteriores como referência. Aprovar
+ajuda não aplica actions automaticamente. Continuar aula já aceita conserva o
+vínculo roadmap/lesson e não reabre entrevista de um novo objetivo. Leia
+`docs/LOCK_IN_CONSULTATION_AND_PERSONALITIES.md` para mapping, backend e rollback.
+Personalidades Nexus/Atlas são independentes e alteram pixels e tom; strict é
+rotulado Firme. Não confunda personalidade com foco/pausa observado.
+DeepSeek permite reasoning.effort none nos modos interativos e roadmap; Qwen não
+recebe parâmetro reasoning. Não invente esforço low ou suporte obrigatório.
+
 ## Roadmaps
 
 Classifique a intenção usando tópico, nível, objetivo, conhecimento, projeto e contexto específico do roadmap. O objetivo financeiro global não contamina uma trilha técnica.
@@ -178,6 +191,10 @@ Cinco famílias:
 Um canal separado de Professor Atlas e aprendizado não é conteúdo de widget na v3. Atlas pode continuar como o mascote único da instância. As flags antigas de segundo Professor/lição continuam no schema apenas para migração/rollback e devem permanecer desativadas em novos saves. Não volte a expor esses controles sem adicionar uma família/campo completo no render spec, preview, payload, XML, Kotlin e QA.
 
 Os mínimos declarados pelo layout e pelo metadata precisam ser idênticos: Mini 40×40 dp, Strip 110×40 dp, Companion 110×110 dp, Mission 250×110 dp e Command 250×250 dp. Preserve o orçamento de padding, tipografia, mascote e linhas no menor tamanho; teste estrutural não substitui launcher físico.
+
+As cinco famílias permitem redimensionamento horizontal/vertical no novo APK,
+dentro dos mínimos/máximos declarados e da grade do launcher. Isso não troca a
+família nem promete animação contínua.
 
 Cada `appWidgetId` mantém configuração própria. Salvar deve persistir, sincronizar payload e pedir redraw. Conclusão de tarefa usa nonce e consumo idempotente. O payload nunca leva secret ou perfil completo. Mudança em Kotlin, XML, Manifest, plugin ou providers exige novo APK.
 

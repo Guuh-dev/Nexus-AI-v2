@@ -125,11 +125,12 @@ export function Screen({
   const innerStyle = useMemo(
     () => [
       styles.inner,
+      !scroll && { flex: 1, minHeight: 0 },
       { maxWidth },
       padded && styles.padded,
       contentContainerStyle,
     ],
-    [contentContainerStyle, maxWidth, padded],
+    [contentContainerStyle, maxWidth, padded, scroll],
   );
 
   const content = <View style={innerStyle}>{children}</View>;

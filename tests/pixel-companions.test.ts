@@ -36,3 +36,17 @@ describe("per-instance decorations and privacy", () => {
    for (const family of ["mini", "strip", "mission"] as const) expect(createWidgetRenderSpec(DEFAULT_PREFERENCES.widget, getColors(DEFAULT_PREFERENCES), { family, scene: "night" }).scene).toBe("none");
  });
 });
+
+it("distinguishes all seven personalities without replacing a recorded pose, with native pixel parity", async () => {
+  const { personalitySprite } = await import("@/features/mascot/sprites");
+  for (const kind of ["nexus", "atlas"] as const) {
+    const moods = ["happy", "playful", "motivational", "serious", "strict", "calm", "quiet"] as const;
+    expect(new Set(moods.map(mood => personalitySprite(kind, mood).join("\n"))).size).toBe(7);
+    for (const mood of moods) for (const pose of ["idle", "thinking", "sleeping", "celebrating", "warning", "reading"] as const) {
+      const rows = personalitySprite(kind, mood, pose);
+      const xml = readFileSync(`${path}/ic_${kind}_personality_${mood}_${pose}.xml`, "utf8");
+      const expected = rows.flatMap((row, y) => [...row].flatMap((ink, x) => ink === "." ? [] : [`${PIXEL_PALETTE[ink as keyof typeof PIXEL_PALETTE]}:M${x},${y}h1v1h-1z`]));
+      expect(cells(xml)).toEqual(expected.sort());
+    }
+  }
+});

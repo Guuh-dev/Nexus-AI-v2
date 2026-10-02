@@ -65,3 +65,14 @@ bash scripts/verify-native-widget.sh
 Depois, instale em Android físico e valide as cinco famílias, a configuração inicial, a reconfiguração, o modo privado, os estados vazios e a conclusão de tarefas.
 
 Os testes estruturais comparam `minWidth`/`minHeight` de cada layout com seu `appwidget-provider` e protegem os orçamentos compactos de Mini, Strip, Companion, Mission e Command. Eles reduzem regressões óbvias de corte; a aceitação final de launcher, densidade e escala de fonte continua sendo feita em aparelho físico.
+
+## Atualização de 2026-10-02
+
+Mini, Strip e Companion passam de resizeMode none para horizontal|vertical;
+Mission/Command já suportavam ambos. Mínimos/máximos permanecem declarados;
+família e grade do launcher determinam limites. Não é resize arbitrário por pixel.
+Sete personalidades, combinadas com as seis poses e cenários existentes, usam
+grids compartilhados entre preview e vetores Kotlin. Escolha por instância: não
+copie a personalidade global sobre uma configuração já salva. Quieto/Silencioso
+não fabrica uma pausa observada. Cena mantém proporção ao redimensionar.
+Novo APK obrigatório, payload continua v3; launcher físico ainda precisa de QA.

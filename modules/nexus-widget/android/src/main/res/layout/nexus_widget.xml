@@ -3,7 +3,7 @@
   <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center_vertical">
     <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:minHeight="40dp">
           <FrameLayout android:id="@+id/nexus_widget_mascot_stage" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center">
-      <ImageView android:id="@+id/nexus_widget_scene" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitXY" android:alpha="0.85" android:visibility="gone" android:importantForAccessibility="no"/>
+      <ImageView android:id="@+id/nexus_widget_scene" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="fitCenter" android:src="@drawable/nexus_scene_night" android:alpha="0.85" android:visibility="visible" android:importantForAccessibility="no"/>
         <ImageView android:id="@+id/nexus_widget_mascot" android:layout_width="match_parent" android:layout_height="match_parent" android:layout_gravity="center" android:adjustViewBounds="true" android:scaleType="fitCenter" android:src="@drawable/ic_nexus_mascot" android:contentDescription="@string/nexus_widget_mascot_description"/>
       </FrameLayout>
     </FrameLayout>
@@ -11,19 +11,19 @@
     <TextView android:id="@+id/nexus_widget_mission" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Entregar o primeiro ciclo" android:textColor="#F5F2EB" android:textSize="14sp" android:maxLines="2" android:ellipsize="end" android:textStyle="bold" android:layout_marginTop="4dp"/>
     <LinearLayout android:id="@+id/nexus_widget_task_1" style="@style/NexusWidgetTaskRow">
       <TextView android:id="@+id/nexus_widget_check_1" style="@style/NexusWidgetCheck"/>
-      <TextView android:id="@+id/nexus_widget_task_title_1" style="@style/NexusWidgetTaskTitle"/>
+      <TextView android:id="@+id/nexus_widget_task_title_1" style="@style/NexusWidgetTaskTitle" android:text="Validar retomada"/>
     </LinearLayout>
     <LinearLayout android:id="@+id/nexus_widget_task_2" style="@style/NexusWidgetTaskRow">
       <TextView android:id="@+id/nexus_widget_check_2" style="@style/NexusWidgetCheck"/>
-      <TextView android:id="@+id/nexus_widget_task_title_2" style="@style/NexusWidgetTaskTitle"/>
+      <TextView android:id="@+id/nexus_widget_task_title_2" style="@style/NexusWidgetTaskTitle" android:text="Salvar evidência"/>
     </LinearLayout>
     <LinearLayout android:id="@+id/nexus_widget_task_3" style="@style/NexusWidgetTaskRow">
       <TextView android:id="@+id/nexus_widget_check_3" style="@style/NexusWidgetCheck"/>
-      <TextView android:id="@+id/nexus_widget_task_title_3" style="@style/NexusWidgetTaskTitle"/>
+      <TextView android:id="@+id/nexus_widget_task_title_3" style="@style/NexusWidgetTaskTitle" android:text="Revisar o resultado"/>
     </LinearLayout>
     <LinearLayout android:id="@+id/nexus_widget_task_4" style="@style/NexusWidgetTaskRow">
       <TextView android:id="@+id/nexus_widget_check_4" style="@style/NexusWidgetCheck"/>
-      <TextView android:id="@+id/nexus_widget_task_title_4" style="@style/NexusWidgetTaskTitle"/>
+      <TextView android:id="@+id/nexus_widget_task_title_4" style="@style/NexusWidgetTaskTitle" android:text="Preparar próximo passo"/>
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
       <TextView android:id="@+id/nexus_widget_progress_text" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textColor="#F5F2EB" android:textSize="9sp" android:maxLines="2" android:ellipsize="end" android:layout_marginEnd="8dp"/>

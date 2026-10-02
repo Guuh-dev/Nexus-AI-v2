@@ -28,6 +28,23 @@ export function spriteFor(kind: PixelKind, pose: PixelPose = "idle"): string[] {
   if (pose === "warning") { p(21, 1, 1, 3, "y"); p(21, 5, 1, 1, "y"); }
   return c.rows();
 }
+/** Personality changes the character, never its observed execution state. */
+export function personalitySprite(kind: PixelKind, mood: "happy" | "playful" | "motivational" | "serious" | "strict" | "calm" | "quiet", pose: PixelPose = "idle"): string[] {
+  const rows = spriteFor(kind, pose).map((row) => [...row]);
+  const paint = (x: number, y: number, w: number, h: number, ink: Ink | ".") => {
+    for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) if (rows[j]?.[i] !== undefined) rows[j]![i] = ink;
+  };
+  // Eyes stay closed during a recorded pause; visual personality is an accent.
+  if (mood === "happy") { paint(1, 3, 1, 3, "l"); paint(0, 4, 3, 1, "l"); paint(21, 17, 1, 3, "y"); paint(20, 18, 3, 1, "y"); }
+  if (mood === "playful" && pose !== "sleeping") { paint(kind === "nexus" ? 16 : 15, 10, 3, 3, kind === "nexus" ? "b" : "e"); paint(kind === "nexus" ? 16 : 15, 11, 3, 1, kind === "nexus" ? "e" : "d"); paint(21, 5, 2, 2, "l"); }
+  if (mood === "motivational") { paint(21, 1, 1, 6, "y"); paint(20, 2, 3, 1, "y"); paint(19, 3, 1, 1, "y"); paint(23, 3, 1, 1, "y"); }
+  if (mood === "serious" && pose !== "sleeping") { paint(8, 8, 2, 1, "s"); paint(16, 8, 2, 1, "s"); }
+  if (mood === "strict") { paint(21, 3, 1, 3, "y"); paint(21, 7, 1, 1, "y"); if (pose !== "sleeping") { paint(8, 9, 2, 1, "s"); paint(16, 9, 2, 1, "s"); } }
+  if (mood === "calm") { paint(1, 19, 1, 4, "g"); paint(0, 18, 2, 2, "a"); paint(2, 20, 2, 1, "a"); }
+  if (mood === "quiet") { paint(18, 0, 1, 1, "l"); paint(20, 0, 1, 1, "l"); paint(22, 0, 1, 1, "l"); }
+  return rows.map((row) => row.join(""));
+}
+
 /** Decorative habitat only: no task or activity claims are encoded in scenery. */
 export function scenePixels(scene: "desk" | "garden" | "night"): string[] {
   const c = canvas(64, 40), p = c.paint;

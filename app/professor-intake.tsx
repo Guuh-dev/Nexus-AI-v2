@@ -40,7 +40,7 @@ const STEP_META = [
 
 export default function ProfessorIntakeScreen() {
   const { topic: topicParam } = useLocalSearchParams<{ topic?: string }>();
-  const { data, colors, assistantBusy, createRoadmap, saveProfessorDraft } = useNexus();
+  const { data, colors, assistantBusy, roadmapFailure, createRoadmap, saveProfessorDraft } = useNexus();
   const profile = data.profile;
   const initialTopic =
     typeof topicParam === "string" ? topicParam : data.learning.pendingTopics[0] ?? "";
@@ -385,7 +385,7 @@ export default function ProfessorIntakeScreen() {
             {roadmapError ? (
               <Card style={{ borderColor: colors.danger }}>
                 <NexusText variant="subtitle" color={colors.danger}>Roadmap não criado</NexusText>
-                <NexusText variant="caption" secondary>{roadmapError}</NexusText>
+                <NexusText variant="caption" secondary>{roadmapFailure || roadmapError}</NexusText>
               </Card>
             ) : null}
             <Toggle

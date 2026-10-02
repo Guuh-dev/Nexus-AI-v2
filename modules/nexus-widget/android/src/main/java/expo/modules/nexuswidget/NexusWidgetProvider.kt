@@ -159,6 +159,94 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       }
     }
 
+    private fun personalityDrawable(kind: String, mood: String, pose: String): Int = when ("$kind:$mood:$pose") {
+      "nexus:happy:idle" -> R.drawable.ic_nexus_personality_happy_idle
+      "nexus:happy:thinking" -> R.drawable.ic_nexus_personality_happy_thinking
+      "nexus:happy:celebrating" -> R.drawable.ic_nexus_personality_happy_celebrating
+      "nexus:happy:sleeping" -> R.drawable.ic_nexus_personality_happy_sleeping
+      "nexus:happy:warning" -> R.drawable.ic_nexus_personality_happy_warning
+      "nexus:happy:reading" -> R.drawable.ic_nexus_personality_happy_reading
+      "nexus:playful:idle" -> R.drawable.ic_nexus_personality_playful_idle
+      "nexus:playful:thinking" -> R.drawable.ic_nexus_personality_playful_thinking
+      "nexus:playful:celebrating" -> R.drawable.ic_nexus_personality_playful_celebrating
+      "nexus:playful:sleeping" -> R.drawable.ic_nexus_personality_playful_sleeping
+      "nexus:playful:warning" -> R.drawable.ic_nexus_personality_playful_warning
+      "nexus:playful:reading" -> R.drawable.ic_nexus_personality_playful_reading
+      "nexus:motivational:idle" -> R.drawable.ic_nexus_personality_motivational_idle
+      "nexus:motivational:thinking" -> R.drawable.ic_nexus_personality_motivational_thinking
+      "nexus:motivational:celebrating" -> R.drawable.ic_nexus_personality_motivational_celebrating
+      "nexus:motivational:sleeping" -> R.drawable.ic_nexus_personality_motivational_sleeping
+      "nexus:motivational:warning" -> R.drawable.ic_nexus_personality_motivational_warning
+      "nexus:motivational:reading" -> R.drawable.ic_nexus_personality_motivational_reading
+      "nexus:serious:idle" -> R.drawable.ic_nexus_personality_serious_idle
+      "nexus:serious:thinking" -> R.drawable.ic_nexus_personality_serious_thinking
+      "nexus:serious:celebrating" -> R.drawable.ic_nexus_personality_serious_celebrating
+      "nexus:serious:sleeping" -> R.drawable.ic_nexus_personality_serious_sleeping
+      "nexus:serious:warning" -> R.drawable.ic_nexus_personality_serious_warning
+      "nexus:serious:reading" -> R.drawable.ic_nexus_personality_serious_reading
+      "nexus:strict:idle" -> R.drawable.ic_nexus_personality_strict_idle
+      "nexus:strict:thinking" -> R.drawable.ic_nexus_personality_strict_thinking
+      "nexus:strict:celebrating" -> R.drawable.ic_nexus_personality_strict_celebrating
+      "nexus:strict:sleeping" -> R.drawable.ic_nexus_personality_strict_sleeping
+      "nexus:strict:warning" -> R.drawable.ic_nexus_personality_strict_warning
+      "nexus:strict:reading" -> R.drawable.ic_nexus_personality_strict_reading
+      "nexus:calm:idle" -> R.drawable.ic_nexus_personality_calm_idle
+      "nexus:calm:thinking" -> R.drawable.ic_nexus_personality_calm_thinking
+      "nexus:calm:celebrating" -> R.drawable.ic_nexus_personality_calm_celebrating
+      "nexus:calm:sleeping" -> R.drawable.ic_nexus_personality_calm_sleeping
+      "nexus:calm:warning" -> R.drawable.ic_nexus_personality_calm_warning
+      "nexus:calm:reading" -> R.drawable.ic_nexus_personality_calm_reading
+      "nexus:quiet:idle" -> R.drawable.ic_nexus_personality_quiet_idle
+      "nexus:quiet:thinking" -> R.drawable.ic_nexus_personality_quiet_thinking
+      "nexus:quiet:celebrating" -> R.drawable.ic_nexus_personality_quiet_celebrating
+      "nexus:quiet:sleeping" -> R.drawable.ic_nexus_personality_quiet_sleeping
+      "nexus:quiet:warning" -> R.drawable.ic_nexus_personality_quiet_warning
+      "nexus:quiet:reading" -> R.drawable.ic_nexus_personality_quiet_reading
+      "atlas:happy:idle" -> R.drawable.ic_atlas_personality_happy_idle
+      "atlas:happy:thinking" -> R.drawable.ic_atlas_personality_happy_thinking
+      "atlas:happy:celebrating" -> R.drawable.ic_atlas_personality_happy_celebrating
+      "atlas:happy:sleeping" -> R.drawable.ic_atlas_personality_happy_sleeping
+      "atlas:happy:warning" -> R.drawable.ic_atlas_personality_happy_warning
+      "atlas:happy:reading" -> R.drawable.ic_atlas_personality_happy_reading
+      "atlas:playful:idle" -> R.drawable.ic_atlas_personality_playful_idle
+      "atlas:playful:thinking" -> R.drawable.ic_atlas_personality_playful_thinking
+      "atlas:playful:celebrating" -> R.drawable.ic_atlas_personality_playful_celebrating
+      "atlas:playful:sleeping" -> R.drawable.ic_atlas_personality_playful_sleeping
+      "atlas:playful:warning" -> R.drawable.ic_atlas_personality_playful_warning
+      "atlas:playful:reading" -> R.drawable.ic_atlas_personality_playful_reading
+      "atlas:motivational:idle" -> R.drawable.ic_atlas_personality_motivational_idle
+      "atlas:motivational:thinking" -> R.drawable.ic_atlas_personality_motivational_thinking
+      "atlas:motivational:celebrating" -> R.drawable.ic_atlas_personality_motivational_celebrating
+      "atlas:motivational:sleeping" -> R.drawable.ic_atlas_personality_motivational_sleeping
+      "atlas:motivational:warning" -> R.drawable.ic_atlas_personality_motivational_warning
+      "atlas:motivational:reading" -> R.drawable.ic_atlas_personality_motivational_reading
+      "atlas:serious:idle" -> R.drawable.ic_atlas_personality_serious_idle
+      "atlas:serious:thinking" -> R.drawable.ic_atlas_personality_serious_thinking
+      "atlas:serious:celebrating" -> R.drawable.ic_atlas_personality_serious_celebrating
+      "atlas:serious:sleeping" -> R.drawable.ic_atlas_personality_serious_sleeping
+      "atlas:serious:warning" -> R.drawable.ic_atlas_personality_serious_warning
+      "atlas:serious:reading" -> R.drawable.ic_atlas_personality_serious_reading
+      "atlas:strict:idle" -> R.drawable.ic_atlas_personality_strict_idle
+      "atlas:strict:thinking" -> R.drawable.ic_atlas_personality_strict_thinking
+      "atlas:strict:celebrating" -> R.drawable.ic_atlas_personality_strict_celebrating
+      "atlas:strict:sleeping" -> R.drawable.ic_atlas_personality_strict_sleeping
+      "atlas:strict:warning" -> R.drawable.ic_atlas_personality_strict_warning
+      "atlas:strict:reading" -> R.drawable.ic_atlas_personality_strict_reading
+      "atlas:calm:idle" -> R.drawable.ic_atlas_personality_calm_idle
+      "atlas:calm:thinking" -> R.drawable.ic_atlas_personality_calm_thinking
+      "atlas:calm:celebrating" -> R.drawable.ic_atlas_personality_calm_celebrating
+      "atlas:calm:sleeping" -> R.drawable.ic_atlas_personality_calm_sleeping
+      "atlas:calm:warning" -> R.drawable.ic_atlas_personality_calm_warning
+      "atlas:calm:reading" -> R.drawable.ic_atlas_personality_calm_reading
+      "atlas:quiet:idle" -> R.drawable.ic_atlas_personality_quiet_idle
+      "atlas:quiet:thinking" -> R.drawable.ic_atlas_personality_quiet_thinking
+      "atlas:quiet:celebrating" -> R.drawable.ic_atlas_personality_quiet_celebrating
+      "atlas:quiet:sleeping" -> R.drawable.ic_atlas_personality_quiet_sleeping
+      "atlas:quiet:warning" -> R.drawable.ic_atlas_personality_quiet_warning
+      "atlas:quiet:reading" -> R.drawable.ic_atlas_personality_quiet_reading
+      else -> if (kind == "atlas") R.drawable.ic_atlas_mascot else R.drawable.ic_nexus_mascot
+    }
+
     private fun ensureNonce(context: Context): String {
       val preferences = context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
       val existing = preferences.getString(ACTION_NONCE_KEY, null)
@@ -507,34 +595,20 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       ).forEach { views.setInt(it, "setGravity", gravity) }
     }
 
-    private fun nexusMascotPose(
-      payload: JSONObject?,
-      spec: NativeWidgetRenderSpec,
-      widgetId: Int,
-    ): Int {
-      val completed = payload?.optInt("completedCount", 0) ?: 0
-      val total = payload?.optInt("totalCount", 0) ?: 0
-      return when {
-        spec.privateMode -> R.drawable.ic_nexus_mascot
-        payload?.optString("focusStatus") == "paused" -> R.drawable.ic_nexus_mascot_resting
-        payload?.optString("focusStatus") == "running" -> R.drawable.ic_nexus_mascot_watching
-        total > 0 && completed >= total -> R.drawable.ic_nexus_mascot_celebrating
-        spec.personality == "quiet" || spec.speech == "silent" -> R.drawable.ic_nexus_mascot_resting
-        spec.personality == "strict" -> R.drawable.ic_nexus_mascot_watching
-        spec.family == NexusWidgetFamily.COMPANION && spec.scene != "none" -> R.drawable.ic_nexus_mascot_reading
-        else -> R.drawable.ic_nexus_mascot
-      }
+    private fun mascotPose(payload: JSONObject?, spec: NativeWidgetRenderSpec): String = when {
+      spec.privateMode -> "idle"
+      payload?.optString("focusStatus") == "paused" -> "sleeping"
+      payload?.optString("focusStatus") == "running" -> "thinking"
+      (payload?.optInt("totalCount", 0) ?: 0) > 0 && payload?.optInt("completedCount", 0) == payload?.optInt("totalCount", 0) -> "celebrating"
+      spec.family == NexusWidgetFamily.COMPANION && spec.scene != "none" -> "reading"
+      else -> "idle"
     }
 
-    private fun atlasMascotPose(payload: JSONObject?, spec: NativeWidgetRenderSpec): Int = when {
-      spec.privateMode -> R.drawable.ic_atlas_mascot
-      payload?.optString("focusStatus") == "paused" -> R.drawable.ic_atlas_mascot_resting
-      payload?.optString("focusStatus") == "running" -> R.drawable.ic_atlas_mascot_watching
-      (payload?.optInt("totalCount", 0) ?: 0) > 0 && payload?.optInt("completedCount", 0) == payload?.optInt("totalCount", 0) -> R.drawable.ic_atlas_mascot_celebrating
-      spec.personality == "quiet" || spec.speech == "silent" -> R.drawable.ic_atlas_mascot_resting
-      spec.personality == "strict" -> R.drawable.ic_atlas_mascot_watching
-      else -> R.drawable.ic_atlas_mascot
-    }
+    private fun nexusMascotPose(payload: JSONObject?, spec: NativeWidgetRenderSpec, widgetId: Int): Int =
+      personalityDrawable("nexus", spec.personality, mascotPose(payload, spec))
+
+    private fun atlasMascotPose(payload: JSONObject?, spec: NativeWidgetRenderSpec): Int =
+      personalityDrawable("atlas", spec.personality, mascotPose(payload, spec))
 
     private fun renderMini(
       views: RemoteViews,

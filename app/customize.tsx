@@ -1,3 +1,4 @@
+import { PersonalityPicker } from "@/components/PersonalityPicker";
 import { StyleSheet, Switch, View } from "react-native";
 import { router } from "expo-router";
 import { CompanionMascot } from "@/components/CompanionMascot";
@@ -12,7 +13,6 @@ import { NEXUS_THEMES, resolveThemeId, type CoreThemeId } from "@/theme/theme";
 import type {
   AssistantVerbosity,
   AtlasPersonality,
-  CompanionMood,
   CompanionPresence,
   Preferences,
   MascotSkin,
@@ -20,16 +20,6 @@ import type {
 } from "@/types";
 
 export { RouteErrorBoundary as ErrorBoundary };
-
-const MOODS: readonly (readonly [CompanionMood, string])[] = [
-  ["happy", "Feliz"],
-  ["playful", "Zoeiro"],
-  ["motivational", "Motivador"],
-  ["serious", "Sério"],
-  ["strict", "Bravo"],
-  ["calm", "Calmo"],
-  ["quiet", "Quieto"],
-];
 
 const PRESENCE: readonly (readonly [CompanionPresence, string])[] = [
   ["quiet", "Discreto"],
@@ -125,7 +115,8 @@ export default function CustomizeScreen() {
           value={mascot.showCompanion}
           onChange={(value) => void updatePreferences({ mascot: { showCompanion: value } })}
         />
-        <Choice title="Personalidade" options={MOODS} value={mascot.companionMood} onChange={(value) => void updatePreferences({ mascot: { companionMood: value as CompanionMood } })} />
+        <PersonalityPicker kind="atlas" />
+        <PersonalityPicker kind="nexus" />
         <Choice title="Presença" options={PRESENCE} value={mascot.companionPresence} onChange={(value) => void updatePreferences({ mascot: { companionPresence: value as CompanionPresence } })} />
         <Toggle
           label="Falas do Companion"

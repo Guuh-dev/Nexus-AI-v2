@@ -339,7 +339,7 @@ export default function WidgetStudioScreen() {
         </View>
       </Section>
 
-      <Section title="Família" subtitle={selectedInstance ? "A família é definida pelo item escolhido no launcher. Para trocar, remova e adicione outra família." : "Somente os cinco tamanhos úteis ficam disponíveis."}>
+      <Section title="Família" subtitle={selectedInstance ? "A família é definida pelo item escolhido no launcher. Para trocar, remova e adicione outra família." : "Cinco famílias, com estilos, cenários e sete personalidades. No novo APK, mantenha o widget pressionado na tela inicial para ajustar seu tamanho, se o launcher oferecer alças. A grade e os limites variam por launcher."}>
         <View style={styles.familyGrid}>
           {WIDGET_FAMILIES.map((item) => {
             const selected = draft.family === item.family;

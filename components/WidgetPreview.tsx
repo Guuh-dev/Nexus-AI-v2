@@ -22,7 +22,7 @@ export function WidgetPreview({ spec: requested }: { spec?: WidgetRenderSpec }) 
   const next = plan?.tasks.find((t) => !t.completed);
   const today = plan?.date ?? localDateKey(new Date(), data.profile?.timezone);
   const focusMinutes = Math.floor(data.progress.focusSessions.filter((s) => localDateKey(new Date(s.completedAt), data.profile?.timezone) === today).reduce((n, s) => n + s.elapsedSeconds, 0) / 60);
-  const pose: PixelPose = spec.privateMode ? "idle" : runtime?.status === "paused" ? "sleeping" : runtime?.status === "running" ? "thinking" : total > 0 && completed >= total ? "celebrating" : spec.mascot.personality === "quiet" || spec.mascot.speech === "silent" ? "sleeping" : spec.mascot.personality === "strict" ? "thinking" : "idle";
+  const pose: PixelPose = spec.privateMode ? "idle" : runtime?.status === "paused" ? "sleeping" : runtime?.status === "running" ? "thinking" : total > 0 && completed >= total ? "celebrating" : "idle";
   const mission = spec.privateMode ? "Missão protegida" : plan?.mainMission.title ?? spec.emptyState.title;
   const companionLine = spec.privateMode || spec.mascot.speech === "silent" || !plan ? "Um passo por vez" : getCompanionLine(data, spec.mascot.personality, "widget");
   const focusLabel = spec.privateMode ? "Conteúdo protegido." : runtime?.status === "paused" ? `Ⅱ Sessão pausada · ${Math.floor(runtime.elapsedBase / 60)} min` : runtime?.status === "running" ? `▶ Sessão em andamento · ${Math.floor(runtime.elapsedBase / 60)} min confirmados` : runtime?.status === "completed" ? "Revisar entrega da sessão" : `${focusMinutes} min de foco registrado`;
@@ -46,6 +46,6 @@ function Habitat({ spec }: { spec: WidgetRenderSpec }) {
 function Mascot({ spec, size }: { spec: WidgetRenderSpec; size: number }) {
   const pose = useContext(Pose);
   if (!spec.mascot.visible) return null;
-  return spec.mascot.id === "nexus" || spec.mascot.id === "atlas" ? <PixelCharacter kind={spec.mascot.id} size={size} state={pose === "idle" && spec.family === "companion" && spec.scene !== "none" ? "reading" : pose} fixedPalette accessory="none" /> : <CompanionMascot mascot={spec.mascot.id} size={size} state={pose} />;
+  return spec.mascot.id === "nexus" || spec.mascot.id === "atlas" ? <PixelCharacter kind={spec.mascot.id} size={size} state={pose === "idle" && !spec.privateMode && spec.family === "companion" && spec.scene !== "none" ? "reading" : pose} fixedPalette accessory="none" mood={spec.mascot.personality} /> : <CompanionMascot mascot={spec.mascot.id} size={size} state={pose} />;
 }
 const styles = StyleSheet.create({ wrapper: { alignItems: "center" }, widget: { maxWidth: "100%", overflow: "hidden", padding: 14, position: "relative" }, flex: { flex: 1 }, header: { flexDirection: "row", alignItems: "center", gap: 10 }, task: { minHeight: 32, flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 5 } });

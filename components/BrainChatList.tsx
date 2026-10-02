@@ -15,6 +15,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import { AssistanceProposalCard } from "@/components/AssistanceProposalCard";
 import { AssistantMessage } from "@/components/AssistantMessage";
 import { CompanionMascot } from "@/components/CompanionMascot";
 import { PixelMascot } from "@/components/PixelMascot";
@@ -276,6 +277,7 @@ export const BrainChatList = forwardRef<BrainChatListHandle, Props>(
 
     const footer = (
       <View style={styles.footerStack}>
+        <AssistanceProposalCard thread={thread} onStart={() => onQuickPrompt("Comece pela proposta que aprovei, com uma etapa prática por vez.")} />
         {assistantBusy ? (
           <Card style={styles.thinking}>
             <View style={styles.thinkingRow}>
@@ -301,7 +303,7 @@ export const BrainChatList = forwardRef<BrainChatListHandle, Props>(
                 </NexusText>
               </View>
             </View>
-            <NexusButton label="Cancelar" variant="ghost" onPress={onCancel} />
+            <NexusButton label="Parar" variant="ghost" onPress={onCancel} />
           </Card>
         ) : null}
         {!assistantBusy && lastAssistantMeta ? (
@@ -393,7 +395,7 @@ function MessageSeparator() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, position: "relative" },
+  root: { flex: 1, minHeight: 0, position: "relative" },
   content: {
     flexGrow: 1,
     paddingHorizontal: 18,

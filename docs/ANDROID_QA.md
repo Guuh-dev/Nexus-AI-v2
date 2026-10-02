@@ -18,7 +18,7 @@
 
 ## Navegação e layout
 
-- A barra inferior mostra apenas Hoje, Brain, Foco, Progresso e Perfil.
+- A barra inferior mostra apenas Hoje, Plano, Foco, Brain e Progresso; configurações pelo cabeçalho.
 - Teclado não cobre compositores, botões de onboarding, Atlas, editor de tarefa ou campos do Widget Studio.
 - Back gesture retorna à tela esperada e não perde rascunhos.
 - Tema Light ajusta status bar e navigation bar; temas escuros não causam flash branco.
@@ -74,3 +74,16 @@ No menor tamanho permitido de cada família, confirme que mascote, textos, taref
 ## Evidências de aprovação
 
 Registre versão, commit, modelo do aparelho, versão Android, caminho de instalação, capturas dos cinco widgets e resultado de cada cenário. Um bloqueio deve incluir passos de reprodução e logs sanitizados, nunca secrets ou conteúdo privado completo.
+
+## Diagnóstico, pixels e resize (2026-10-02)
+
+- Instale o novo APK por cima; confirme dados, chats e roadmaps preservados.
+- Selecione personalidades Nexus/Atlas diferentes; confira pixels, falas e restart.
+- Em nova conversa, responda pergunta, ajuste proposta, feche/reabra e aprove.
+- Falha de escrita não inicia ajuda; falha de rede conserva mensagem para retry.
+- Continuar aula existente mantém a lição; novo diagnóstico não herda outra trilha.
+- Adicione cada widget, mantenha pressionado, ajuste alças nos dois eixos. Confira
+  mínimos/máximos, orientação, fonte ampliada e configuração de outra instância.
+- Teste Private: personalidade decorativa aparece, missão/tarefas permanecem ocultas.
+- Measure primeiro token e conclusão após backend diagnostic-approval estar ativo;
+  tempo de abertura SSE sozinho não mede latência do modelo.

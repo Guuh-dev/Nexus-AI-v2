@@ -115,8 +115,8 @@ export default function BrainScreen() {
     setMode("chat");
     setMetaThreadId(null);
   };
-  const newThread = async () => {
-    const id = await createThread(kind);
+  const newThread = async (continueLesson = false) => {
+    const id = await createThread(kind, continueLesson);
     if (!id) return;
     activeThreadIdRef.current = id;
     setMessage("");
@@ -174,7 +174,7 @@ export default function BrainScreen() {
   const assistantStageLabel = {
     idle: kind === "brain" ? "BRAIN PRONTO" : "PROFESSOR PRONTO",
     connecting: "CONECTANDO",
-    generating: "GERANDO",
+    generating: active?.consultation && active.consultation.stage !== "approved" ? "ENTENDENDO SEU PEDIDO" : "RECEBENDO RESPOSTA…",
     finalizing: "FINALIZANDO",
     local: "INDISPONÍVEL",
   }[assistantStage];
@@ -278,6 +278,11 @@ export default function BrainScreen() {
             </View>
           </View>
 
+          <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 18, paddingVertical: 8 }}>
+            <ChoiceChip label="Nexus" selected={kind === "brain"} onPress={() => changeKind("brain")} />
+            <ChoiceChip label="Professor Atlas" selected={kind === "professor"} onPress={() => changeKind("professor")} />
+            <View style={{ flex: 1, justifyContent: "center" }}><NexusText variant="caption" secondary numberOfLines={1}>{active.consultation?.stage === "approved" ? "Ajuda aprovada" : active.consultation ? "Entender → revisar → começar" : "Conversa salva"}</NexusText></View>
+          </View>
           <BrainChatList
             key={active.id}
             ref={chatListRef}
@@ -308,8 +313,8 @@ export default function BrainScreen() {
             <Field
               label={
                 kind === "professor"
-                  ? "Pergunte ou conte como foi a prática"
-                  : "Converse com seu copiloto"
+                  ? active.consultation?.stage === "approved" ? "Pergunte ou conte como foi a prática" : "O que quer aprender ou conseguir fazer?"
+                  : active.consultation?.stage === "adjusting" ? "O que você quer mudar na proposta?" : "Conte o que você quer resolver"
               }
               value={message}
               onChangeText={(value) => {
@@ -495,8 +500,8 @@ export default function BrainScreen() {
 
         {mode === "home" ? (
           <>
-            {kind === "professor" && <AtlasLessonPanel onContinue={() => { void newThread(); }} />}
-            {kind === "brain" && <Card elevated style={[styles.modeCard, { padding: 20 }]}><View style={styles.row}><View style={styles.flex}><NexusText variant="mono" color={colors.primary}>NEXUS / COPILOTO</NexusText><NexusText variant="display">Seu próximo passo, com contexto.</NexusText></View><PixelMascot size={72} /></View><NexusText secondary>Revise sua missão, explore uma alternativa ou conte o que mudou no dia.</NexusText><NexusButton label="Nova conversa" onPress={() => { void newThread(); }} fullWidth /></Card>}
+            {kind === "professor" && <><Card style={{ gap: 12, marginTop: 18 }}><NexusText variant="title">O que você quer conseguir fazer?</NexusText><NexusText secondary>Conte do seu jeito. Atlas pergunta só o necessário, apresenta seu diagnóstico e ajusta a proposta com você.</NexusText><NexusButton label="Conversar e criar minha proposta" fullWidth onPress={() => { void newThread(); }} /></Card><AtlasLessonPanel onContinue={() => { void newThread(true); }} /></>}
+            {kind === "brain" && <Card elevated style={[styles.modeCard, { padding: 20 }]}><View style={styles.row}><View style={styles.flex}><NexusText variant="mono" color={colors.primary}>NEXUS / COPILOTO</NexusText><NexusText variant="display">Conte do seu jeito.</NexusText></View><PixelMascot size={72} /></View><NexusText secondary>Nexus entende seu pedido, apresenta uma proposta e começa depois da sua aprovação. Você pode ajustar antes de seguir.</NexusText><NexusButton label="Nova conversa" onPress={() => { void newThread(); }} fullWidth /></Card>}
             <View style={[styles.tabs, { marginTop: 16 }]}><ChoiceChip label={`Memórias ${data.brain.memories.length}`} selected={false} onPress={() => setMode("memory")} /><ChoiceChip label="Minhas trilhas" selected={false} onPress={() => setMode("roadmaps")} />{kind === "professor" && <NexusButton label="Nova conversa com Atlas" compact variant="ghost" onPress={() => { void newThread(); }} />}</View>
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
@@ -722,6 +727,7 @@ const styles = StyleSheet.create({
   },
   chatShell: {
     flex: 1,
+    minHeight: 0,
     width: "100%",
     maxWidth: 760,
     alignSelf: "center",
