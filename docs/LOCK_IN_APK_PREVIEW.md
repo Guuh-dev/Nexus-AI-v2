@@ -98,9 +98,16 @@ o builder anterior ao pin. EAS da primeira: `2057103e-9322-4822-a450-8448f15baf1
 Cancelar Actions não comprova cancelamento no EAS; a automação agora permite
 cancelar explicitamente um UUID de build supersedido, usando a credencial já
 guardada no runner, sem revelar tokens. UUID é validado antes da CLI, recebido
-via env e nunca interpolado como comando. Build já terminado é tratado pela
-CLI como terminal, sem removê-lo. A nova execução deve cancelar esse build
+via env e nunca interpolado como comando. A CLI 20.5.1 recebeu erro do servidor ao tentar cancelar um build já terminado.
+O workflow agora lê o estado antes: preserva FINISHED/ERRORED/CANCELED, cancela
+somente NEW/IN_QUEUE/IN_PROGRESS e recusa estado desconhecido. O JSON do build
+anterior fica junto da metadata para conferir origem/resultado. A nova execução deve cancelar esse build
 supersedido e gerar o preview fixado; sua existência não comprova APK pronto.
 Arquivos e commits foram enviados pela Git Data API com SHA comparado ao objeto
 local, depois de falha de autenticação no transporte Git. Não houve force push
 ou substituição de histórico.
+
+Execução [36947524304](https://github.com/Guuh-dev/Nexus-AI-v2/actions/runs/36947524304):
+frozen/335 testes/Doctor 20/20/export passaram; falhou somente na tentativa
+de cancelar o EAS anterior já FINISHED. Não gerou novo APK, nem foi declarada
+PASS. A correção de estado acima conserva todos os gates.

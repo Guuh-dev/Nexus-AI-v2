@@ -63,7 +63,23 @@ jobs:
             echo "Invalid superseded EAS build UUID." >&2
             exit 1
           fi
-          pnpm dlx eas-cli@20.5.1 build:cancel "$EAS_BUILD_TO_CANCEL" --non-interactive
+          pnpm dlx eas-cli@20.5.1 build:view "$EAS_BUILD_TO_CANCEL" --json > superseded-eas-build.json
+          SUPERSEDED_STATUS=$(node -e 'const fs = require("node:fs"); const build = JSON.parse(fs.readFileSync("superseded-eas-build.json", "utf8")); if (typeof build.status !== "string") throw new Error("Missing build status"); process.stdout.write(build.status.toUpperCase());')
+          case "$SUPERSEDED_STATUS" in
+            FINISHED|ERRORED|CANCELED)
+              echo "Superseded EAS build is already terminal: $SUPERSEDED_STATUS."
+              ;;
+            NEW|IN_QUEUE|IN_PROGRESS)
+              pnpm dlx eas-cli@20.5.1 build:cancel "$EAS_BUILD_TO_CANCEL" --non-interactive
+              ;;
+            PENDING_CANCEL)
+              echo "Superseded EAS build cancellation is already pending."
+              ;;
+            *)
+              echo "Unknown superseded EAS build status." >&2
+              exit 1
+              ;;
+          esac
 
       - name: Build installable EAS APK
         env:
@@ -84,5 +100,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nexus-eas-build-metadata-${{ inputs.profile }}
-          path: eas-build.json
+          path: |
+            eas-build.json
+            superseded-eas-build.json
           retention-days: 14
