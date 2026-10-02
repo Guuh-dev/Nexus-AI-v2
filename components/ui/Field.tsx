@@ -1,5 +1,5 @@
 import { useContext, useRef, useState } from "react";
-import { StyleSheet, TextInput, View, type LayoutChangeEvent, type TextInputProps } from "react-native";
+import { StyleSheet, TextInput, View, type TextInputProps } from "react-native";
 import { NexusText } from "@/components/ui/NexusText";
 import { useNexus } from "@/providers/NexusProvider";
 import { KeyboardAwareFormContext } from "@/components/ui/KeyboardAwareContext";
@@ -13,16 +13,10 @@ type Props = TextInputProps & {
 export function Field({ label, hint, error, style, ...props }: Props) {
   const { colors, visuals } = useNexus();
   const [focused, setFocused] = useState(false);
-  const [layout, setLayout] = useState({ y: 0, height: 0 });
   const wrapperRef = useRef<View>(null);
   const keyboardAware = useContext(KeyboardAwareFormContext);
-  const onLayout = (event: LayoutChangeEvent) => {
-    const next = { y: event.nativeEvent.layout.y, height: event.nativeEvent.layout.height };
-    setLayout(next);
-    props.onLayout?.(event);
-  };
   return (
-    <View ref={wrapperRef} style={styles.wrapper} onLayout={onLayout}>
+    <View ref={wrapperRef} collapsable={false} style={styles.wrapper}>
       <NexusText variant="caption" color={error ? colors.danger : colors.textSecondary}>
         {label}
       </NexusText>
@@ -33,18 +27,9 @@ export function Field({ label, hint, error, style, ...props }: Props) {
         selectionColor={colors.primary}
         onFocus={(event) => {
           setFocused(true);
-          const registerFocusedField = keyboardAware?.registerFocusedField;
-          const contentNode = keyboardAware?.scrollRef.current?.getInnerViewNode();
-          if (wrapperRef.current && contentNode && registerFocusedField) {
-            wrapperRef.current.measureLayout(
-              contentNode,
-              (_x, y, _width, height) =>
-                registerFocusedField(y, height),
-              () => registerFocusedField(layout.y, layout.height),
-            );
-          } else {
-            registerFocusedField?.(layout.y, layout.height);
-          }
+          keyboardAware?.registerFocusedField((callback) => {
+            wrapperRef.current?.measureInWindow((_x, y, _width, height) => callback(y, height));
+          });
           props.onFocus?.(event);
         }}
         onBlur={(event) => {

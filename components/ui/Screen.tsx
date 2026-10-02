@@ -21,7 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useNexus } from "@/providers/NexusProvider";
 import { ThemeBackdrop } from "@/components/ThemeBackdrop";
 import { KeyboardAwareFormContext } from "@/components/ui/KeyboardAwareContext";
-import { resolveKeyboardOcclusion } from "@/components/brain/keyboard-occlusion";
+import { focusedFieldScrollDelta, resolveKeyboardOcclusion } from "@/components/brain/keyboard-occlusion";
 
 type Props = PropsWithChildren<{
   scroll?: boolean;
@@ -45,9 +45,12 @@ export function Screen({
 }: Props) {
   const { colors } = useNexus();
   const scrollRef = useRef<ScrollView | null>(null);
+  const viewportRef = useRef<View | null>(null);
   const baselineHeight = useRef(0);
   const scrollOffset = useRef(0);
-  const focusedField = useRef<{ y: number; height: number } | null>(null);
+  const focusedField = useRef<((callback: (y: number, height: number) => void) => void) | null>(null);
+  const keyboardTop = useRef<number | undefined>(undefined);
+  const pendingScroll = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [viewportHeight, setViewportHeight] = useState(0);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
 
@@ -61,39 +64,46 @@ export function Screen({
 
   const scrollFocusedField = useCallback(() => {
     if (!keyboardAware || !scroll || Platform.OS === "web") return;
-    const field = focusedField.current;
-    if (!field) return;
-    const visibleBottom = Math.max(120, viewportHeight - keyboardInset - 96);
-    const fieldBottom = field.y + field.height;
-    if (fieldBottom - scrollOffset.current <= visibleBottom) return;
-    scrollRef.current?.scrollTo({
-      y: Math.max(0, fieldBottom - visibleBottom + 24),
-      animated: !keyboardInset,
+    const measure = focusedField.current;
+    if (!measure) return;
+    viewportRef.current?.measureInWindow((_x, viewportTop, _width, height) => {
+      measure((fieldTop, fieldHeight) => {
+        if (focusedField.current !== measure) return;
+        const delta = focusedFieldScrollDelta({ fieldTop, fieldHeight, viewportTop, viewportHeight: height, keyboardTop: keyboardTop.current });
+        if (Math.abs(delta) < 1) return;
+        scrollRef.current?.scrollTo({ y: Math.max(0, scrollOffset.current + delta), animated: false });
+      });
     });
-  }, [keyboardAware, keyboardInset, scroll, viewportHeight]);
+  }, [keyboardAware, scroll]);
+  const scheduleFocusedScroll = useCallback(() => {
+    if (pendingScroll.current) clearTimeout(pendingScroll.current);
+    pendingScroll.current = setTimeout(scrollFocusedField, 80);
+  }, [scrollFocusedField]);
 
   useEffect(() => {
     if (!keyboardAware) return undefined;
     const show = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
       (event) => {
+        keyboardTop.current = event.endCoordinates.screenY;
         setKeyboardHeight(Math.max(0, event.endCoordinates.height));
-        setTimeout(scrollFocusedField, 80);
+        scheduleFocusedScroll();
       },
     );
     const hide = Keyboard.addListener(
       Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
-      () => setKeyboardHeight(0),
+      () => { keyboardTop.current = undefined; setKeyboardHeight(0); },
     );
     return () => {
       show.remove();
       hide.remove();
+      if (pendingScroll.current) clearTimeout(pendingScroll.current);
     };
-  }, [keyboardAware, scrollFocusedField]);
+  }, [keyboardAware, scheduleFocusedScroll]);
 
   useEffect(() => {
-    if (keyboardInset > 0) setTimeout(scrollFocusedField, 60);
-  }, [keyboardInset, scrollFocusedField]);
+    if (keyboardHeight > 0) scheduleFocusedScroll();
+  }, [keyboardHeight, keyboardInset, viewportHeight, scheduleFocusedScroll]);
 
   const onLayout = useCallback((event: LayoutChangeEvent) => {
     const height = event.nativeEvent.layout.height;
@@ -104,12 +114,12 @@ export function Screen({
   const context = useMemo(
     () => ({
       scrollRef,
-      registerFocusedField: (y: number, height: number) => {
-        focusedField.current = { y, height };
-        setTimeout(scrollFocusedField, 80);
+      registerFocusedField: (measure: (callback: (y: number, height: number) => void) => void) => {
+        focusedField.current = measure;
+        scheduleFocusedScroll();
       },
     }),
-    [scrollFocusedField],
+    [scheduleFocusedScroll],
   );
 
   const innerStyle = useMemo(
@@ -159,7 +169,7 @@ export function Screen({
           behavior="padding"
           keyboardVerticalOffset={keyboardVerticalOffset}
         >
-          {body}
+          <View ref={viewportRef} collapsable={false} style={styles.flex} onLayout={scheduleFocusedScroll}>{body}</View>
           {footer ? (
             <View
               style={[

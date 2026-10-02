@@ -18,3 +18,16 @@ export function resolveKeyboardOcclusion({
   const nativeResize = Math.max(0, baselineHeight - viewportHeight);
   return Math.max(0, Math.round(keyboardHeight - nativeResize));
 }
+
+/** Window coordinates remain correct for fields nested inside cards and time rows. */
+export function focusedFieldScrollDelta({ fieldTop, fieldHeight, viewportTop, viewportHeight, keyboardTop }: {
+  fieldTop: number; fieldHeight: number; viewportTop: number; viewportHeight: number; keyboardTop?: number;
+}): number {
+  const top = viewportTop + 16;
+  const bottom = Math.min(viewportTop + viewportHeight, keyboardTop ?? Infinity) - 24;
+  if (bottom <= top || fieldHeight <= 0) return 0;
+  if (fieldHeight > bottom - top) return fieldTop - top;
+  if (fieldTop + fieldHeight > bottom) return fieldTop + fieldHeight - bottom;
+  if (fieldTop < top) return fieldTop - top;
+  return 0;
+}
