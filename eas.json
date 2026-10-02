@@ -14,7 +14,9 @@
         "EXPO_PUBLIC_APP_ENV": "development",
         "EXPO_PUBLIC_API_URL": "https://nexus-ai-v1.onrender.com"
       },
-      "channel": "preview"
+      "channel": "preview",
+      "node": "22.14.0",
+      "pnpm": "10.0.0"
     },
     "preview": {
       "distribution": "internal",
@@ -26,7 +28,9 @@
         "EXPO_PUBLIC_APP_ENV": "preview",
         "EXPO_PUBLIC_API_URL": "https://nexus-ai-v1.onrender.com"
       },
-      "channel": "preview"
+      "channel": "preview",
+      "node": "22.14.0",
+      "pnpm": "10.0.0"
     },
     "production": {
       "autoIncrement": true,
@@ -34,7 +38,9 @@
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://nexus-ai-v1.onrender.com"
       },
-      "channel": "production"
+      "channel": "production",
+      "node": "22.14.0",
+      "pnpm": "10.0.0"
     },
     "release": {
       "distribution": "internal",
@@ -46,7 +52,9 @@
       "env": {
         "EXPO_PUBLIC_APP_ENV": "production",
         "EXPO_PUBLIC_API_URL": "https://nexus-ai-v1.onrender.com"
-      }
+      },
+      "node": "22.14.0",
+      "pnpm": "10.0.0"
     }
   },
   "submit": {

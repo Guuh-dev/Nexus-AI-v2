@@ -52,6 +52,10 @@ resolvido por versão corrigida/decisão de segurança verificável. O APK solic
 
 ## Automação
 
+Os perfis EAS fixam Node 22.14.0 e pnpm 10.0.0, também no builder remoto.
+A imagem padrão SDK 57 lista pnpm 11, que não lê os overrides/patches legados
+no package.json; não depender desse default. Referência: [infraestrutura EAS](https://docs.expo.dev/build-reference/infrastructure/).
+
 O workflow Android mantém perfil preview interno com APK, incremento de
 versionCode, canal preview e EAS CLI 20.5.1 fixada. Verifica frozen, verify,
 release check, alinhamento Expo, Doctor e export web antes de EAS.
