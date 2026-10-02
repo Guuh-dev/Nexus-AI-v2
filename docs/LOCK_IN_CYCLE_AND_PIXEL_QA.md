@@ -1,6 +1,7 @@
 # Lock-In — ciclo utilizável, Atlas e Pixel Companions
 
-Data: 2026-10-01. Branch: `feat/nexus-lock-in`. Complementa o
+Snapshot: 2026-10-01. Atualização de SDK/APK em
+[LOCK_IN_APK_PREVIEW.md](LOCK_IN_APK_PREVIEW.md) (2026-10-02). Branch: `feat/nexus-lock-in`. Complementa o
 [ADR 001](LOCK_IN_ADR_001.md), a [fatia 1](LOCK_IN_SLICE_1.md) e a
 [direção visual aprovada](LOCK_IN_PIXEL_DIRECTION.md). Os relatórios antigos
 continuam sendo evidência dos respectivos snapshots, não da árvore atual.
@@ -151,7 +152,9 @@ não foi contado como PASS. A execução repetida concluiu o bundle Hermes acima
 - Backend, geração real remota, autenticação, quotas duráveis e gasto antes de
   público multiusuário. Não foi criado servidor de histórico pessoal.
 - Confirmar APK instalado, build EAS concluído, origem/commit/runtime/canal antes
-  de decidir release. Não existe autorização para publicar, push ou merge.
+  de decidir release. Na data deste snapshot ainda não havia autorização para push/build. Em
+  2026-10-02 o usuário autorizou branch e APK preview; merge/release público
+  continuam fora desse escopo.
 - Continuidade B permanece incremental: calibração por amostra, semana/recorrências
   completas, propostas em lote/undo compensatório, memória com proveniência e
   exclusão de derivados, export legível completo e orçamento de notificações.

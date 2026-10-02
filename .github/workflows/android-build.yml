@@ -22,7 +22,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v4
@@ -40,25 +40,30 @@ jobs:
       - name: Verify native release
         run: pnpm run verify && pnpm run release:check && pnpm exec expo install --check
 
+      - name: Validate Expo project
+        run: pnpm run doctor && pnpm run export:web
+
       - name: Validate EAS token
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN is not configured." >&2; exit 1)
 
-      - name: Start EAS APK build
+      - name: Build installable EAS APK
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
           BUILD_PROFILE: ${{ inputs.profile }}
         run: |
+          set -euo pipefail
           pnpm dlx eas-cli@20.5.1 build \
             --platform android \
             --profile "$BUILD_PROFILE" \
             --non-interactive \
-            --no-wait \
+            --wait \
             --json | tee eas-build.json
-          echo "APK build submitted to EAS with profile $BUILD_PROFILE." >> "$GITHUB_STEP_SUMMARY"
+          echo "APK build completed on EAS with profile $BUILD_PROFILE." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save EAS build metadata
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: nexus-eas-build-metadata-${{ inputs.profile }}
