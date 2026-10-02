@@ -23,9 +23,23 @@ O patch de query-string continua necessário.
   fetch para o proxy HTTPS já autorizado, por preload externo ao repositório.
   TLS permanece validado; nenhum check foi excluído.
 - Export web: PASS, 16 rotas estáticas/3 APIs.
-- Android Hermes/export, browser e build assinado: registrar resultados abaixo
-  após conclusão; o APK debug anterior não valida sozinho o novo SDK.
-- Backend GET: tentativa de 30 segundos terminou em timeout; não confirmado.
+- Android Hermes/export: PASS, bundle de 5,5 MB e assets.
+- Chromium 390×844: PASS, concluído/parcial/recovery, ID/inbox/evidência,
+  revisão/amanhã e diagnóstico Atlas após restart, sem exceções de página.
+  Cinco famílias × três aparências e aula do Atlas vinculada à proposta: PASS.
+- Backend GET: após timeout inicial, respondeu 3.0.0/nexus-ai-v3/configured.
+  Probe POST: PASS HTTP 200, modelo alternativo autorizado, 2.853 ms.
+  Brain e Professor: duas requisições com perfil sintético/contexto vazio,
+  respostas reais aprovadas pelo schema cliente. Brain: primário, 3.719 ms/1
+  tentativa; Professor: alternativo, 7.682 ms/2. Sem envio de diário/histórico
+  pessoal e sem conclusão sobre todos os percursos de aprendizagem.
+- Android prebuild/verificador/Gradle com SDK alinhado: PASS em cópia isolada,
+  JDK 17/SDK 36/NDK 27.1, quatro ABIs, 23m21s/555 tarefas. O prebuild regenerou
+  o projeto incompatível somente nessa cópia; o checkout de trabalho permaneceu
+  sem pasta Android gerada. Proxy/mirror oficial Google aplicados somente ali.
+  APK debug SHA-256: `0771151b71927443968cd85071ccd856eadfdb31b12e207985204f78f2ac4339`.
+  Não é o APK EAS assinado de distribuição.
+- Build assinado: aguarda conclusão remota.
 
 ## Alerta de assinatura nas ferramentas de build
 
@@ -71,3 +85,22 @@ Os novos widgets, diário e patches nativos exigem instalar esse APK; OTA isolad
 não entrega essas capacidades. QA físico de launcher/mínimos/múltiplas instâncias,
 acessibilidade/Keystore, assinatura instalada e geração remota continua pendente.
 O preview não constitui autorização de distribuição pública multiusuário.
+
+## Execuções remotas iniciadas
+
+- Primeira execução: [36945150792](https://github.com/Guuh-dev/Nexus-AI-v2/actions/runs/36945150792),
+  commit `6e7682d5dd7c82953428f369ef89b05410cc7b8f`, anterior ao pin do builder.
+- Execução com builder fixado: [36945875085](https://github.com/Guuh-dev/Nexus-AI-v2/actions/runs/36945875085),
+  commit `f24cd7456d39dd0d6dec19067facd6c97609b9bf`, preview.
+
+Ambas usam a branch da feature, sem merge/main/OTA. A primeira execução e a segunda ainda pendente foram canceladas para substituir
+o builder anterior ao pin. EAS da primeira: `2057103e-9322-4822-a450-8448f15baf12`.
+Cancelar Actions não comprova cancelamento no EAS; a automação agora permite
+cancelar explicitamente um UUID de build supersedido, usando a credencial já
+guardada no runner, sem revelar tokens. UUID é validado antes da CLI, recebido
+via env e nunca interpolado como comando. Build já terminado é tratado pela
+CLI como terminal, sem removê-lo. A nova execução deve cancelar esse build
+supersedido e gerar o preview fixado; sua existência não comprova APK pronto.
+Arquivos e commits foram enviados pela Git Data API com SHA comparado ao objeto
+local, depois de falha de autenticação no transporte Git. Não houve force push
+ou substituição de histórico.

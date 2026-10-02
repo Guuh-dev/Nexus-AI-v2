@@ -11,6 +11,10 @@ on:
         options:
           - preview
           - release
+      cancel_build_id:
+        description: Optional superseded EAS build UUID to cancel before building
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -47,6 +51,19 @@ jobs:
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: test -n "$EXPO_TOKEN" || (echo "EXPO_TOKEN is not configured." >&2; exit 1)
+
+      - name: Cancel superseded EAS build
+        if: inputs.cancel_build_id != ''
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          EAS_BUILD_TO_CANCEL: ${{ inputs.cancel_build_id }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$EAS_BUILD_TO_CANCEL" =~ ^[[:xdigit:]]{8}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{4}-[[:xdigit:]]{12}$ ]]; then
+            echo "Invalid superseded EAS build UUID." >&2
+            exit 1
+          fi
+          pnpm dlx eas-cli@20.5.1 build:cancel "$EAS_BUILD_TO_CANCEL" --non-interactive
 
       - name: Build installable EAS APK
         env:
