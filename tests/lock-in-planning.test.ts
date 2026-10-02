@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allocate, capacity, confirmExecution, confirmSecondaryGoal, draftFor, executionFromDraft, orderTasks, reconcileExecution, seedLockIn } from "@/features/lock-in/planning";
+import { intervalRows, serializeIntervals, validateSetupSection, allocate, capacity, confirmExecution, confirmSecondaryGoal, draftFor, executionFromDraft, orderTasks, reconcileExecution, seedLockIn } from "@/features/lock-in/planning";
 import { lockInStateSchema } from "@/schemas/lock-in.schema";
 import { toggleMainMission, toggleTaskCompletion, addTask } from "@/features/tasks/task.logic";
 import { rolloverIfNeeded } from "@/features/planning/rollover";
@@ -11,6 +11,32 @@ function draft(): LockInDraft { return { ...draftFor(makeAppData(), now), name: 
 function confirmed() { return confirmExecution(makeAppData(), draft(), 0, now); }
 
 describe("Lock-In: capacidade e confirmação", () => {
+  it("keeps the reported free-text commitments and identifies missing times before advancing", () => {
+    const raw = "Escola, Estudos, Arrumar a casa";
+    const rows = intervalRows(raw);
+    expect(rows.map((r) => r.label)).toEqual(["Escola", "Estudos", "Arrumar a casa"]);
+    const d = { ...draft(), reservations: serializeIntervals(rows), step: 1 };
+    expect(validateSetupSection(d, 1).reservations).toMatch(/Escola.*início|início.*Escola/);
+    expect(() => confirmExecution(makeAppData(), d, 0, now)).toThrow(/Escola/);
+    const repaired = { ...d, reservations: serializeIntervals(rows.map((r, i) => ({ ...r, start: `1${i}:00`, end: `1${i}:15` }))) };
+    expect(validateSetupSection(repaired, 1)).toEqual({});
+    expect(executionFromDraft(repaired).reservations).toHaveLength(3);
+    expect(confirmExecution(makeAppData(), repaired, 0, now).onboardingCompleted).toBe(true);
+  });
+  it("round-trips unfinished time rows and accepts named reservations without inventing a duration", () => {
+    const rows = [{ label: "Escola", start: "13:0", end: "" }, { label: "", start: "", end: "" }];
+    expect(intervalRows(serializeIntervals(rows))).toEqual(rows);
+    expect(executionFromDraft({ ...draft(), reservations: "Escola | 12:30–13:00" }).reservations[0]).toMatchObject({ start: "2026-10-01T12:30:00.000Z", end: "2026-10-01T13:00:00.000Z" });
+    expect(executionFromDraft(draft()).reservations).toEqual([]);
+  });
+  it("identifies invalid dates, reverse times, empty windows and empty numeric inputs by field", () => {
+    expect(validateSetupSection({ ...draft(), deadline: "2026-02-30" }, 0)).toHaveProperty("deadline");
+    expect(validateSetupSection({ ...draft(), date: "2026-02-30" }, 1)).toHaveProperty("date");
+    expect(validateSetupSection({ ...draft(), reservations: "14:00-13:00" }, 1)).toHaveProperty("reservations");
+    expect(validateSetupSection({ ...draft(), windows: "" }, 1)).toHaveProperty("windows");
+    expect(validateSetupSection({ ...draft(), buffer: "" }, 1)).toHaveProperty("buffer");
+    expect(validateSetupSection({ ...draft(), estimate: "" }, 2)).toHaveProperty("estimate");
+  });
   it("subtracts overlapping reservations once and never adds buffer", () => {
     const d = { ...draft(), windows: "12:00-14:00\n13:00-15:00", reservations: "12:30-13:30\n13:00-14:00", buffer: "15" };
     const c = capacity(executionFromDraft(d), now);

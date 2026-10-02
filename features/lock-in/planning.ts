@@ -128,14 +128,66 @@ export function wallStamp(date: string, clock: string, timezone: string): string
   if (matches.length !== 1) throw new Error("Esse horário é inexistente ou ambíguo no fuso escolhido. Escolha outra janela.");
   return new Date(matches[0]!).toISOString();
 }
-export function executionFromDraft(draft: LockInDraft): ExecutionProfile {
-  const spans = (raw: string) => raw.split(/[\n,]+/).filter((s) => s.trim()).map((line) => {
-    const match = line.trim().match(/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/);
-    if (!match) throw new Error("Use uma janela HH:MM-HH:MM por linha.");
-    return { start: wallStamp(draft.date, match[1]!, draft.timezone), end: wallStamp(draft.date, match[2]!, draft.timezone) };
+export class SetupFieldError extends Error {
+  constructor(public readonly field: keyof LockInDraft, message: string) { super(message); }
+}
+export type DraftInterval = { label: string; start: string; end: string };
+/** Keeps old free-text commitments visible until the user supplies their times. */
+export function intervalRows(raw: string): DraftInterval[] {
+  return raw.split(/[\n,]+/).filter((s) => s.trim()).map((line) => {
+    const parts = line.trim().split("|");
+    const clocks = parts.at(-1)!.trim();
+    const match = clocks.match(/^(\d{0,2}:?\d{0,2})\s*[-–—]\s*(\d{0,2}:?\d{0,2})$/);
+    if (match) return { label: parts.slice(0, -1).join("|").trim(), start: match[1]!, end: match[2]! };
+    return { label: line.trim(), start: "", end: "" };
   });
-  return executionProfileSchema.parse({ date: draft.date, timezone: draft.timezone, windows: spans(draft.windows),
-    reservations: spans(draft.reservations).map((s) => ({ ...s, kind: "commitment" })), bufferMinutes: Number(draft.buffer) });
+}
+export function serializeIntervals(rows: DraftInterval[]): string {
+  return rows.map((r) => `${r.label.trim() ? `${r.label.trim()} | ` : ""}${r.start}-${r.end}`).join("\n");
+}
+export function executionFromDraft(draft: LockInDraft): ExecutionProfile {
+  if (!zDate(draft.date)) throw new SetupFieldError("date", "Informe uma data válida no formato AAAA-MM-DD.");
+  try { new Intl.DateTimeFormat("pt-BR", { timeZone: draft.timezone }); }
+  catch { throw new SetupFieldError("timezone", "Revise o fuso horário. Exemplo: America/Sao_Paulo."); }
+  if (!draft.timezone.trim()) throw new SetupFieldError("timezone", "Informe seu fuso horário.");
+  if (!/^\d+$/.test(draft.buffer) || Number(draft.buffer) > 240) throw new SetupFieldError("buffer", "Informe um buffer inteiro de 0 a 240 minutos.");
+  const spans = (raw: string, field: "windows" | "reservations") => {
+    const rows = intervalRows(raw);
+    if (field === "windows" && !rows.length) throw new SetupFieldError(field, "Adicione ao menos uma janela de tempo para hoje.");
+    if (rows.length > (field === "windows" ? 20 : 40)) throw new SetupFieldError(field, "Há intervalos demais. Revise esta seção.");
+    return rows.map((row, index) => {
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(row.start) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(row.end))
+        throw new SetupFieldError(field, `Informe início e fim (HH:MM) para ${row.label ? `“${row.label}”` : `o intervalo ${index + 1}`}. Não deduzimos horários só pelo nome.`);
+      try {
+        const start = wallStamp(draft.date, row.start, draft.timezone), end = wallStamp(draft.date, row.end, draft.timezone);
+        if (Date.parse(end) <= Date.parse(start)) throw new Error("O fim precisa ser depois do início, no mesmo dia.");
+        return { start, end };
+      } catch (e) { throw new SetupFieldError(field, e instanceof Error ? e.message : "Revise este intervalo."); }
+    });
+  };
+  return executionProfileSchema.parse({ date: draft.date, timezone: draft.timezone, windows: spans(draft.windows, "windows"),
+    reservations: spans(draft.reservations, "reservations").map((s) => ({ ...s, kind: "commitment" })), bufferMinutes: Number(draft.buffer) });
+}
+function zDate(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T12:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+export function validateSetupSection(draft: LockInDraft, step: number): Partial<Record<keyof LockInDraft, string>> {
+  const errors: Partial<Record<keyof LockInDraft, string>> = {};
+  if (step === 0) {
+    for (const [key, length, message] of [["name", 2, "Informe seu nome."], ["result", 10, "Descreva o resultado em pelo menos 10 caracteres."], ["why", 3, "Conte por que isso importa."], ["doneWhen", 3, "Defina como comprovar o resultado."]] as const)
+      if (draft[key].trim().length < length) errors[key] = message;
+    if (draft.deadline && !zDate(draft.deadline)) errors.deadline = "Use uma data válida AAAA-MM-DD ou deixe em branco.";
+    if (draft.goalKind === "maintenance" && (!/^\d+$/.test(draft.maintenanceBudget) || Number(draft.maintenanceBudget) < 1 || Number(draft.maintenanceBudget) > 720)) errors.maintenanceBudget = "Informe de 1 a 720 minutos.";
+  } else if (step === 1 && draft.goalKind === "primary") {
+    try { executionFromDraft(draft); }
+    catch (e) { if (e instanceof SetupFieldError) errors[e.field] = e.message; else errors.windows = "Revise os horários desta seção."; }
+  } else if (step === 2 && draft.goalKind === "primary") {
+    for (const key of ["mission", "firstAction", "acceptance"] as const) if (draft[key].trim().length < 2) errors[key] = "Preencha este campo para confirmar a missão.";
+    if (!draft.taskIds?.length && (!/^\d+$/.test(draft.estimate) || Number(draft.estimate) < 5 || Number(draft.estimate) > 240)) errors.estimate = "Informe de 5 a 240 minutos.";
+  }
+  return errors;
 }
 function previousCategory(data: AppData): Task["category"] { return data.profile?.priorities[0] ?? "pessoal"; }
 export function confirmExecution(data: AppData, input: LockInDraft, baseRevision: number, now = new Date()): AppData {

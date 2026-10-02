@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { View } from "react-native";
+import { Keyboard, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Screen } from "@/components/ui/Screen";
 import { Card } from "@/components/ui/Card";
@@ -8,7 +8,8 @@ import { NexusText } from "@/components/ui/NexusText";
 import { NexusButton } from "@/components/ui/NexusButton";
 import { ChoiceChip } from "@/components/ui/ChoiceChip";
 import { useNexus } from "@/providers/NexusProvider";
-import { confirmSecondaryGoal, draftFor } from "@/features/lock-in/planning";
+import { confirmSecondaryGoal, draftFor, SetupFieldError, validateSetupSection } from "@/features/lock-in/planning";
+import { TimeIntervalsField } from "@/components/TimeIntervalsField";
 import type { LockInDraft } from "@/schemas/lock-in.schema";
 
 export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
@@ -16,12 +17,20 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
   const currentData = useRef(data); currentData.current = data;
   const [draft, setDraft] = useState(() => draftFor(data));
   useFocusEffect(useCallback(() => { setDraft(draftFor(currentData.current)); }, []));
+  const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof LockInDraft, string>>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [reviewRevision, setReviewRevision] = useState<number | null>(null);
-  const patch = <K extends keyof LockInDraft>(key: K, value: LockInDraft[K]) => { setDraft((d) => ({ ...d, [key]: value })); setError(""); setReviewRevision(null); };
-  const field = (key: keyof LockInDraft, label: string, maxLength: number, hint?: string) => <Field key={key} label={label} value={String(draft[key])} maxLength={maxLength} hint={hint} onChangeText={(v) => patch(key, v as never)} multiline={maxLength > 200} />;
+  const patch = <K extends keyof LockInDraft>(key: K, value: LockInDraft[K]) => { setDraft((d) => ({ ...d, [key]: value })); setError(""); setFieldErrors((errors) => ({ ...errors, [key]: undefined })); setReviewRevision(null); };
+  const missionErrors = draft.step === 2 ? validateSetupSection(draft, 2) : {};
+  const field = (key: keyof LockInDraft, label: string, maxLength: number, hint?: string) => <Field key={key} label={label} value={String(draft[key])} maxLength={maxLength} hint={hint} error={fieldErrors[key] ?? missionErrors[key]} autoCorrect={!["date", "deadline", "timezone", "buffer", "estimate", "maintenanceBudget"].includes(key)} inputMode={["buffer", "estimate", "maintenanceBudget"].includes(key) ? "numeric" : "text"} onChangeText={(v) => patch(key, v as never)} multiline={maxLength > 200} />;
   const save = async (nextStep = draft.step) => {
+    Keyboard.dismiss();
+    if (nextStep > draft.step) {
+      const errors = validateSetupSection(draft, draft.step);
+      setFieldErrors(errors);
+      if (Object.keys(errors).length) { setError("Revise os campos indicados nesta seção antes de avançar. Seu rascunho foi mantido."); return; }
+    }
     setReviewRevision(null); setBusy(true); setError("");
     const next = { ...draft, step: nextStep };
     try {
@@ -31,12 +40,22 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
   };
   let preview: ReturnType<typeof confirmSecondaryGoal> | undefined;
   let previewError = "";
+  let correctionStep: number | undefined;
   if (draft.step === 2) {
-    try { preview = confirmSecondaryGoal(data, draft, data.lockIn.revision); }
-    catch (e) { previewError = e instanceof Error ? e.message : "Revise os campos do plano."; }
+    try {
+      const missionError = Object.values(missionErrors)[0];
+      if (missionError) throw new Error(missionError);
+      preview = confirmSecondaryGoal(data, draft, data.lockIn.revision);
+    }
+    catch (e) {
+      previewError = e instanceof Error ? e.message : "Revise os campos do plano.";
+      if (e instanceof SetupFieldError) correctionStep = 1;
+      else if (Object.keys(validateSetupSection(draft, 0)).length) correctionStep = 0;
+    }
   }
   const confirm = async () => {
     if (!preview || reviewRevision === null) return;
+    Keyboard.dismiss();
     setBusy(true); setError("");
     try {
       if (!await confirmLockIn(draft, reviewRevision)) { setError("A confirmação não foi gravada ou a revisão mudou. Revise o resumo e tente novamente."); setReviewRevision(null); return; }
@@ -65,8 +84,8 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
       {draft.step === 1 && draft.goalKind === "primary" && <Card style={{ gap: 12 }}>
         {field("date", "Data de hoje (AAAA-MM-DD)", 10)}
         {field("timezone", "Seu fuso horário", 80, "Ex.: America/Sao_Paulo. Os horários abaixo usam este fuso.")}
-        {field("windows", "Janelas autorizadas de hoje", 1200, "Uma por linha: 14:00-16:00. Sem janelas confirmadas, não inventamos capacidade.")}
-        {field("reservations", "Compromissos, necessidades e transições", 1600, "Intervalos protegidos, uma linha HH:MM-HH:MM por reserva. Sobreposições contam uma vez.")}
+        <TimeIntervalsField value={draft.windows} error={fieldErrors.windows} onChange={(v) => patch("windows", v)} />
+        <TimeIntervalsField reservations value={draft.reservations} error={fieldErrors.reservations} onChange={(v) => patch("reservations", v)} />
         {field("buffer", "Reserva de buffer em minutos", 4)}
         <NexusText secondary>Tempo anterior a agora é descontado. Intensidade não aumenta suas horas. Não há horário limite universal.</NexusText>
       </Card>}
@@ -87,6 +106,7 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
             <NexusText>Missão: {draft.mission} · {preview.activePlan?.mainMission.estimatedMinutes} min, contados uma vez.</NexusText>
             {preview.activePlan?.execution?.blocks.map((b) => <NexusText key={b.taskId} secondary>Bloco: {new Date(b.start).toLocaleTimeString("pt-BR", { timeZone: draft.timezone, hour: "2-digit", minute: "2-digit" })}–{new Date(b.end).toLocaleTimeString("pt-BR", { timeZone: draft.timezone, hour: "2-digit", minute: "2-digit" })}</NexusText>)}
           </> : preview ? <NexusText secondary>{draft.goalKind === "backlog" ? "Esta meta ficará guardada, sem consumir capacidade." : "A reserva reduz a capacidade da missão. Confirmar exige que o plano continue viável."}</NexusText> : <NexusText color={colors.warning}>{previewError}</NexusText>}
+          {correctionStep !== undefined && <NexusButton label={correctionStep === 1 ? "Corrigir horários e compromissos" : "Corrigir dados da meta"} variant="secondary" disabled={busy} onPress={() => { setFieldErrors(validateSetupSection(draft, correctionStep!)); void save(correctionStep!); }} />}
           {draft.goalKind === "primary" && pending.length > 0 && <NexusText color={colors.warning}>Esta confirmação substitui o plano atual. Pendências guardadas no backlog: {pending.map((t) => t.title).join("; ")}. Entregas concluídas e versão anterior são preservados.</NexusText>}
           <NexusText secondary>Plano local determinístico. Nenhum dado precisa ser enviado à IA para confirmar.</NexusText>
           <NexusButton label={reviewRevision === data.lockIn.revision ? "Resumo revisado" : "Revisei o impacto"} variant="secondary" disabled={!preview || busy} onPress={() => setReviewRevision(data.lockIn.revision)} />
@@ -94,7 +114,7 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
         </Card>
       </>}
       {error && <NexusText color={colors.danger}>{error}</NexusText>}
-      <View style={{ flexDirection: "row", gap: 10 }}>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
         {draft.step > 0 && <NexusButton label="Voltar" variant="secondary" disabled={busy} onPress={() => { setReviewRevision(null); void save(draft.goalKind !== "primary" ? 0 : draft.step - 1); }} />}
         <NexusButton label="Salvar seção" variant="secondary" loading={busy} onPress={() => { void save(); }} />
         {draft.step < 2 && <NexusButton label="Salvar e avançar" disabled={busy} onPress={() => { void save(draft.step === 0 && draft.goalKind !== "primary" ? 2 : draft.step + 1); }} />}
