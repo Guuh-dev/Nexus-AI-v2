@@ -43,13 +43,29 @@ publicada. Produto/runtime permanecem 3.0.0; EAS incrementa versionCode remoto.
 
 - Frozen, verify: PASS, 59 arquivos/339 testes, typecheck/lint/scanner de segredos.
 - Release check: PASS; Expo dependency check: PASS; Doctor: 20/20.
-- Export web: PASS.
+- Export web: PASS. Audit continua FAIL, 1 high conhecido e mitigado pelo patch,
+  sem novos alertas. Foreground adaptativo: raio ocupado 308,99 px, dentro da zona
+  segura circular de 312,89 px. Prebuild isolado/verificador nativo: PASS.
+- Gradle no checkout isolado: BUILD SUCCESSFUL, 14m50s, 555 tarefas, quatro ABIs.
+  Este APK debug não substitui o APK standalone assinado do EAS.
 - Playwright 390×844: objetivo inválido fica na seção; retoma rascunho antigo
   bloqueado; preserva três nomes de compromisso e missão; bloqueia horários
   incompletos na seção; salva/reabre rascunho parcial; aceita 1500 como 15:00;
   confirma missão de 30 min e a recupera após reload; sem page errors.
+- Digitação tecla por tecla e viewport 320×480: PASS após corrigir o ramo web
+  do keyboardDismissMode. No navegador, scroll por foco fechava o input.
+  O ramo Android permanece on-drag; esta correção adicional é exclusiva do web.
 - Testes de geometria cobrem IME sobreposto, resize completo, campo visível e
   campo acima do viewport. Não equivalem a validação de teclado Android físico.
+
+[Android Build 37007970668](https://github.com/Guuh-dev/Nexus-AI-v2/actions/runs/37007970668)
+compila o commit `0ce121f5465a700d6dbed08f0283b5ad3b965e8e`. Os gates de frozen,
+verify, release check, dependency check, Doctor e export passaram no Actions;
+a etapa EAS permanece em andamento no checkpoint 13:04 UTC. Os logs completos
+não estão disponíveis antes do encerramento do job (BlobNotFound).
+A correção web `eba79c0` é posterior ao checkout da build e mantém exatamente
+o mesmo ramo Android de keyboardDismissMode. Não alegar que o APK contém esse
+commit adicional nem distribuir um APK debug como substituto.
 
 APK corrigido ainda depende da conclusão da execução Android Build. Aceite físico
 pendente: instalar por cima sem apagar dados, completar o rascunho existente,
