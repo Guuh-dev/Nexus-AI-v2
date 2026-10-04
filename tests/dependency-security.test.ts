@@ -7,6 +7,15 @@ const expo = createRequire(root.resolve("expo/package.json"));
 const config = createRequire(expo.resolve("@expo/metro-config/package.json"));
 const metro = createRequire(config.resolve("metro/package.json"));
 const router = createRequire(root.resolve("expo-router/package.json"));
+const JS_LITERAL_UNSAFE_CHARS = /[<>\u2028\u2029]/g;
+const JS_LITERAL_ESCAPE_MAP: Record<string, string> = {
+  "<": "\\u003C",
+  ">": "\\u003E",
+  "\u2028": "\\u2028",
+  "\u2029": "\\u2029",
+};
+const toSafeJsStringLiteral = (value: string): string =>
+  JSON.stringify(value).replace(JS_LITERAL_UNSAFE_CHARS, (ch) => JS_LITERAL_ESCAPE_MAP[ch] ?? ch);
 describe("security updates preserve the installed Expo contracts", () => {
   it("reads the real app image assets through Metro's Buffer API", () => {
     const assets = metro("./src/Assets.js") as { getAssetSize: (type: string, bytes: Buffer, path: string) => { width: number; height: number } };
@@ -29,7 +38,7 @@ describe("security updates preserve the installed Expo contracts", () => {
     expect({ ...query.parse(query.stringify({ next: "/focus?taskId=t-1", title: "Ação + entrega" })) }).toEqual({ next: "/focus?taskId=t-1", title: "Ação + entrega" });
   });
   it("terminates on malformed image boxes and long invalid percent encodings", () => {
-    const script = `const {createRequire}=require('node:module');const metro=createRequire(${JSON.stringify(metro.resolve("./package.json"))});const imageSize=(data)=>metro('./src/Assets.js').getAssetSize('png',data,'malformed.png');const bad=Buffer.alloc(24);bad.write('icns');bad.writeUInt32BE(24,4);bad.write('ic07',8);bad.writeUInt32BE(8,12);bad.write('ic07',16);try{imageSize(bad)}catch{}const jxl=Buffer.alloc(20);jxl.writeUInt32BE(12);jxl.write('JXL ',4);try{imageSize(jxl)}catch{}const router=createRequire(${JSON.stringify(router.resolve("./package.json"))});const query=router('query-string');const result=query.parse('value='+('%C0%AF'.repeat(20000)));if(typeof result.value!=='string')process.exit(2);process.stdout.write('terminated');`;
+    const script = `const {createRequire}=require('node:module');const metro=createRequire(${toSafeJsStringLiteral(metro.resolve("./package.json"))});const imageSize=(data)=>metro('./src/Assets.js').getAssetSize('png',data,'malformed.png');const bad=Buffer.alloc(24);bad.write('icns');bad.writeUInt32BE(24,4);bad.write('ic07',8);bad.writeUInt32BE(8,12);bad.write('ic07',16);try{imageSize(bad)}catch{}const jxl=Buffer.alloc(20);jxl.writeUInt32BE(12);jxl.write('JXL ',4);try{imageSize(jxl)}catch{}const router=createRequire(${toSafeJsStringLiteral(router.resolve("./package.json"))});const query=router('query-string');const result=query.parse('value='+('%C0%AF'.repeat(20000)));if(typeof result.value!=='string')process.exit(2);process.stdout.write('terminated');`;
     const result = spawnSync(process.execPath, ["-e", script], { timeout: 3000, encoding: "utf8" });
     expect(result.error).toBeUndefined();expect(result.status).toBe(0);expect(result.stdout).toBe("terminated");
   });
@@ -38,7 +47,7 @@ describe("security updates preserve the installed Expo contracts", () => {
     const micromatch = createRequire(fileMap.resolve("micromatch/package.json"));
     const bracesPath = micromatch.resolve("braces");
     expect(readFileSync(bracesPath.replace(/index\.js$/, "lib/parse.js"), "utf8")).toContain("GHSA-vfj7-8cjw-p6xm");
-    const script = `const braces=require(${JSON.stringify(bracesPath)});const deep='{'.repeat(4000)+'a,b'+'}'.repeat(4000);let kind='none';try{braces.compile(deep)}catch(e){kind=e.constructor.name}const normal=JSON.stringify(braces.expand('src/{a,b}/{c,d}.ts'));process.stdout.write(kind+'|'+normal);`;
+    const script = `const braces=require(${toSafeJsStringLiteral(bracesPath)});const deep='{'.repeat(4000)+'a,b'+'}'.repeat(4000);let kind='none';try{braces.compile(deep)}catch(e){kind=e.constructor.name}const normal=JSON.stringify(braces.expand('src/{a,b}/{c,d}.ts'));process.stdout.write(kind+'|'+normal);`;
     const result = spawnSync(process.execPath, ["-e", script], { timeout: 5000, encoding: "utf8" });
     expect(result.status).toBe(0);
     expect(result.stdout).toBe('SyntaxError|["src/a/c.ts","src/a/d.ts","src/b/c.ts","src/b/d.ts"]');
