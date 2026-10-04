@@ -18,7 +18,8 @@
     "security:secrets": "node scripts/scan-secrets.mjs",
     "release:check": "node scripts/release-check.mjs",
     "verify": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run security:secrets",
-    "native:check": "node scripts/detect-native-changes.mjs"
+    "native:check": "node scripts/detect-native-changes.mjs",
+    "models:prices": "node scripts/check-model-prices.mjs"
   },
   "dependencies": {
     "@expo/dom-webview": "~57.0.1",

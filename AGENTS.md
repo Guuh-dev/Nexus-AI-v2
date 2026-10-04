@@ -269,7 +269,9 @@ Estado local observado no snapshot final de 13 de julho de 2026:
 
 O backend público ainda respondia `apiVersion: "2.3.1"` nesta data. Isso bloqueia tag, release e distribuição da v3 até o deploy do contrato `3.0.0`, mas não impede abrir um draft PR para executar revisão e CI; não enfraqueça o gate para contornar o bloqueio.
 
-O backend atual não tem autenticação e mantém quotas/idempotência em memória. O endpoint de planejamento combina IP e `clientId`, mas não possui um bucket IP-only resistente a rotação de IDs. Isso é aceitável apenas para uso pessoal/demo; antes de distribuição pública multiusuário, autentique usuários, adote quota durável/compartilhada, limite gasto por conta e acrescente proteção de abuso por IP.
+O backend atual não tem autenticação e mantém quotas/idempotência em memória. Assistente e planejamento têm bucket por IP (`cf-connecting-ip`, definido pela Cloudflare na frente do Render), bucket IP+`clientId` e teto global diário; rotacionar IDs não multiplica a quota de um endereço. Isso continua aceitável apenas para uso pessoal/demo: as quotas são por instância e somem no restart. Antes de distribuição pública multiusuário, autentique usuários, adote quota durável/compartilhada e limite gasto por conta.
+
+`pnpm run models:prices` (e o workflow semanal `model-price-watch.yml`) confere, usando só metadados públicos, se cada modelo da allowlist mantém ao menos dois endpoints ZDR dentro do teto de preço da policy.
 
 Cobertura mínima por mudança:
 
