@@ -292,7 +292,7 @@ Cobertura mínima por mudança:
 
 ## CI, APK e OTA
 
-CI executa validação JS/web e um job nativo com JDK 17, prebuild limpo e `:app:assembleDebug`. Security usa audit alto, secret scan e CodeQL. EAS CLI fica fixado nos workflows.
+CI executa validação JS/web e um job nativo com JDK 17, prebuild limpo e `:app:assembleDebug`. Security usa audit alto, secret scan e CodeQL. O audit ignora somente os GHSA listados em `SECURITY.md` (patch local + data de revisão); não amplie essa lista sem patch e justificativa equivalentes. EAS CLI fica fixado nos workflows.
 
 `runtimeVersion` segue `appVersion`. Mudança nativa ou de versão precisa de novo APK-base. OTA só é permitida quando o detector confirma que não houve mudança nativa desde a tag instalada. Não desative o detector, anti-bricking ou confirmações de produção/rollback.
 
