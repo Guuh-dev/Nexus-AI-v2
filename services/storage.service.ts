@@ -36,7 +36,7 @@ import {
   familyFromWidgetSize,
   widgetConfigurationFromPreferences,
   widgetPreferencesPatchFromConfiguration,
-  type WidgetFamily,
+  type LegacyWidgetFamily,
 } from "@/features/widget/render-spec";
 import { resolveThemeId } from "@/theme/theme";
 import type {
@@ -192,7 +192,7 @@ function recoverArray<T>(
   return recovered;
 }
 
-const V3_WIDGET_PRESET: Record<WidgetFamily, WidgetPreferences["preset"]> = {
+const V3_WIDGET_PRESET: Record<LegacyWidgetFamily, WidgetPreferences["preset"]> = {
   mini: "streak",
   strip: "next_action",
   companion: "companion",

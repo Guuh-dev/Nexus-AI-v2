@@ -26,6 +26,9 @@ describe("WidgetRenderSpec v3", () => {
       companion: { size: "2x2", taskLimit: 0, mascotVisible: true },
       mission: { size: "4x2", taskLimit: 2, mascotVisible: true },
       command: { size: "4x4", taskLimit: 4, mascotVisible: true },
+      timer: { size: "2x2", taskLimit: 0, mascotVisible: true },
+      capture: { size: "2x1", taskLimit: 0, mascotVisible: false },
+      streak: { size: "4x2", taskLimit: 0, mascotVisible: true },
     } as const;
     for (const family of WIDGET_FAMILIES) {
       const spec = createWidgetRenderSpec(DEFAULT_PREFERENCES.widget, colors, { family: family.family });
@@ -130,7 +133,7 @@ describe("WidgetRenderSpec v3", () => {
     const data = makeAppData();
     const payload = createWidgetPayload(data);
     expect(payload.schemaVersion).toBe(3);
-    expect(Object.keys(payload.renderSpecs)).toEqual(["mini", "strip", "companion", "mission", "command"]);
+    expect(Object.keys(payload.renderSpecs)).toEqual(["mini", "strip", "companion", "mission", "command", "timer", "capture", "streak"]);
     expect(payload.renderSpecs.mission.taskLimit).toBe(2);
     expect(payload.renderSpecs.command.taskLimit).toBe(4);
     expect(payload.tasks.length).toBeLessThanOrEqual(4);

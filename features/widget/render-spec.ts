@@ -13,7 +13,14 @@ import {
 
 export const WIDGET_RENDER_SPEC_VERSION = 3 as const;
 
-export type WidgetFamily = "mini" | "strip" | "companion" | "mission" | "command";
+export type WidgetFamily = "mini" | "strip" | "companion" | "mission" | "command" | "timer" | "capture" | "streak";
+/** Single-purpose families added in 3.1. They need an APK that declares utility widget support. */
+export const UTILITY_WIDGET_FAMILIES = ["timer", "capture", "streak"] as const;
+export type UtilityWidgetFamily = (typeof UTILITY_WIDGET_FAMILIES)[number];
+export type LegacyWidgetFamily = Exclude<WidgetFamily, UtilityWidgetFamily>;
+export function isUtilityWidgetFamily(family: WidgetFamily): family is UtilityWidgetFamily {
+  return (UTILITY_WIDGET_FAMILIES as readonly string[]).includes(family);
+}
 export type WidgetSupportedSize = "1x1" | "2x1" | "2x2" | "4x2" | "4x4";
 export type WidgetSpeechMode = "contextual" | "silent";
 export type WidgetCoreTapAction = "today" | "brain" | "focus" | "progress";
@@ -26,7 +33,10 @@ export type WidgetContent =
   | "mission"
   | "tasks"
   | "command"
-  | "focus";
+  | "focus"
+  | "timer"
+  | "capture"
+  | "heatmap";
 
 export type WidgetScene = "none" | "desk" | "garden" | "night";
 export type WidgetInstanceConfiguration = {
@@ -101,6 +111,9 @@ export const WIDGET_FAMILIES: readonly {
   { family: "companion", size: "2x2", label: "Companion", description: "Mascote, humor e uma fala curta.", taskLimit: 0 },
   { family: "mission", size: "4x2", label: "Mission", description: "Missão, até duas tarefas e progresso.", taskLimit: 2 },
   { family: "command", size: "4x4", label: "Command", description: "Missão, tarefas, foco, progresso e Companion.", taskLimit: 4 },
+  { family: "timer", size: "2x2", label: "Timer", description: "Sessão de foco com tempo ao vivo.", taskLimit: 0 },
+  { family: "capture", size: "2x1", label: "Captura", description: "Um toque abre a captura rápida.", taskLimit: 0 },
+  { family: "streak", size: "4x2", label: "Sequência", description: "Mapa de 12 semanas, sequência e foco.", taskLimit: 0 },
 ];
 
 export const CONTENT_BY_FAMILY: Record<WidgetFamily, readonly { value: WidgetContent; label: string }[]> = {
@@ -121,6 +134,9 @@ export const CONTENT_BY_FAMILY: Record<WidgetFamily, readonly { value: WidgetCon
     { value: "command", label: "Command completo" },
     { value: "focus", label: "Foco em destaque" },
   ],
+  timer: [{ value: "timer", label: "Sessão de foco" }],
+  capture: [{ value: "capture", label: "Atalho de captura" }],
+  streak: [{ value: "heatmap", label: "Mapa de 12 semanas" }],
 };
 
 const SIZE_BY_FAMILY: Record<WidgetFamily, WidgetSupportedSize> = {
@@ -129,9 +145,12 @@ const SIZE_BY_FAMILY: Record<WidgetFamily, WidgetSupportedSize> = {
   companion: "2x2",
   mission: "4x2",
   command: "4x4",
+  timer: "2x2",
+  capture: "2x1",
+  streak: "4x2",
 };
 
-export function familyFromWidgetSize(size: WidgetSize | string): WidgetFamily {
+export function familyFromWidgetSize(size: WidgetSize | string): LegacyWidgetFamily {
   switch (size) {
     case "1x1":
       return "mini";
@@ -181,6 +200,12 @@ export function defaultContentForFamily(
       return preferences?.contentMode === "tasks" ? "tasks" : "mission";
     case "command":
       return preferences?.contentMode === "focus" ? "focus" : "command";
+    case "timer":
+      return "timer";
+    case "capture":
+      return "capture";
+    case "streak":
+      return "heatmap";
   }
 }
 
@@ -271,6 +296,19 @@ export function widgetPreferencesPatchFromConfiguration(
   config: WidgetInstanceConfiguration,
 ): Partial<WidgetPreferences> {
   const family = config.family;
+  // Utility families have no legacy preferredSize; saving one as the default
+  // only updates shared visuals and keeps the default layout family intact.
+  if (isUtilityWidgetFamily(family)) {
+    return {
+      style: config.style,
+      background: config.style === "amoled" ? "amoled" : config.style === "transparent" ? "translucent" : "solid",
+      opacity: Math.max(0.2, normalizeOpacityPercent(config.opacityPercent) / 100),
+      accentColor: config.accentColor,
+      mascot: config.mascot,
+      companionMood: config.personality,
+      privacyMode: config.privateMode,
+    };
+  }
   const content = normalizeWidgetContent(family, config.content);
   return {
     scene: normalizeWidgetScene(config.scene), showMetric: config.showMetric !== false,
@@ -386,6 +424,12 @@ function fieldsForFamily(family: WidgetFamily, content: WidgetContent): WidgetRe
         progress: true,
         companion: true,
       };
+    case "timer":
+      return { mascot: true, metric: null, nextAction: true, mission: false, tasks: false, focus: true, progress: true, companion: false };
+    case "capture":
+      return { mascot: false, metric: null, nextAction: false, mission: false, tasks: false, focus: false, progress: false, companion: false };
+    case "streak":
+      return { mascot: true, metric: "streak", nextAction: false, mission: false, tasks: false, focus: true, progress: false, companion: false };
   }
 }
 
@@ -401,6 +445,12 @@ function emptyStateForFamily(family: WidgetFamily): WidgetRenderSpec["emptyState
       return { title: "Prepare sua missão", body: "Gere o plano de hoje para preencher este widget.", actionLabel: "Planejar hoje" };
     case "command":
       return { title: "Command pronto", body: "Gere o plano de hoje para ativar sua central.", actionLabel: "Abrir Hoje" };
+    case "timer":
+      return { title: "Pronto para focar", body: "Escolha a próxima tarefa e comece uma sessão.", actionLabel: "Iniciar" };
+    case "capture":
+      return { title: "Capturar", body: "ideia, tarefa ou lembrete", actionLabel: "Capturar" };
+    case "streak":
+      return { title: "Sua sequência começa hoje", body: "Cada dia com foco ou tarefa concluída acende uma célula.", actionLabel: "Abrir Progresso" };
   }
 }
 

@@ -2,7 +2,8 @@ import { PixelHabitat } from "@/components/PixelHabitat";
 import { peekFocusRuntime, type FocusRuntime } from "@/services/focus-runtime.service";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { QuickCapture } from "@/components/QuickCapture";
 import { Card } from "@/components/ui/Card";
 import { Screen } from "@/components/ui/Screen";
 import { NexusText } from "@/components/ui/NexusText";
@@ -26,6 +27,10 @@ export function LockInToday() {
   const [details, setDetails] = useState<string | null>(null);
   const [editing, setEditing] = useState<Task | undefined>();
   const [editorOpen, setEditorOpen] = useState(false);
+  // The launcher shortcut and the Captura widget open nexusai://today?capture=1.
+  const params = useLocalSearchParams<{ capture?: string }>();
+  const [captureOpen, setCaptureOpen] = useState(false);
+  useEffect(() => { if (params.capture === "1") setCaptureOpen(true); }, [params.capture]);
   const plan = data.activePlan!;
   const goal = data.lockIn.goals.find((g) => g.state === "primary");
   const next = plan.tasks.find((t) => !t.completed && plan.mainMission.taskIds?.includes(t.id)) ?? plan.tasks.find((t) => !t.completed);
@@ -92,7 +97,7 @@ export function LockInToday() {
 
     {signal && <Card tone="warning" style={styles.gap8}><NexusText variant="subtitle" color={colors.warning}>{signal.title}</NexusText><NexusText secondary>{signal.message}</NexusText></Card>}
 
-    <SectionHeader title="Próximos passos" meta={plan.tasks.length ? `${done} de ${plan.tasks.length} concluídos` : undefined} action={<NexusButton label="Adicionar" compact variant="ghost" onPress={() => { setEditing(undefined); setEditorOpen(true); }} />} />
+    <SectionHeader title="Próximos passos" meta={plan.tasks.length ? `${done} de ${plan.tasks.length} concluídos` : undefined} action={<View style={styles.actions}><NexusButton label="Capturar" compact variant="ghost" onPress={() => setCaptureOpen(true)} /><NexusButton label="Adicionar" compact variant="ghost" onPress={() => { setEditing(undefined); setEditorOpen(true); }} /></View>} />
     <Card style={styles.list}>
       {plan.tasks.length === 0 && <NexusText secondary style={styles.listEmpty}>Nenhum passo registrado. Adicione o próximo passo real.</NexusText>}
       {plan.tasks.map((task, index) => <View key={task.id}>
@@ -118,7 +123,7 @@ export function LockInToday() {
       </View>)}
     </Card>
     {data.corruptionWarnings.length > 0 && <Card tone="warning"><NexusText color={colors.warning}>{data.corruptionWarnings.join("\n")}</NexusText></Card>}
-  </View></Screen><TaskEditor visible={editorOpen} task={editing} onSave={save} onClose={() => setEditorOpen(false)} /></>;
+  </View></Screen><TaskEditor visible={editorOpen} task={editing} onSave={save} onClose={() => setEditorOpen(false)} /><QuickCapture visible={captureOpen} onClose={() => { setCaptureOpen(false); if (params.capture) router.setParams({ capture: undefined }); }} /></>;
 }
 
 function Detail({ label, value }: { label: string; value?: string }) {
@@ -132,6 +137,7 @@ const styles = StyleSheet.create({
   topBar: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 4 },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   rowStart: { flexDirection: "row" },
+  actions: { flexDirection: "row", gap: 4 },
   mission: { gap: 16, padding: 20 },
   missionText: { gap: 6 },
   missionTitle: { fontSize: 24, lineHeight: 30 },
