@@ -11,6 +11,7 @@ function section(source: string, start: string, end: string): string {
 
 describe("confirmed product persistence flows", () => {
   const provider = readFileSync("providers/NexusProvider.tsx", "utf8");
+  const contextTypes = readFileSync("providers/nexus-context.types.ts", "utf8");
 
   it("exposes confirmed mutations and implements them with commitConfirmed", () => {
     for (const contract of [
@@ -23,7 +24,7 @@ describe("confirmed product persistence flows", () => {
       /renameRoadmap: .*Promise<boolean>/,
       /deleteRoadmap: .*Promise<boolean>/,
     ]) {
-      expect(provider).toMatch(contract);
+      expect(contextTypes).toMatch(contract);
     }
 
     for (const [start, end] of [

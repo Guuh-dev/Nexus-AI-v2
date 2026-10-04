@@ -6,7 +6,7 @@ describe("Provider v3 integrity gates", () => {
 
   it("shows the reminder state the platform actually accepted", () => {
     const reconcileStart = provider.indexOf("async function reconcileDailyReminder");
-    const reconcileEnd = provider.indexOf("function unlockAchievements", reconcileStart);
+    const reconcileEnd = provider.indexOf("export function NexusProvider", reconcileStart);
     const reconcile = provider.slice(reconcileStart, reconcileEnd);
     expect(reconcile).toContain("if (result.enabled === requested) return data");
     expect(reconcile).not.toContain("!result.supported");
@@ -95,7 +95,7 @@ describe("Provider v3 integrity gates", () => {
   it("keeps failed assistant task actions pending and distinguishes saved Atlas evidence", () => {
     expect(provider).toContain("O plano de hoje já tem cinco tarefas");
     expect(provider).toContain("withTask === current");
-    expect(provider).toContain('type EvidenceSubmissionResult = "not_saved" | "saved_pending" | "reviewed"');
+    expect(readFileSync("providers/nexus-context.types.ts", "utf8")).toContain('type EvidenceSubmissionResult = "not_saved" | "saved_pending" | "reviewed"');
     expect(readFileSync("components/RoadmapCard.tsx", "utf8")).toContain('result === "saved_pending"');
   });
 
