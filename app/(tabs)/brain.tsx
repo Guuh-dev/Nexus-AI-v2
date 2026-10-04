@@ -1,5 +1,5 @@
 import { pickChatTextAttachment } from "@/services/chat-attachment.service";
-import { NexusIcon } from "@/components/ui/NexusIcon";
+import { IconButton, ScreenHeader } from "@/components/ui/Layout";
 import { AtlasLessonPanel } from "@/components/AtlasLessonPanel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -373,9 +373,9 @@ export default function BrainScreen() {
   return (
     <>
       <Screen>
-        <View style={[styles.row, { marginTop: 10, marginBottom: 20 }]}><NexusText variant="title">Brain</NexusText><Pressable accessibilityRole="button" accessibilityLabel="Configurações" onPress={() => router.push("/settings")} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}><NexusIcon name="settings" color={colors.text} size={21} /></Pressable></View>
-        <View style={{ flexDirection: "row", padding: 4, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.border }}>
-          {(["brain", "professor"] as const).map((value) => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: kind === value }} accessibilityLabel={value === "brain" ? "Nexus" : "Professor"} onPress={() => changeKind(value)} style={{ flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: 20, backgroundColor: kind === value ? value === "professor" ? colors.success : colors.primary : "transparent" }}><NexusText variant="subtitle" color={kind === value ? colors.onPrimary : colors.textSecondary}>{value === "brain" ? "Nexus" : "Professor"}</NexusText></Pressable>)}
+        <View style={{ marginBottom: 16 }}><ScreenHeader eyebrow="Brain" title={kind === "professor" ? "Aprenda com o Atlas." : "Pense com o Nexus."} trailing={<IconButton icon="settings" label="Configurações" onPress={() => router.push("/settings")} />} /></View>
+        <View style={{ flexDirection: "row", padding: 4, backgroundColor: colors.surfaceAlt, borderRadius: 14, borderWidth: 1, borderColor: colors.border }}>
+          {(["brain", "professor"] as const).map((value) => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: kind === value }} accessibilityLabel={value === "brain" ? "Nexus" : "Professor"} onPress={() => changeKind(value)} style={{ flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: kind === value ? colors.surfaceRaised : "transparent", borderWidth: 1, borderColor: kind === value ? colors.borderStrong : "transparent" }}><NexusText variant="subtitle" color={kind === value ? colors.text : colors.textSecondary}>{value === "brain" ? "Nexus" : "Professor"}</NexusText></Pressable>)}
         </View>
         {mode !== "home" && <View style={[styles.hero, { marginTop: 24 }]}><View style={styles.flex}><NexusText variant="display">{mode === "memory" ? "Memória sob seu controle." : "Trilhas de domínio."}</NexusText></View><CompanionMascot mascot={kind === "professor" ? "atlas" : "nexus"} size={72} /></View>}
         {mode !== "home" && <View style={styles.tabs}><ChoiceChip label="Conversas" selected={false} onPress={() => setMode("home")} /><ChoiceChip label={`Memórias ${data.brain.memories.length}`} selected={mode === "memory"} onPress={() => setMode("memory")} /><ChoiceChip label="Roadmaps" selected={mode === "roadmaps"} onPress={() => setMode("roadmaps")} /></View>}
@@ -521,7 +521,7 @@ export default function BrainScreen() {
         {mode === "home" ? (
           <>
             {kind === "professor" && <><Card style={{ gap: 12, marginTop: 18 }}><NexusText variant="title">O que você quer conseguir fazer?</NexusText><NexusText secondary>Conte do seu jeito. Atlas pergunta só o necessário, apresenta seu diagnóstico e ajusta a proposta com você.</NexusText><NexusButton label="Conversar e criar minha proposta" fullWidth onPress={() => { void newThread(); }} /></Card><AtlasLessonPanel onContinue={() => { void newThread(true); }} /></>}
-            {kind === "brain" && <Card elevated style={[styles.modeCard, { padding: 20 }]}><View style={styles.row}><View style={styles.flex}><NexusText variant="mono" color={colors.primary}>NEXUS / COPILOTO</NexusText><NexusText variant="display">Conte do seu jeito.</NexusText></View><PixelMascot size={72} /></View><NexusText secondary>Nexus entende seu pedido, apresenta uma proposta e começa depois da sua aprovação. Você pode ajustar antes de seguir.</NexusText><NexusButton label="Nova conversa" onPress={() => { void newThread(); }} fullWidth /></Card>}
+            {kind === "brain" && <Card elevated style={[styles.modeCard, { padding: 20 }]}><View style={styles.row}><View style={[styles.flex, { gap: 6 }]}><NexusText variant="eyebrow" color={colors.primarySoft}>Copiloto</NexusText><NexusText variant="title">Conte do seu jeito.</NexusText></View><PixelMascot size={56} /></View><NexusText secondary>Nexus entende seu pedido, apresenta uma proposta e começa depois da sua aprovação. Você pode ajustar antes de seguir.</NexusText><NexusButton label="Nova conversa" onPress={() => { void newThread(); }} fullWidth /></Card>}
             <View style={[styles.tabs, { marginTop: 16 }]}><ChoiceChip label={`Memórias ${data.brain.memories.length}`} selected={false} onPress={() => setMode("memory")} /><ChoiceChip label="Minhas trilhas" selected={false} onPress={() => setMode("roadmaps")} />{kind === "professor" && <NexusButton label="Nova conversa com Atlas" compact variant="ghost" onPress={() => { void newThread(); }} />}</View>
             <View style={styles.section}>
               <View style={styles.sectionHeader}>

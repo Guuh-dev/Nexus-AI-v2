@@ -17,7 +17,7 @@ export function Field({ label, hint, error, style, ...props }: Props) {
   const keyboardAware = useContext(KeyboardAwareFormContext);
   return (
     <View ref={wrapperRef} collapsable={false} style={styles.wrapper}>
-      <NexusText variant="caption" color={error ? colors.danger : colors.textSecondary}>
+      <NexusText variant="caption" color={error ? colors.danger : focused ? colors.primarySoft : colors.textSecondary}>
         {label}
       </NexusText>
       <TextInput
@@ -40,9 +40,9 @@ export function Field({ label, hint, error, style, ...props }: Props) {
           styles.input,
           {
             color: colors.text,
-            backgroundColor: colors.surface,
+            backgroundColor: colors.surfaceAlt,
             borderColor: error ? colors.danger : focused ? colors.primary : colors.border,
-            borderRadius: Math.max(8, visuals.buttonRadius - 1),
+            borderRadius: Math.max(8, visuals.buttonRadius),
           },
           props.multiline && styles.multiline,
           style,
@@ -58,15 +58,14 @@ export function Field({ label, hint, error, style, ...props }: Props) {
 }
 
 const styles = StyleSheet.create({
-  wrapper: { gap: 7 },
+  wrapper: { gap: 6 },
   input: {
-    minHeight: 52,
-    borderRadius: 15,
+    minHeight: 48,
     borderWidth: 1,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
-    lineHeight: 22,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
+    lineHeight: 21,
   },
-  multiline: { minHeight: 104, textAlignVertical: "top" },
+  multiline: { minHeight: 92, textAlignVertical: "top" },
 });

@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_PREFERENCES } from "@/constants/defaults";
 import { applyWidgetPreset, WIDGET_PRESETS } from "@/features/widget/presets";
-import { WIDGET_FAMILIES } from "@/features/widget/render-spec";
+import { WIDGET_FAMILIES, isUtilityWidgetFamily } from "@/features/widget/render-spec";
 import { preferencesSchema } from "@/schemas/storage.schema";
 
 describe("Widget Studio v3 presets", () => {
   it("offers exactly one schema-valid preset for each useful family", () => {
     expect(WIDGET_PRESETS).toHaveLength(5);
     expect(WIDGET_PRESETS.map((preset) => preset.recommendedSize)).toEqual(
-      WIDGET_FAMILIES.map((family) => family.size),
+      WIDGET_FAMILIES.filter((family) => !isUtilityWidgetFamily(family.family)).map((family) => family.size),
     );
 
     for (const preset of WIDGET_PRESETS) {

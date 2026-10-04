@@ -8,18 +8,18 @@ const configure = readFileSync(`${root}/java/expo/modules/nexuswidget/NexusWidge
 const plugin = readFileSync("plugins/withNexusWidget.js", "utf8");
 
 describe("native Widget Family 3.0", () => {
-  it("publishes exactly the five useful picker families", () => {
-    for (const family of ["Mini", "Strip", "Companion", "Mission"]) {
+  it("publishes exactly the eight useful picker families", () => {
+    for (const family of ["Mini", "Strip", "Companion", "Mission", "Timer", "Capture", "Streak"]) {
       expect(provider).toContain(`class Nexus${family}WidgetProvider`);
       expect(plugin).toContain(`Nexus${family}WidgetProvider`);
     }
-    for (const info of ["mini", "strip", "companion", "mission"]) {
+    for (const info of ["mini", "strip", "companion", "mission", "timer", "capture", "streak"]) {
       const xml = readFileSync(`${root}/res/xml/nexus_widget_${info}_info.xml`, "utf8");
       expect(xml).toContain("android:targetCellWidth");
       expect(xml).toContain("android:previewLayout");
       expect(xml).toContain('android:updatePeriodMillis="0"');
     }
-    expect(plugin.match(/info: "@xml\//g)).toHaveLength(5);
+    expect(plugin.match(/info: "@xml\//g)).toHaveLength(8);
     expect(plugin).not.toContain("3x2");
     expect(plugin).not.toContain("4x1");
     expect(plugin).not.toContain("4x3");

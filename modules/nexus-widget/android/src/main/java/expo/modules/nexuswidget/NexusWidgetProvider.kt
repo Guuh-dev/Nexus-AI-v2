@@ -6,8 +6,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -17,12 +19,16 @@ import org.json.JSONObject
 import java.util.Locale
 import java.util.UUID
 
-enum class NexusWidgetFamily(val storageName: String, val layout: Int, val taskLimit: Int) {
+enum class NexusWidgetFamily(val storageName: String, val layout: Int, val taskLimit: Int, val utility: Boolean = false) {
   MINI("mini", R.layout.nexus_widget_mini, 0),
   STRIP("strip", R.layout.nexus_widget_strip, 0),
   COMPANION("companion", R.layout.nexus_widget_companion, 0),
   MISSION("mission", R.layout.nexus_widget_mission, 2),
   COMMAND("command", R.layout.nexus_widget, 4),
+  // Single-purpose families render through NexusUtilityWidgets with their own view ids.
+  TIMER("timer", R.layout.nexus_widget_timer, 0, utility = true),
+  CAPTURE("capture", R.layout.nexus_widget_capture, 0, utility = true),
+  STREAK("streak", R.layout.nexus_widget_streak, 0, utility = true),
 }
 
 private data class NativeWidgetRenderSpec(
@@ -128,6 +134,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusCompanionWidgetProvider::class.java to NexusWidgetFamily.COMPANION,
       NexusMissionWidgetProvider::class.java to NexusWidgetFamily.MISSION,
       NexusWidgetProvider::class.java to NexusWidgetFamily.COMMAND,
+      NexusTimerWidgetProvider::class.java to NexusWidgetFamily.TIMER,
+      NexusCaptureWidgetProvider::class.java to NexusWidgetFamily.CAPTURE,
+      NexusStreakWidgetProvider::class.java to NexusWidgetFamily.STREAK,
     )
 
     fun familyForProviderClass(className: String): NexusWidgetFamily? =
@@ -335,6 +344,21 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       val spec = resolveRenderSpec(payload, appearance, instance, family, forcedContent)
       val backgroundResource = backgroundResource(spec.style, spec.opacityPercent)
       views.setInt(R.id.nexus_widget_root, "setBackgroundResource", backgroundResource)
+      if (family.utility) {
+        return NexusUtilityWidgets.render(
+          context,
+          views,
+          widgetId,
+          family,
+          payload,
+          privateMode = spec.privateMode,
+          accentColor = spec.accentColor,
+          textColor = spec.textColor,
+          secondaryTextColor = spec.secondaryTextColor,
+          mascotDrawable = if (spec.mascot == "atlas") atlasMascotPose(payload, spec) else nexusMascotPose(payload, spec, widgetId),
+          showMascot = spec.showMascot,
+        )
+      }
 
       resetVisibility(views)
       applyColorsAndMascot(views, payload, appearance, instance, widgetId, spec)
@@ -386,6 +410,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
           completed,
           total,
         )
+        NexusWidgetFamily.TIMER, NexusWidgetFamily.CAPTURE, NexusWidgetFamily.STREAK -> Unit
       }
 
       if (!spec.showMascot) {
@@ -404,7 +429,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       if ((family == NexusWidgetFamily.MISSION || family == NexusWidgetFamily.COMMAND) && !spec.privateMode && total > 0) {
         views.setViewVisibility(R.id.nexus_widget_progress, View.VISIBLE)
         views.setProgressBar(R.id.nexus_widget_progress, 100, progressPercentage, false)
-        views.setTextViewText(R.id.nexus_widget_progress_text, "$completed de $total tarefas")
+        views.setTextViewText(R.id.nexus_widget_progress_text, "$completed de $total passos")
       }
       bindRootAction(context, views, widgetId, spec.tapAction)
       if (legacyPageCycle) {
@@ -536,6 +561,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         R.id.nexus_widget_progress_text,
         R.id.nexus_widget_capture,
         R.id.nexus_widget_streak,
+        R.id.nexus_widget_focus_button,
       ).forEach { views.setViewVisibility(it, View.GONE) }
     }
 
@@ -572,6 +598,10 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         "ember" -> R.drawable.ic_nexus_ember
         else -> nexusMascotPose(payload, spec, widgetId)
       })
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        views.setColorStateList(R.id.nexus_widget_progress, "setProgressTintList", ColorStateList.valueOf(spec.accentColor))
+        views.setColorStateList(R.id.nexus_widget_focus_button, "setBackgroundTintList", ColorStateList.valueOf(spec.accentColor))
+      }
       // Accent colors belong to chrome and typography, never to character art;
       // tinting RemoteViews vectors destroys each companion's palette.
       views.setContentDescription(R.id.nexus_widget_mascot, "Nexus Companion: ${spec.personality}")
@@ -619,15 +649,15 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_mascot_stage, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_mascot, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_streak, View.VISIBLE)
-      views.setTextColor(R.id.nexus_widget_streak, spec.accentColor)
+      views.setTextColor(R.id.nexus_widget_streak, spec.textColor)
       views.setTextViewText(
         R.id.nexus_widget_streak,
         if (spec.privateMode) {
           "NEXUS"
         } else if (spec.content == "xp") {
-          "⬡ ${payload?.optInt("totalXp", 0) ?: 0} XP"
+          "${payload?.optInt("totalXp", 0) ?: 0} XP"
         } else {
-          "♨ ${payload?.optInt("streak", 0) ?: 0}"
+          "${payload?.optInt("streak", 0) ?: 0} dias"
         },
       )
       views.setContentDescription(
@@ -665,10 +695,12 @@ open class NexusWidgetProvider : AppWidgetProvider() {
           if (total > 0) "$percentage% concluído" else spec.emptyTitle,
         )
       } else {
-        views.setTextViewText(R.id.nexus_widget_brand, "→ PRÓXIMA AÇÃO")
+        views.setTextViewText(R.id.nexus_widget_brand, "PRÓXIMO PASSO")
         views.setTextViewText(R.id.nexus_widget_mission, nextAction)
       }
-      views.setTextViewText(R.id.nexus_widget_progress_text, "${progressMeter(percentage)}  $completed/$total")
+      views.setTextViewText(R.id.nexus_widget_progress_text, "$completed de $total passos")
+      views.setViewVisibility(R.id.nexus_widget_progress, View.VISIBLE)
+      views.setProgressBar(R.id.nexus_widget_progress, 100, percentage, false)
     }
 
     private fun renderCompanion(
@@ -680,8 +712,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_mascot_stage, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_mascot, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_brand, View.VISIBLE)
-      views.setViewVisibility(R.id.nexus_widget_feature_title, View.VISIBLE)
+      views.setViewVisibility(R.id.nexus_widget_feature_title, View.GONE)
       views.setViewVisibility(R.id.nexus_widget_feature_body, View.GONE)
+      views.setTextColor(R.id.nexus_widget_brand, spec.textColor)
       views.setTextViewText(R.id.nexus_widget_brand, if (spec.privateMode || spec.speech == "silent" || !planAvailable) "Um passo por vez" else companionLine(payload, spec))
       views.setTextViewText(
         R.id.nexus_widget_feature_title,
@@ -722,11 +755,12 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       }
       views.setTextViewText(
         R.id.nexus_widget_progress_text,
-        if (total > 0) "${progressMeter(completed * 100 / total)}  $completed/$total" else "${spec.emptyAction} →",
+        if (total > 0) "$completed de $total passos" else "${spec.emptyAction} →",
       )
       if (spec.privateMode) {
         views.setViewVisibility(R.id.nexus_widget_progress_text, View.GONE)
       }
+      bindFocusButton(context, views, widgetId, visible = planAvailable && !spec.privateMode, label = "▶ Focar")
       renderTasks(context, views, widgetId, payload, spec, planAvailable)
     }
 
@@ -747,8 +781,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_mission, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_feature_title, View.GONE)
       views.setViewVisibility(R.id.nexus_widget_feature_body, View.GONE)
-      views.setViewVisibility(R.id.nexus_widget_capture, View.VISIBLE)
-      views.setTextViewText(R.id.nexus_widget_capture, if (spec.tapAction == "focus") "›  Abrir foco" else "›  Abrir Nexus")
+      views.setViewVisibility(R.id.nexus_widget_capture, View.GONE)
       views.setViewVisibility(R.id.nexus_widget_metrics, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_progress_text, View.VISIBLE)
       views.setTextViewText(R.id.nexus_widget_brand, "Seu dia, com direção.")
@@ -767,20 +800,21 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setTextViewText(
         R.id.nexus_widget_metrics,
         if (spec.privateMode) "PRIVADO" else when (payload?.optString("focusStatus")) {
-          "paused" -> "Ⅱ Sessão pausada · ${payload?.optInt("sessionMinutes", 0) ?: 0} min"
-          "running" -> "▶ Sessão em andamento · ${payload?.optInt("sessionMinutes", 0) ?: 0} min confirmados"
+          "paused" -> "Sessão pausada · ${payload?.optInt("sessionMinutes", 0) ?: 0} min"
+          "running" -> "Em foco · ${payload?.optInt("sessionMinutes", 0) ?: 0} min confirmados"
           "completed" -> "Revisar entrega da sessão"
-          else -> "${payload?.optInt("focusMinutes", 0) ?: 0} min de foco registrado"
+          else -> "${payload?.optInt("focusMinutes", 0) ?: 0} min de foco hoje · ${payload?.optInt("streak", 0) ?: 0}d de sequência"
         },
       )
       views.setTextViewText(
         R.id.nexus_widget_progress_text,
-        if (total > 0) "${progressMeter(completed * 100 / total)}  $completed/$total" else "${spec.emptyAction} →",
+        if (total > 0) "$completed de $total passos" else "${spec.emptyAction} →",
       )
       if (spec.privateMode) {
         views.setViewVisibility(R.id.nexus_widget_metrics, View.GONE)
         views.setViewVisibility(R.id.nexus_widget_progress_text, View.GONE)
       }
+      bindFocusButton(context, views, widgetId, visible = !spec.privateMode, label = if (payload?.optString("focusStatus") in setOf("running", "paused")) "▶ Voltar" else "▶ Focar")
       renderTasks(context, views, widgetId, payload, spec, planAvailable)
     }
 
@@ -808,7 +842,6 @@ open class NexusWidgetProvider : AppWidgetProvider() {
           taskId = task?.optString("id"),
           title = if (spec.privateMode && task != null) "Tarefa privada" else task?.optString("title"),
           completed = task?.optBoolean("completed", false) ?: false,
-          accentColor = spec.accentColor,
           allowed = index < visibleLimit,
           mainText = spec.textColor,
           secondaryText = spec.secondaryTextColor,
@@ -850,6 +883,20 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       )
     }
 
+    private fun bindFocusButton(context: Context, views: RemoteViews, widgetId: Int, visible: Boolean, label: String) {
+      views.setViewVisibility(R.id.nexus_widget_focus_button, if (visible) View.VISIBLE else View.GONE)
+      if (!visible) return
+      views.setTextViewText(R.id.nexus_widget_focus_button, label)
+      val intent = (context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent(Intent.ACTION_VIEW)).apply {
+        data = Uri.parse("nexusai://focus")
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      }
+      views.setOnClickPendingIntent(
+        R.id.nexus_widget_focus_button,
+        PendingIntent.getActivity(context, 9500 + widgetId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE),
+      )
+    }
+
     private fun setTask(
       context: Context,
       views: RemoteViews,
@@ -858,7 +905,6 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       taskId: String?,
       title: String?,
       completed: Boolean,
-      accentColor: Int,
       allowed: Boolean,
       mainText: Int,
       secondaryText: Int,
@@ -890,8 +936,8 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         return
       }
       views.setViewVisibility(containerIds[index], View.VISIBLE)
-      views.setTextViewText(checkIds[index], if (completed) "✓" else "○")
-      views.setTextColor(checkIds[index], if (completed) Color.rgb(74, 222, 128) else accentColor)
+      views.setTextViewText(checkIds[index], if (completed) "✓" else "")
+      views.setInt(checkIds[index], "setBackgroundResource", if (completed) R.drawable.nexus_check_done else R.drawable.nexus_check_empty)
       views.setTextViewText(titleIds[index], title)
       views.setTextColor(titleIds[index], if (completed) secondaryText else mainText)
       if (allowToggle && !taskId.isNullOrBlank()) {
@@ -972,11 +1018,6 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       return percentage.toInt().coerceIn(0, 100)
     }
 
-    private fun progressMeter(percentage: Int): String {
-      val filled = (percentage.coerceIn(0, 100) * 8 / 100).coerceIn(0, 8)
-      return "●".repeat(filled) + "○".repeat(8 - filled)
-    }
-
     private fun normalizeStyle(value: String): String = when (value) {
       "nexus", "amoled", "transparent", "pixel", "minimal" -> value
       "gamer" -> "pixel"
@@ -990,6 +1031,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "companion"
       NexusWidgetFamily.MISSION -> if (value == "tasks") "tasks" else "mission"
       NexusWidgetFamily.COMMAND -> if (value == "focus") "focus" else "command"
+      NexusWidgetFamily.TIMER -> "timer"
+      NexusWidgetFamily.CAPTURE -> "capture"
+      NexusWidgetFamily.STREAK -> "heatmap"
     }
 
     private fun normalizeSpeech(value: String): String = if (value == "silent") "silent" else "contextual"
@@ -1049,6 +1093,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "NEXUS COMPANION"
       NexusWidgetFamily.MISSION -> "MISSÃO DE HOJE"
       NexusWidgetFamily.COMMAND -> "NEXUS COMMAND"
+      NexusWidgetFamily.TIMER -> "NEXUS TIMER"
+      NexusWidgetFamily.CAPTURE -> "CAPTURAR"
+      NexusWidgetFamily.STREAK -> "SEQUÊNCIA"
     }
 
     private fun defaultEmptyTitle(family: NexusWidgetFamily): String = when (family) {
@@ -1057,6 +1104,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "Nexus está aqui"
       NexusWidgetFamily.MISSION -> "Prepare sua missão"
       NexusWidgetFamily.COMMAND -> "Command pronto"
+      NexusWidgetFamily.TIMER -> "Pronto para focar"
+      NexusWidgetFamily.CAPTURE -> "Capturar"
+      NexusWidgetFamily.STREAK -> "Sua sequência começa hoje"
     }
 
     private fun defaultEmptyBody(family: NexusWidgetFamily): String = when (family) {
@@ -1065,6 +1115,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "Abra o app para dar contexto ao Companion."
       NexusWidgetFamily.MISSION -> "Gere o plano de hoje para preencher este widget."
       NexusWidgetFamily.COMMAND -> "Gere o plano de hoje para ativar sua central."
+      NexusWidgetFamily.TIMER -> "Escolha a próxima tarefa e comece uma sessão."
+      NexusWidgetFamily.CAPTURE -> "ideia, tarefa ou lembrete"
+      NexusWidgetFamily.STREAK -> "Cada dia com foco ou tarefa concluída acende uma célula."
     }
 
     private fun accessoryGlyph(accessory: String): String = when (accessory) {
@@ -1101,4 +1154,16 @@ class NexusCompanionWidgetProvider : NexusWidgetProvider() {
 
 class NexusMissionWidgetProvider : NexusWidgetProvider() {
   override val family = NexusWidgetFamily.MISSION
+}
+
+class NexusTimerWidgetProvider : NexusWidgetProvider() {
+  override val family = NexusWidgetFamily.TIMER
+}
+
+class NexusCaptureWidgetProvider : NexusWidgetProvider() {
+  override val family = NexusWidgetFamily.CAPTURE
+}
+
+class NexusStreakWidgetProvider : NexusWidgetProvider() {
+  override val family = NexusWidgetFamily.STREAK
 }

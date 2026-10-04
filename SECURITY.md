@@ -75,3 +75,19 @@ Disponibilidade, política de retenção efetiva e segurança operacional també
 ## Relato responsável
 
 Não abra issue pública com dados reais, backups ou chaves. Envie ao mantenedor uma reprodução mínima, impacto, versão afetada e qualquer evidência já sanitizada por canal privado.
+
+## Exceções do audit de dependências
+
+`pnpm audit --audit-level=high` continua bloqueando o CI. Só os advisories abaixo
+estão em `pnpm.auditConfig.ignoreGhsas`, por decisão do mantenedor em
+2026-10-04. Nenhum tem versão corrigida publicada e ambos têm patch local
+aplicado via `pnpm.patchedDependencies`. Qualquer advisory novo continua falhando.
+
+| Advisory | Pacote | Por que entra no projeto | Mitigação |
+| --- | --- | --- | --- |
+| GHSA-86w9-cpqp-85rv | node-forge ≤1.4.0 | Ferramentas de certificado da CLI do Expo (build). Não é empacotado no app. | `patches/node-forge@1.4.0.patch` rejeita filhos excedentes no DigestAlgorithm (proposta upstream digitalbazaar/forge#1152). Ver `docs/LOCK_IN_APK_PREVIEW.md`. |
+| GHSA-vfj7-8cjw-p6xm | braces ≤3.0.3 | `metro` → `micromatch` (bundler e file map). Processa globs da configuração do projeto, não entrada de usuário do app. | `patches/braces@3.0.3.patch` limita o aninhamento a 128 níveis e lança `SyntaxError` antes dos walkers recursivos estourarem a pilha. Teste em `tests/dependency-security.test.ts`. |
+
+Revisar até: 2026-11-04. Na revisão, ou quando sair versão corrigida, atualize a
+dependência, remova o patch e retire o GHSA da lista. Não acrescente IDs a essa
+lista sem patch ou justificativa equivalente registrada aqui.

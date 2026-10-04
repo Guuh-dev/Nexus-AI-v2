@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/nexus_widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:minWidth="110dp" android:minHeight="110dp" android:padding="10dp" android:background="@drawable/nexus_widget_background">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center_horizontal">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+      <TextView android:id="@+id/nexus_timer_label" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="Pronto para focar" android:textColor="#C9C0FF" android:textSize="8sp" android:letterSpacing="0.08" android:textAllCaps="true" android:textStyle="bold" android:maxLines="1" android:ellipsize="end"/>
+      <ImageView android:id="@+id/nexus_timer_mascot" android:layout_width="20dp" android:layout_height="20dp" android:adjustViewBounds="true" android:scaleType="fitCenter" android:src="@drawable/ic_nexus_mascot" android:contentDescription="@string/nexus_widget_mascot_description"/>
+    </LinearLayout>
+    <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:minHeight="56dp" android:layout_marginTop="2dp">
+      <ProgressBar android:id="@+id/nexus_timer_ring" style="?android:attr/progressBarStyleHorizontal" android:layout_width="56dp" android:layout_height="56dp" android:layout_gravity="center" android:indeterminate="false" android:max="100" android:progress="40" android:progressDrawable="@drawable/nexus_timer_ring"/>
+      <Chronometer android:id="@+id/nexus_timer_clock" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:textColor="#EDEFF4" android:textSize="14sp" android:textStyle="bold" android:visibility="gone"/>
+      <TextView android:id="@+id/nexus_timer_idle" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_gravity="center" android:text="25:00" android:textColor="#EDEFF4" android:textSize="14sp" android:textStyle="bold"/>
+    </FrameLayout>
+    <TextView android:id="@+id/nexus_timer_task" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Toque para iniciar" android:textColor="#9BA1B2" android:textSize="9sp" android:gravity="center" android:maxLines="1" android:ellipsize="end"/>
+  </LinearLayout>
+</FrameLayout>

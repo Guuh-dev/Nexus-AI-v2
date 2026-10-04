@@ -16,19 +16,20 @@ export function ChoiceChip({ label, selected, onPress, icon }: Props) {
       accessibilityRole="checkbox"
       accessibilityState={{ checked: selected }}
       accessibilityLabel={label}
+      hitSlop={4}
       onPress={onPress}
       style={({ pressed }) => [
         styles.base,
         {
-          backgroundColor: selected ? `${colors.primary}24` : colors.surface,
-          borderColor: selected ? colors.primary : colors.border,
+          backgroundColor: selected ? `${colors.primary}1F` : colors.surfaceAlt,
+          borderColor: selected ? `${colors.primary}99` : "transparent",
           borderRadius: visuals.chipRadius,
           opacity: pressed ? 0.75 : 1,
         },
       ]}
     >
       {icon ? <NexusText>{icon}</NexusText> : null}
-      <NexusText variant="caption" color={selected ? colors.primarySoft : colors.text}>
+      <NexusText variant="caption" color={selected ? colors.primarySoft : colors.text} style={selected ? styles.selected : undefined}>
         {label}
       </NexusText>
     </Pressable>
@@ -37,14 +38,14 @@ export function ChoiceChip({ label, selected, onPress, icon }: Props) {
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: 44,
-    borderRadius: 999,
+    minHeight: 40,
     borderWidth: 1,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 7,
   },
+  selected: { fontWeight: "600" },
 });

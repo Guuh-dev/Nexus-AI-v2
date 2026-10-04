@@ -197,10 +197,10 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   scrollContent: { flexGrow: 1, alignItems: "center" },
   inner: { width: "100%", flexGrow: 1 },
-  padded: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 44 },
+  padded: { paddingHorizontal: 20, paddingTop: 12, paddingBottom: 48 },
   footer: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 12,
   },

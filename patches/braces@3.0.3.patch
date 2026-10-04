@@ -1,0 +1,34 @@
+diff --git a/lib/parse.js b/lib/parse.js
+index 3a6988e629f52aee6609dc5ec290a5e9ff47cecb..de45a2c8a4a6f1046fcd390cb7996cdfa3d24da5 100644
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -39,6 +39,9 @@ const parse = (input, options = {}) => {
+     throw new SyntaxError(`Input length (${input.length}), exceeds max characters (${max})`);
+   }
+
++  // Nexus security patch (GHSA-vfj7-8cjw-p6xm): the recursive AST walkers have no
++  // depth guard, so bound nesting here and fail like the length check above.
++  const maxDepth = 128;
+   const ast = { type: 'root', input, nodes: [] };
+   const stack = [ast];
+   let block = ast;
+@@ -145,6 +148,9 @@ const parse = (input, options = {}) => {
+     if (value === CHAR_LEFT_PARENTHESES) {
+       block = push({ type: 'paren', nodes: [] });
+       stack.push(block);
++      if (stack.length > maxDepth) {
++        throw new SyntaxError(`Brace pattern nesting exceeds max depth (${maxDepth})`);
++      }
+       push({ type: 'text', value });
+       continue;
+     }
+@@ -211,6 +217,9 @@ const parse = (input, options = {}) => {
+
+       block = push(brace);
+       stack.push(block);
++      if (stack.length > maxDepth) {
++        throw new SyntaxError(`Brace pattern nesting exceeds max depth (${maxDepth})`);
++      }
+       push({ type: 'open', value });
+       continue;
+     }

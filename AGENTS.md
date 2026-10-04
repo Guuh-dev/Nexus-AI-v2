@@ -178,19 +178,24 @@ Componentes básicos consomem tokens; não criam paletas paralelas. Texto de aç
 
 ## Widgets
 
-Cinco famílias:
+Oito famílias (aprovação de produto em 2026-10-04 para as três utilitárias):
 
 - Mini 1×1, zero tarefas;
 - Strip 2×1, zero tarefas;
 - Companion 2×2, zero tarefas;
 - Mission 4×2, até duas tarefas;
-- Command 4×4, até quatro tarefas.
+- Command 4×4, até quatro tarefas;
+- Timer 2×2, sessão de foco com Chronometer nativo, zero tarefas;
+- Captura 2×1, atalho para `nexusai://today?capture=1`, zero tarefas;
+- Sequência 4×2, mapa de 12 semanas a partir de foco e tarefas registrados, zero tarefas.
+
+As três utilitárias renderizam por `NexusUtilityWidgets.kt` com layouts e ids próprios; o `buildRemoteViews` retorna antes do renderer compartilhado. O Studio só as lista quando o APK instalado responde `utilityWidgetsSupported`. Salvar uma utilitária como padrão grava somente o visual, sem trocar a família padrão. O Timer abre o Foco: pausar/retomar continua dentro do app para não divergir do runtime persistido.
 
 `features/widget/render-spec.ts` é o contrato compartilhado por preview, payload e Android. Só exponha uma opção no Studio se Kotlin/RemoteViews puder reproduzi-la. Estilos: Nexus, AMOLED, Transparente, Pixel e Minimal.
 
 Um canal separado de Professor Atlas e aprendizado não é conteúdo de widget na v3. Atlas pode continuar como o mascote único da instância. As flags antigas de segundo Professor/lição continuam no schema apenas para migração/rollback e devem permanecer desativadas em novos saves. Não volte a expor esses controles sem adicionar uma família/campo completo no render spec, preview, payload, XML, Kotlin e QA.
 
-Os mínimos declarados pelo layout e pelo metadata precisam ser idênticos: Mini 40×40 dp, Strip 110×40 dp, Companion 110×110 dp, Mission 250×110 dp e Command 250×250 dp. Preserve o orçamento de padding, tipografia, mascote e linhas no menor tamanho; teste estrutural não substitui launcher físico.
+Os mínimos declarados pelo layout e pelo metadata precisam ser idênticos: Mini 40×40 dp, Strip 110×40 dp, Companion 110×110 dp, Mission 250×110 dp, Command 250×250 dp, Timer 110×110 dp, Captura 110×40 dp e Sequência 250×110 dp. Preserve o orçamento de padding, tipografia, mascote e linhas no menor tamanho; teste estrutural não substitui launcher físico.
 
 As cinco famílias permitem redimensionamento horizontal/vertical no novo APK,
 dentro dos mínimos/máximos declarados e da grade do launcher. Isso não troca a
@@ -269,7 +274,9 @@ Estado local observado no snapshot final de 13 de julho de 2026:
 
 O backend público ainda respondia `apiVersion: "2.3.1"` nesta data. Isso bloqueia tag, release e distribuição da v3 até o deploy do contrato `3.0.0`, mas não impede abrir um draft PR para executar revisão e CI; não enfraqueça o gate para contornar o bloqueio.
 
-O backend atual não tem autenticação e mantém quotas/idempotência em memória. O endpoint de planejamento combina IP e `clientId`, mas não possui um bucket IP-only resistente a rotação de IDs. Isso é aceitável apenas para uso pessoal/demo; antes de distribuição pública multiusuário, autentique usuários, adote quota durável/compartilhada, limite gasto por conta e acrescente proteção de abuso por IP.
+O backend atual não tem autenticação e mantém quotas/idempotência em memória. Assistente e planejamento têm bucket por IP (`cf-connecting-ip`, definido pela Cloudflare na frente do Render), bucket IP+`clientId` e teto global diário; rotacionar IDs não multiplica a quota de um endereço. Isso continua aceitável apenas para uso pessoal/demo: as quotas são por instância e somem no restart. Antes de distribuição pública multiusuário, autentique usuários, adote quota durável/compartilhada e limite gasto por conta.
+
+`pnpm run models:prices` (e o workflow semanal `model-price-watch.yml`) confere, usando só metadados públicos, se cada modelo da allowlist mantém ao menos dois endpoints ZDR dentro do teto de preço da policy.
 
 Cobertura mínima por mudança:
 
@@ -285,7 +292,7 @@ Cobertura mínima por mudança:
 
 ## CI, APK e OTA
 
-CI executa validação JS/web e um job nativo com JDK 17, prebuild limpo e `:app:assembleDebug`. Security usa audit alto, secret scan e CodeQL. EAS CLI fica fixado nos workflows.
+CI executa validação JS/web e um job nativo com JDK 17, prebuild limpo e `:app:assembleDebug`. Security usa audit alto, secret scan e CodeQL. O audit ignora somente os GHSA listados em `SECURITY.md` (patch local + data de revisão); não amplie essa lista sem patch e justificativa equivalentes. EAS CLI fica fixado nos workflows.
 
 `runtimeVersion` segue `appVersion`. Mudança nativa ou de versão precisa de novo APK-base. OTA só é permitida quando o detector confirma que não houve mudança nativa desde a tag instalada. Não desative o detector, anti-bricking ou confirmações de produção/rollback.
 

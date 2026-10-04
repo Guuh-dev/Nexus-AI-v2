@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/nexus_widget_root" android:layout_width="match_parent" android:layout_height="match_parent" android:minWidth="250dp" android:minHeight="110dp" android:paddingLeft="12dp" android:paddingRight="12dp" android:paddingTop="10dp" android:paddingBottom="10dp" android:background="@drawable/nexus_widget_background">
+  <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical">
+      <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">
+        <TextView android:id="@+id/nexus_streak_label" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="Últimas 12 semanas" android:textColor="#C9C0FF" android:textSize="8sp" android:letterSpacing="0.08" android:textAllCaps="true" android:textStyle="bold" android:maxLines="1" android:ellipsize="end"/>
+        <TextView android:id="@+id/nexus_streak_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="6 dias seguidos" android:textColor="#EDEFF4" android:textSize="12sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end"/>
+      </LinearLayout>
+      <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginEnd="8dp" android:orientation="vertical" android:gravity="end">
+        <TextView android:id="@+id/nexus_streak_hours" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="31h" android:textColor="#EDEFF4" android:textSize="12sp" android:textStyle="bold" android:maxLines="1"/>
+        <TextView android:id="@+id/nexus_streak_hours_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="de foco" android:textColor="#9BA1B2" android:textSize="8sp" android:maxLines="1"/>
+      </LinearLayout>
+      <ImageView android:id="@+id/nexus_streak_mascot" android:layout_width="24dp" android:layout_height="24dp" android:adjustViewBounds="true" android:scaleType="fitCenter" android:src="@drawable/ic_nexus_mascot" android:contentDescription="@string/nexus_widget_mascot_description"/>
+    </LinearLayout>
+    <ImageView android:id="@+id/nexus_streak_grid" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:minHeight="40dp" android:layout_marginTop="6dp" android:scaleType="fitCenter" android:importantForAccessibility="no"/>
+  </LinearLayout>
+</FrameLayout>

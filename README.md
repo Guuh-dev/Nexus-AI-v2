@@ -17,6 +17,46 @@
 
 </div>
 
+## Telas
+
+<p align="center">
+  <img src="docs/screenshots/today.png" alt="Hoje: missão do dia, próximo passo e capacidade" width="24%" />
+  <img src="docs/screenshots/focus-running.png" alt="Foco: sessão em andamento com tempo registrado" width="24%" />
+  <img src="docs/screenshots/brain.png" alt="Brain: copiloto Nexus e Professor Atlas" width="24%" />
+  <img src="docs/screenshots/progress.png" alt="Progresso: registros, relatos e revisão do dia" width="24%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/onboarding-1.png" alt="Onboarding: objetivo em três etapas" width="24%" />
+  <img src="docs/screenshots/plan.png" alt="Plano: meta, janelas e missão" width="24%" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Configurações: índice agrupado" width="24%" />
+  <img src="docs/screenshots/settings-ia.png" alt="Configurações: inteligência remota" width="24%" />
+  <img src="docs/screenshots/widget-studio.png" alt="Widget Studio com prévia fixa e abas" width="24%" />
+</p>
+
+### Widgets Android
+
+<p align="center">
+  <img src="docs/screenshots/widgets/command.png" alt="Command 4×4" width="48%" />
+  <img src="docs/screenshots/widgets/sequencia.png" alt="Sequência 4×2: mapa de 12 semanas" width="48%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/widgets/mission.png" alt="Mission 4×2" width="48%" />
+  <img src="docs/screenshots/widgets/timer.png" alt="Timer 2×2" width="23%" />
+  <img src="docs/screenshots/widgets/companion.png" alt="Companion 2×2" width="23%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/widgets/strip.png" alt="Strip 2×1" width="32%" />
+  <img src="docs/screenshots/widgets/captura.png" alt="Captura 2×1" width="32%" />
+  <img src="docs/screenshots/widgets/mini.png" alt="Mini 1×1" width="16%" />
+</p>
+
+Oito famílias: Mini, Strip, Companion, Mission, Command e as utilitárias Timer, Captura e Sequência. As imagens são a prévia do Widget Studio, que segue o mesmo render spec do Android; o launcher real pode variar a geometria.
+
+Capturas do export web (412×915, tema Nexus Dark) com dados fictícios criados pelo próprio onboarding; o histórico de foco do mapa de calor também é fictício. A interface anterior está em [`docs/screenshots/before/`](docs/screenshots/before/) para comparação.
+
 ## O que é
 
 O Nexus organiza um ciclo simples: entender o objetivo, preparar uma missão diária, executar tarefas observáveis, focar, medir o que aconteceu e ajustar o próximo passo. Ele funciona localmente sem conta e usa inteligência remota somente quando ela está disponível e faz sentido.

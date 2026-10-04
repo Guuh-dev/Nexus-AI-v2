@@ -33,4 +33,24 @@ describe("security updates preserve the installed Expo contracts", () => {
     const result = spawnSync(process.execPath, ["-e", script], { timeout: 3000, encoding: "utf8" });
     expect(result.error).toBeUndefined();expect(result.status).toBe(0);expect(result.stdout).toBe("terminated");
   });
+  it("bounds brace nesting in the braces copy Metro actually loads", () => {
+    const fileMap = createRequire(metro.resolve("metro-file-map/package.json"));
+    const micromatch = createRequire(fileMap.resolve("micromatch/package.json"));
+    const bracesPath = micromatch.resolve("braces");
+    expect(readFileSync(bracesPath.replace(/index\.js$/, "lib/parse.js"), "utf8")).toContain("GHSA-vfj7-8cjw-p6xm");
+    const script = `const braces=require(${JSON.stringify(bracesPath)});const deep='{'.repeat(4000)+'a,b'+'}'.repeat(4000);let kind='none';try{braces.compile(deep)}catch(e){kind=e.constructor.name}const normal=JSON.stringify(braces.expand('src/{a,b}/{c,d}.ts'));process.stdout.write(kind+'|'+normal);`;
+    const result = spawnSync(process.execPath, ["-e", script], { timeout: 5000, encoding: "utf8" });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('SyntaxError|["src/a/c.ts","src/a/d.ts","src/b/c.ts","src/b/d.ts"]');
+  });
+
+  it("ignores only documented, locally patched advisories", () => {
+    const pkg = JSON.parse(readFileSync("package.json", "utf8")) as { pnpm: { auditConfig?: { ignoreGhsas?: string[] }; patchedDependencies: Record<string, string> } };
+    expect(pkg.pnpm.auditConfig?.ignoreGhsas).toEqual(["GHSA-86w9-cpqp-85rv", "GHSA-vfj7-8cjw-p6xm"]);
+    expect(pkg.pnpm.patchedDependencies["node-forge@1.4.0"]).toBe("patches/node-forge@1.4.0.patch");
+    expect(pkg.pnpm.patchedDependencies["braces@3.0.3"]).toBe("patches/braces@3.0.3.patch");
+    const security = readFileSync("SECURITY.md", "utf8");
+    for (const ghsa of pkg.pnpm.auditConfig?.ignoreGhsas ?? []) expect(security).toContain(ghsa);
+    expect(security).toMatch(/Revisar até: \d{4}-\d{2}-\d{2}/);
+  });
 });

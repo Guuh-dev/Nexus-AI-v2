@@ -18,7 +18,8 @@
     "security:secrets": "node scripts/scan-secrets.mjs",
     "release:check": "node scripts/release-check.mjs",
     "verify": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run security:secrets",
-    "native:check": "node scripts/detect-native-changes.mjs"
+    "native:check": "node scripts/detect-native-changes.mjs",
+    "models:prices": "node scripts/check-model-prices.mjs"
   },
   "dependencies": {
     "@expo/dom-webview": "~57.0.1",
@@ -95,7 +96,14 @@
     },
     "patchedDependencies": {
       "query-string@7.1.3": "patches/query-string@7.1.3.patch",
-      "node-forge@1.4.0": "patches/node-forge@1.4.0.patch"
+      "node-forge@1.4.0": "patches/node-forge@1.4.0.patch",
+      "braces@3.0.3": "patches/braces@3.0.3.patch"
+    },
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-86w9-cpqp-85rv",
+        "GHSA-vfj7-8cjw-p6xm"
+      ]
     }
   }
 }

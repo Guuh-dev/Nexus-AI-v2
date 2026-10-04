@@ -64,7 +64,9 @@ e assinatura SHA256/RSA criada pelo crypto do Node: vetor malformado rejeitado,
 assinatura válida aceita, conteúdo alterado rejeitado. A fixture não contém chave
 privada; o teste gera chaves efêmeras em memória.
 
-**Audit permanece FAIL: 1 high**, porque a versão publicada continua vulnerável
+**Atualização 2026-10-04:** o mantenedor registrou a exceção documentada em
+`SECURITY.md` (node-forge e braces, ambos com patch local); o audit volta a
+bloquear qualquer advisory novo. Texto original: **Audit permanecia FAIL: 1 high**, porque a versão publicada continua vulnerável
 para o advisory. Não há ignore, alteração de severidade ou continue-on-error.
 O controle Security continua bloqueando release público enquanto isso não for
 resolvido por versão corrigida/decisão de segurança verificável. O APK solicitado
