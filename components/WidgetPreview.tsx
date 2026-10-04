@@ -165,8 +165,7 @@ function TimerFace({ spec, runtime, now, nextTitle }: { spec: WidgetRenderSpec; 
       </Svg>
       <NexusText variant="title" color={c.text} style={styles.clock}>{runtime ? clock(elapsed) : `${Math.round(target / 60)}:00`}</NexusText>
     </View>
-    <NexusText variant="caption" color={c.secondaryText} numberOfLines={1} style={styles.centerText}>{spec.privateMode ? "Toque para abrir" : runtime?.taskTitle ?? nextTitle ?? spec.emptyState.body}</NexusText>
-    <FocusPill accent={c.accent} label={runtime ? "Abrir foco" : "Iniciar"} />
+    <NexusText variant="caption" color={c.secondaryText} numberOfLines={1} style={styles.centerText}>{spec.privateMode ? "Toque para abrir" : runtime ? `${runtime.taskTitle} · alvo ${runtime.duration} min` : nextTitle ? `Toque para iniciar: ${nextTitle}` : "Toque para iniciar"}</NexusText>
   </View>;
 }
 
