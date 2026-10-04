@@ -89,22 +89,20 @@ export function WidgetPreview({ spec: requested, caption = true }: { spec?: Widg
     </View>}
 
     {spec.family === "command" && <View style={styles.stack}>
-      {spec.scene !== "none" && <View style={styles.commandStage}><Habitat spec={spec} /><Mascot spec={spec} size={72} /></View>}
-      <View style={styles.row}>
-        <View style={styles.column}>
-          <Eyebrow color={c.accent}>{new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", timeZone: data.profile?.timezone })} · Missão</Eyebrow>
-          <NexusText variant="title" color={c.text} numberOfLines={2}>{mission}</NexusText>
-        </View>
-        {spec.scene === "none" && <Mascot spec={spec} size={44} />}
+      {/* Native Command gives the mascot stage weight 1: it absorbs free space and shrinks as tasks are added. */}
+      <View style={[styles.commandStage, !spec.mascot.visible && spec.scene === "none" && styles.commandStageEmpty]}><Habitat spec={spec} /><Mascot spec={spec} size={Math.max(40, 88 - tasks.length * 12)} /></View>
+      <View style={styles.titleBlock}>
+        <Eyebrow color={c.accent}>{new Date().toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", timeZone: data.profile?.timezone })} · Missão</Eyebrow>
+        <NexusText variant="title" color={c.text} numberOfLines={2}>{mission}</NexusText>
       </View>
       {!spec.privateMode && <><Bar value={progress} accent={c.accent} /><NexusText variant="caption" color={c.secondaryText}>{total > 0 ? `${completed} de ${total} passos` : spec.emptyState.actionLabel}</NexusText></>}
       <TaskRows tasks={tasks} spec={spec} />
-      <View style={[styles.row, styles.footer]}>
-        {spec.privateMode ? <NexusText variant="caption" color={c.secondaryText} style={styles.column}>Conteúdo protegido.</NexusText> : <View style={[styles.row, styles.column]}>
+      <View style={[styles.row, !spec.mascot.visible && spec.scene === "none" && styles.footer]}>
+        {spec.privateMode ? <NexusText variant="caption" color={c.secondaryText} style={styles.column}>Conteúdo protegido.</NexusText> : <View style={[styles.row, styles.column, styles.metrics]}>
           <Metric value={runtime?.status === "running" ? `${Math.floor(runtime.elapsedBase / 60)}m` : `${focusMinutes}m`} label={runtime?.status === "running" ? "sessão" : "foco hoje"} color={c} />
           <Metric value={`${data.progress.currentStreak}d`} label="sequência" color={c} />
         </View>}
-        <FocusPill accent={c.accent} label={spec.actions.tap === "focus" || runtime ? "Focar" : "Abrir"} />
+        <FocusPill accent={c.accent} label={runtime?.status === "running" || runtime?.status === "paused" ? "Voltar" : "Focar"} />
       </View>
     </View>}
 
@@ -224,9 +222,12 @@ const styles = StyleSheet.create({
   checkMark: { fontSize: 10, lineHeight: 12, fontWeight: "800" },
   done: { textDecorationLine: "line-through" },
   stage: { flex: 1, minHeight: 120, alignItems: "flex-start", justifyContent: "flex-end", paddingLeft: 4 },
-  commandStage: { height: 96, marginHorizontal: -14, marginTop: -14, alignItems: "flex-start", justifyContent: "flex-end", paddingLeft: 14, overflow: "hidden" },
+  commandStage: { flex: 1, minHeight: 48, marginHorizontal: -14, marginTop: -14, alignItems: "flex-start", justifyContent: "flex-end", paddingLeft: 14, paddingTop: 10, overflow: "hidden" },
+  commandStageEmpty: { flex: 0, minHeight: 0, height: 0, paddingTop: 0 },
   speech: { borderTopWidth: 1, marginHorizontal: -14, marginBottom: -14, paddingHorizontal: 14, paddingVertical: 10 },
   footer: { marginTop: "auto" },
+  titleBlock: { gap: 3 },
+  metrics: { gap: 20 },
   timer: { alignItems: "center", justifyContent: "space-between", gap: 6 },
   clock: { fontSize: 22, lineHeight: 26, fontVariant: ["tabular-nums"] },
   captureTile: { width: 48, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center" },
