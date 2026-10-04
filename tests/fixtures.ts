@@ -1,5 +1,5 @@
 import type { AppData, Profile } from "@/types";
-import { DEFAULT_APP_DATA } from "@/constants/defaults";
+import { DEFAULT_APP_DATA, DEFAULT_PREFERENCES } from "@/constants/defaults";
 
 export function makeProfile(overrides: Partial<Profile> = {}): Profile {
   const now = "2026-07-10T12:00:00.000Z";
@@ -28,6 +28,7 @@ export function makeProfile(overrides: Partial<Profile> = {}): Profile {
 export function makeAppData(profile = makeProfile()): AppData {
   return {
     ...(JSON.parse(JSON.stringify(DEFAULT_APP_DATA)) as AppData),
+    preferences: { ...structuredClone(DEFAULT_PREFERENCES), widget: { ...structuredClone(DEFAULT_PREFERENCES.widget), privacyMode: false } },
     installationId: "install-test-123",
     profile,
     onboardingCompleted: true,

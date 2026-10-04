@@ -15,7 +15,7 @@
       "package": "com.gustavoaraujo.nexusai",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#050505"
+        "backgroundColor": "#101218"
       },
       "predictiveBackGestureEnabled": true,
       "permissions": [

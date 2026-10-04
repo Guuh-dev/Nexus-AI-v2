@@ -1,3 +1,6 @@
+import { pickChatTextAttachment } from "@/services/chat-attachment.service";
+import { IconButton, ScreenHeader } from "@/components/ui/Layout";
+import { AtlasLessonPanel } from "@/components/AtlasLessonPanel";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Keyboard,
@@ -56,6 +59,8 @@ export default function BrainScreen() {
   const [kind, setKind] = useState<ChatKind>("brain");
   const [mode, setMode] = useState<ViewMode>("home");
   const [message, setMessage] = useState("");
+  const [attachmentBusy, setAttachmentBusy] = useState(false);
+  const [attachmentError, setAttachmentError] = useState("");
   const [failedDraft, setFailedDraft] = useState("");
   const [metaThreadId, setMetaThreadId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -113,14 +118,27 @@ export default function BrainScreen() {
     setMode("chat");
     setMetaThreadId(null);
   };
-  const newThread = () => {
-    const id = createThread(kind);
+  const newThread = async (continueLesson = false) => {
+    const id = await createThread(kind, continueLesson);
+    if (!id) return;
     activeThreadIdRef.current = id;
     setMessage("");
     setFailedDraft("");
     selectThread(kind, id);
     setMode("chat");
     setMetaThreadId(null);
+  };
+  const attachTextFile = async () => {
+    if (assistantBusy || attachmentBusy) return;
+    const threadId = activeThreadIdRef.current;
+    setAttachmentBusy(true);
+    setAttachmentError("");
+    try {
+      const draft = await pickChatTextAttachment(message);
+      if (draft !== null && threadId === activeThreadIdRef.current) setMessage(draft);
+    } catch (error) {
+      if (threadId === activeThreadIdRef.current) setAttachmentError(error instanceof Error ? error.message : "Não foi possível abrir o arquivo.");
+    } finally { setAttachmentBusy(false); }
   };
   const send = () => {
     const clean = message.trim();
@@ -171,7 +189,7 @@ export default function BrainScreen() {
   const assistantStageLabel = {
     idle: kind === "brain" ? "BRAIN PRONTO" : "PROFESSOR PRONTO",
     connecting: "CONECTANDO",
-    generating: "GERANDO",
+    generating: active?.consultation && active.consultation.stage !== "approved" ? "ENTENDENDO SEU PEDIDO" : "RECEBENDO RESPOSTA…",
     finalizing: "FINALIZANDO",
     local: "INDISPONÍVEL",
   }[assistantStage];
@@ -275,6 +293,11 @@ export default function BrainScreen() {
             </View>
           </View>
 
+          <View style={{ flexDirection: "row", gap: 8, paddingHorizontal: 18, paddingVertical: 8 }}>
+            <ChoiceChip label="Nexus" selected={kind === "brain"} onPress={() => changeKind("brain")} />
+            <ChoiceChip label="Professor Atlas" selected={kind === "professor"} onPress={() => changeKind("professor")} />
+            <View style={{ flex: 1, justifyContent: "center" }}><NexusText variant="caption" secondary numberOfLines={1}>{active.consultation?.stage === "approved" ? "Ajuda aprovada" : active.consultation ? "Entender → revisar → começar" : "Conversa salva"}</NexusText></View>
+          </View>
           <BrainChatList
             key={active.id}
             ref={chatListRef}
@@ -302,11 +325,16 @@ export default function BrainScreen() {
               },
             ]}
           >
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+              <NexusButton label="+" variant="secondary" compact loading={attachmentBusy} disabled={assistantBusy} accessibilityLabel="Anexar arquivo de texto à conversa" onPress={() => { void attachTextFile(); }} />
+              <NexusText variant="caption" style={{ flex: 1 }}>Arquivo de texto até 3 KB. Revise antes de enviar à IA.</NexusText>
+            </View>
+            {attachmentError ? <NexusText variant="caption" color={colors.danger} accessibilityLiveRegion="polite">{attachmentError}</NexusText> : null}
             <Field
               label={
                 kind === "professor"
-                  ? "Pergunte ou conte como foi a prática"
-                  : "Converse com seu copiloto"
+                  ? active.consultation?.stage === "approved" ? "Pergunte ou conte como foi a prática" : "O que quer aprender ou conseguir fazer?"
+                  : active.consultation?.stage === "adjusting" ? "O que você quer mudar na proposta?" : "Conte o que você quer resolver"
               }
               value={message}
               onChangeText={(value) => {
@@ -332,7 +360,7 @@ export default function BrainScreen() {
               }
               icon="↑"
               onPress={send}
-              disabled={assistantBusy || !message.trim()}
+              disabled={assistantBusy || attachmentBusy || !message.trim()}
               compact
               fullWidth
             />
@@ -345,47 +373,12 @@ export default function BrainScreen() {
   return (
     <>
       <Screen>
-        <View style={styles.hero}>
-          <View style={styles.flex}>
-            <NexusText variant="mono" color={colors.primarySoft}>
-              NEXUS INTELLIGENCE
-            </NexusText>
-            <NexusText variant="display">
-              {mode === "memory"
-                ? "Memória sob seu controle."
-                : mode === "roadmaps"
-                  ? "Trilhas de domínio."
-                  : "Um cérebro para sua missão."}
-            </NexusText>
-          </View>
-          {kind === "brain" ? (
-            <PixelMascot state="idle" size={58} />
-          ) : (
-            <CompanionMascot mascot="atlas" state="idle" size={60} />
-          )}
+        <View style={{ marginBottom: 16 }}><ScreenHeader eyebrow="Brain" title={kind === "professor" ? "Aprenda com o Atlas." : "Pense com o Nexus."} trailing={<IconButton icon="settings" label="Configurações" onPress={() => router.push("/settings")} />} /></View>
+        <View style={{ flexDirection: "row", padding: 4, backgroundColor: colors.surfaceAlt, borderRadius: 14, borderWidth: 1, borderColor: colors.border }}>
+          {(["brain", "professor"] as const).map((value) => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: kind === value }} accessibilityLabel={value === "brain" ? "Nexus" : "Professor"} onPress={() => changeKind(value)} style={{ flex: 1, minHeight: 40, alignItems: "center", justifyContent: "center", borderRadius: 10, backgroundColor: kind === value ? colors.surfaceRaised : "transparent", borderWidth: 1, borderColor: kind === value ? colors.borderStrong : "transparent" }}><NexusText variant="subtitle" color={kind === value ? colors.text : colors.textSecondary}>{value === "brain" ? "Nexus" : "Professor"}</NexusText></Pressable>)}
         </View>
-        <View style={styles.tabs}>
-          <ChoiceChip
-            label="Copiloto"
-            selected={kind === "brain"}
-            onPress={() => changeKind("brain")}
-          />
-          <ChoiceChip
-            label="Professor"
-            selected={kind === "professor"}
-            onPress={() => changeKind("professor")}
-          />
-          <ChoiceChip
-            label={`Memórias ${data.brain.memories.length}`}
-            selected={mode === "memory"}
-            onPress={() => setMode(mode === "memory" ? "home" : "memory")}
-          />
-          <ChoiceChip
-            label="Roadmaps"
-            selected={mode === "roadmaps"}
-            onPress={() => setMode(mode === "roadmaps" ? "home" : "roadmaps")}
-          />
-        </View>
+        {mode !== "home" && <View style={[styles.hero, { marginTop: 24 }]}><View style={styles.flex}><NexusText variant="display">{mode === "memory" ? "Memória sob seu controle." : "Trilhas de domínio."}</NexusText></View><CompanionMascot mascot={kind === "professor" ? "atlas" : "nexus"} size={72} /></View>}
+        {mode !== "home" && <View style={styles.tabs}><ChoiceChip label="Conversas" selected={false} onPress={() => setMode("home")} /><ChoiceChip label={`Memórias ${data.brain.memories.length}`} selected={mode === "memory"} onPress={() => setMode("memory")} /><ChoiceChip label="Roadmaps" selected={mode === "roadmaps"} onPress={() => setMode("roadmaps")} /></View>}
 
         {mode === "memory" ? (
           <View style={styles.section}>
@@ -527,57 +520,9 @@ export default function BrainScreen() {
 
         {mode === "home" ? (
           <>
-            <Card
-              style={[
-                styles.modeCard,
-                {
-                  backgroundColor:
-                    kind === "brain"
-                      ? `${colors.primary}0E`
-                      : `${colors.warning}0D`,
-                  borderColor:
-                    kind === "brain"
-                      ? `${colors.primary}44`
-                      : `${colors.warning}44`,
-                },
-              ]}
-            >
-              <View style={styles.row}>
-                {kind === "brain" ? (
-                  <PixelMascot state="idle" size={50} />
-                ) : (
-                  <CompanionMascot mascot="atlas" state="idle" size={52} />
-                )}
-                <View style={styles.flex}>
-                  <NexusText
-                    variant="mono"
-                    color={
-                      kind === "brain" ? colors.primarySoft : colors.warning
-                    }
-                  >
-                    {kind === "brain"
-                      ? "COPILOTO PESSOAL"
-                      : "MENTOR DE APRENDIZADO"}
-                  </NexusText>
-                  <NexusText variant="title">
-                    {kind === "brain"
-                      ? "Contexto, não conversa genérica."
-                      : "Aprenda, pratique, prove domínio."}
-                  </NexusText>
-                </View>
-              </View>
-              <NexusText secondary>
-                {kind === "brain"
-                  ? "O Brain conhece sua missão, progresso, adiamentos, foco, energia e memórias aprovadas."
-                  : "O Atlas cria roadmaps, acompanha lições e mantém conversas antigas para continuar exatamente de onde você parou."}
-              </NexusText>
-              <NexusButton
-                label={kind === "brain" ? "Nova conversa" : "Nova aula"}
-                icon="＋"
-                onPress={newThread}
-                fullWidth
-              />
-            </Card>
+            {kind === "professor" && <><Card style={{ gap: 12, marginTop: 18 }}><NexusText variant="title">O que você quer conseguir fazer?</NexusText><NexusText secondary>Conte do seu jeito. Atlas pergunta só o necessário, apresenta seu diagnóstico e ajusta a proposta com você.</NexusText><NexusButton label="Conversar e criar minha proposta" fullWidth onPress={() => { void newThread(); }} /></Card><AtlasLessonPanel onContinue={() => { void newThread(true); }} /></>}
+            {kind === "brain" && <Card elevated style={[styles.modeCard, { padding: 20 }]}><View style={styles.row}><View style={[styles.flex, { gap: 6 }]}><NexusText variant="eyebrow" color={colors.primarySoft}>Copiloto</NexusText><NexusText variant="title">Conte do seu jeito.</NexusText></View><PixelMascot size={56} /></View><NexusText secondary>Nexus entende seu pedido, apresenta uma proposta e começa depois da sua aprovação. Você pode ajustar antes de seguir.</NexusText><NexusButton label="Nova conversa" onPress={() => { void newThread(); }} fullWidth /></Card>}
+            <View style={[styles.tabs, { marginTop: 16 }]}><ChoiceChip label={`Memórias ${data.brain.memories.length}`} selected={false} onPress={() => setMode("memory")} /><ChoiceChip label="Minhas trilhas" selected={false} onPress={() => setMode("roadmaps")} />{kind === "professor" && <NexusButton label="Nova conversa com Atlas" compact variant="ghost" onPress={() => { void newThread(); }} />}</View>
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <NexusText variant="title">Conversas</NexusText>
@@ -802,6 +747,7 @@ const styles = StyleSheet.create({
   },
   chatShell: {
     flex: 1,
+    minHeight: 0,
     width: "100%",
     maxWidth: 760,
     alignSelf: "center",

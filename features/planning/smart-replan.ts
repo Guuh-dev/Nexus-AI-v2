@@ -1,3 +1,4 @@
+import { capacity } from "@/features/lock-in/planning";
 import type { AppData, EnergyLevel, Task } from "@/types";
 
 export type ReplanSignal = {
@@ -16,6 +17,12 @@ function minutesNow(): number {
 export function detectReplanSignal(data: AppData, currentEnergy?: EnergyLevel): ReplanSignal | null {
   const plan = data.activePlan;
   if (!plan || plan.mainMission.completed) return null;
+  if (plan.execution && data.lockIn.execution) {
+    const open = plan.tasks.filter((t) => !t.completed);
+    const remaining = open.reduce((sum, t) => sum + t.estimatedMinutes, 0);
+    const available = capacity(data.lockIn.execution).minutes;
+    return remaining > available ? { severity: "high", title: "Revise a capacidade restante", message: `Restam ${available} min nas janelas autorizadas para ${remaining} min de tarefas. Revise o impacto no Plano.`, suggestedMinutes: available, candidates: open } : null;
+  }
   const open = plan.tasks.filter((task) => !task.completed);
   if (open.length < 2) return null;
   const remaining = open.reduce((sum, task) => sum + task.estimatedMinutes, 0) + plan.mainMission.estimatedMinutes;

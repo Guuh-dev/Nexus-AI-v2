@@ -9,6 +9,8 @@ import { validateUntrustedJson } from "@/utils/untrusted-data";
 const MAX_BODY_BYTES = 24_000;
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_PER_WINDOW = 10;
+// Rotating client IDs from one address must not multiply the per-client quota.
+const MAX_PER_IP_WINDOW = 20;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_GLOBAL_PER_DAY = 45;
 
@@ -35,6 +37,7 @@ const requestSchema = z
 
 type Bucket = { count: number; resetAt: number };
 const clientBuckets = new Map<string, Bucket>();
+const ipBuckets = new Map<string, Bucket>();
 let globalBucket: Bucket = { count: 0, resetAt: Date.now() + DAY_MS };
 type IdempotentPlan = {
   fingerprint: string;
@@ -68,9 +71,13 @@ function json(request: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: responseHeaders(request) });
 }
 
-function clientKey(request: Request): string {
+function requestIp(request: Request): string {
   const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = request.headers.get("cf-connecting-ip") ?? forwarded ?? "native-client";
+  return request.headers.get("cf-connecting-ip") ?? forwarded ?? "native-client";
+}
+
+function clientKey(request: Request): string {
+  const ip = requestIp(request);
   const clientId = sanitizeText(request.headers.get("x-nexus-client-id"), 120);
   const agent = sanitizeText(request.headers.get("user-agent"), 80);
   return `${ip}:${clientId || agent}`;
@@ -83,6 +90,12 @@ function rateLimit(request: Request): { allowed: true } | { allowed: false; retr
     return { allowed: false, retryAfter: Math.ceil((globalBucket.resetAt - now) / 1000) };
   }
 
+  const ip = requestIp(request);
+  const currentIp = ipBuckets.get(ip);
+  const ipBucket = !currentIp || now >= currentIp.resetAt ? { count: 0, resetAt: now + WINDOW_MS } : currentIp;
+  if (ipBucket.count >= MAX_PER_IP_WINDOW) {
+    return { allowed: false, retryAfter: Math.ceil((ipBucket.resetAt - now) / 1000) };
+  }
   const key = clientKey(request);
   const current = clientBuckets.get(key);
   const bucket = !current || now >= current.resetAt ? { count: 0, resetAt: now + WINDOW_MS } : current;
@@ -90,11 +103,15 @@ function rateLimit(request: Request): { allowed: true } | { allowed: false; retr
     return { allowed: false, retryAfter: Math.ceil((bucket.resetAt - now) / 1000) };
   }
   bucket.count += 1;
+  ipBucket.count += 1;
   globalBucket.count += 1;
   clientBuckets.set(key, bucket);
-  if (clientBuckets.size > 5000) {
-    for (const [bucketKey, value] of clientBuckets) {
-      if (value.resetAt <= now) clientBuckets.delete(bucketKey);
+  ipBuckets.set(ip, ipBucket);
+  for (const collection of [clientBuckets, ipBuckets]) {
+    if (collection.size > 5000) {
+      for (const [bucketKey, value] of collection) {
+        if (value.resetAt <= now) collection.delete(bucketKey);
+      }
     }
   }
   if (idempotencyCache.size > 2000) {

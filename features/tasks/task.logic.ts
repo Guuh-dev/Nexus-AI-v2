@@ -12,7 +12,7 @@ function withPlan(data: AppData, update: (tasks: Task[]) => Task[]): AppData {
       ...data.activePlan,
       tasks,
       totalEstimatedMinutes:
-        data.activePlan.mainMission.estimatedMinutes + tasks.reduce((total, task) => total + task.estimatedMinutes, 0),
+        (data.activePlan.execution ? 0 : data.activePlan.mainMission.estimatedMinutes) + tasks.reduce((total, task) => total + task.estimatedMinutes, 0),
     },
   };
 }
@@ -49,6 +49,14 @@ export function toggleTaskCompletion(data: AppData, taskId: string): AppData {
 
 export function toggleMainMission(data: AppData): AppData {
   if (!data.activePlan) return data;
+  if (data.activePlan.mainMission.taskIds) {
+    const ids = data.activePlan.mainMission.taskIds;
+    const desired = !data.activePlan.mainMission.completed;
+    return ids.reduce((current, id) => {
+      const task = current.activePlan?.tasks.find((t) => t.id === id);
+      return task && task.completed !== desired ? toggleTaskCompletion(current, id) : current;
+    }, data);
+  }
   const completed = !data.activePlan.mainMission.completed;
   const xpDelta = completed ? data.activePlan.mainMission.xp : -data.activePlan.mainMission.xp;
   return {

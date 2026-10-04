@@ -1,3 +1,4 @@
+import { consultationSchema } from "@/schemas/consultation.schema";
 import { z } from "zod";
 import { profileSchema } from "@/schemas/profile.schema";
 import { runAssistant } from "@/services/assistant.server";
@@ -198,6 +199,7 @@ export async function POST(request: Request): Promise<Response> {
   }
   const requestCacheKey = `${data.clientId}:${data.requestId}`;
   const fingerprint = requestFingerprint(data);
+  if (data.context.consultation !== undefined && !consultationSchema.safeParse(data.context.consultation).success) return json(request, { error: { code: "bad_request", message: "O diagnóstico da conversa está inválido. Revise a proposta." } }, 400);
   const contextSafety = validateUntrustedJson(data.context, { maxDepth: 8, maxNodes: 2500, maxKeysPerObject: 140, maxArrayLength: 500 });
   if (!contextSafety.valid) return json(request, { error: { code: "bad_request", message: "O contexto enviado é complexo ou inseguro demais." } }, 400);
   const existing = cache.get(requestCacheKey);

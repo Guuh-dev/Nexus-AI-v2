@@ -1,4 +1,4 @@
-# Widgets do Nexus AI 3.0
+# Widgets do Nexus AI 3.0 (famílias utilitárias em 3.1)
 
 ## Um contrato, duas renderizações
 
@@ -15,6 +15,15 @@ O preview React Native reproduz os mesmos rótulos, limites, métricas, mensagen
 | Companion | 2×2 | 110×110 dp | Mascote, personalidade e fala curta. |
 | Mission | 4×2 | 250×110 dp | Missão, até duas tarefas e progresso. |
 | Command | 4×4 | 250×250 dp | Missão, até quatro tarefas, foco, progresso e Companion. |
+| Timer | 2×2 | 110×110 dp | Sessão de foco com tempo ao vivo (Chronometer) e anel do alvo. |
+| Captura | 2×1 | 110×40 dp | Atalho de um toque para a captura rápida. |
+| Sequência | 4×2 | 250×110 dp | Mapa de 12 semanas, sequência e horas de foco. |
+
+As três últimas são utilitárias: usam layouts e ids próprios, renderizados por `NexusUtilityWidgets.kt`. O app só as mostra no Studio quando o APK instalado declara `utilityWidgetsSupported`.
+
+- Timer: o payload leva `focusElapsedSeconds`, `focusRunStartedAt`, `focusTargetMinutes` e `focusTaskTitle`. O Chronometer conta no launcher a partir desses valores. Tocar abre o Foco; pausar e retomar continuam no app, que é a única fonte do runtime persistido. Se o alvo passar com o app fechado, o widget continua contando até o app reabrir e aplicar a pausa no alvo.
+- Captura: abre `nexusai://today?capture=1`, o mesmo destino do atalho do launcher.
+- Sequência: `features/widget/activity.ts` calcula 84 níveis (0 a 4) só com minutos de foco não cancelados e tarefas concluídas. O Kotlin desenha a grade em bitmap. Em modo privado o payload não leva `activity`.
 
 O provider registrado no launcher define a família real. Uma configuração armazenada não pode trocar essa família; para isso, remova a instância e adicione outra.
 
@@ -35,7 +44,7 @@ A ação principal aceita somente Hoje, Brain, Foco ou Progresso. Rotas armazena
 
 O padrão do app alimenta widgets sem configuração própria. Cada `appWidgetId` pode sobrescrever conteúdo, estilo, cor, opacidade, mascote, personalidade, fala, privacidade e ação ao tocar.
 
-A tela nativa de configuração valida se o ID pertence exatamente a um dos cinco providers Nexus. Ela começa com os valores do `WidgetRenderSpec` da família, sobrepõe uma configuração já salva e preserva cores personalizadas e privacidade. O Studio só confirma “atualizado” depois que a ponte nativa confirma persistência e redesenho.
+A tela nativa de configuração valida se o ID pertence exatamente a um dos providers Nexus. As famílias utilitárias não declaram `android:configure`; são ajustadas pelo Studio. Ela começa com os valores do `WidgetRenderSpec` da família, sobrepõe uma configuração já salva e preserva cores personalizadas e privacidade. O Studio só confirma “atualizado” depois que a ponte nativa confirma persistência e redesenho.
 
 ## Privacidade
 
@@ -50,7 +59,7 @@ O payload nunca inclui chave de IA, prompt, perfil completo nem histórico de co
 
 ## Interações
 
-A raiz usa um `PendingIntent` para uma das quatro rotas permitidas. Tarefas visíveis em Mission e Command podem ser concluídas pelo widget. A ação carrega nonce, atualiza o payload compacto e entra em uma fila limitada; o app consome essa fila de forma idempotente.
+A raiz usa um `PendingIntent` para uma das quatro rotas permitidas. Mission e Command também têm a pílula Focar, que abre `nexusai://focus`. Tarefas visíveis em Mission e Command podem ser concluídas pelo widget. A ação carrega nonce, atualiza o payload compacto e entra em uma fila limitada; o app consome essa fila de forma idempotente.
 
 ## Validação nativa
 
@@ -62,6 +71,17 @@ bash scripts/verify-native-widget.sh
 ./android/gradlew :app:assembleDebug
 ```
 
-Depois, instale em Android físico e valide as cinco famílias, a configuração inicial, a reconfiguração, o modo privado, os estados vazios e a conclusão de tarefas.
+Depois, instale em Android físico e valide as oito famílias, a configuração inicial, a reconfiguração, o modo privado, os estados vazios e a conclusão de tarefas.
 
 Os testes estruturais comparam `minWidth`/`minHeight` de cada layout com seu `appwidget-provider` e protegem os orçamentos compactos de Mini, Strip, Companion, Mission e Command. Eles reduzem regressões óbvias de corte; a aceitação final de launcher, densidade e escala de fonte continua sendo feita em aparelho físico.
+
+## Atualização de 2026-10-02
+
+Mini, Strip e Companion passam de resizeMode none para horizontal|vertical;
+Mission/Command já suportavam ambos. Mínimos/máximos permanecem declarados;
+família e grade do launcher determinam limites. Não é resize arbitrário por pixel.
+Sete personalidades, combinadas com as seis poses e cenários existentes, usam
+grids compartilhados entre preview e vetores Kotlin. Escolha por instância: não
+copie a personalidade global sobre uma configuração já salva. Quieto/Silencioso
+não fabrica uma pausa observada. Cena mantém proporção ao redimensionar.
+Novo APK obrigatório, payload continua v3; launcher físico ainda precisa de QA.

@@ -8,6 +8,9 @@ const WIDGET_PROVIDERS = [
   { name: "expo.modules.nexuswidget.NexusCompanionWidgetProvider", label: "@string/nexus_widget_companion_name", info: "@xml/nexus_widget_companion_info" },
   { name: "expo.modules.nexuswidget.NexusMissionWidgetProvider", label: "@string/nexus_widget_mission_name", info: "@xml/nexus_widget_mission_info" },
   { name: PROVIDER, label: "@string/nexus_widget_name", info: "@xml/nexus_widget_info" },
+  { name: "expo.modules.nexuswidget.NexusTimerWidgetProvider", label: "@string/nexus_widget_timer_name", info: "@xml/nexus_widget_timer_info" },
+  { name: "expo.modules.nexuswidget.NexusCaptureWidgetProvider", label: "@string/nexus_widget_capture_name", info: "@xml/nexus_widget_capture_info" },
+  { name: "expo.modules.nexuswidget.NexusStreakWidgetProvider", label: "@string/nexus_widget_streak_name", info: "@xml/nexus_widget_streak_info" },
 ];
 
 module.exports = function withNexusWidget(config) {

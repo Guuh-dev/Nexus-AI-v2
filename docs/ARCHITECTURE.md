@@ -2,12 +2,12 @@
 
 ## Núcleo do produto
 
-Core Reborn organiza o app em cinco experiências: Hoje, Brain, Foco, Progresso e Perfil. Professor Atlas e roadmaps vivem dentro do Brain; aparência e Widget Studio partem do Perfil. Essa composição reduz navegação duplicada sem remover os dados históricos.
+Core Reborn organiza o app em cinco experiências: Hoje, Plano, Foco, Brain e Progresso. Professor Atlas e roadmaps vivem dentro do Brain; perfil, aparência, Widget Studio, backups e updates ficam em Configurações. Essa composição reduz navegação duplicada sem remover os dados históricos.
 
 ```mermaid
 flowchart TD
   UI[Expo Router · cinco abas] --> Provider[NexusProvider]
-  Provider --> Storage[Repository local · storage v6]
+  Provider --> Storage[Repository local · storage v7]
   Provider --> Planning[Planejamento e tarefas]
   Provider --> Review[Progresso e revisão]
   Provider --> Widget[WidgetDataService]
@@ -61,9 +61,9 @@ Roadmaps classificam intenção antes de montar fases. Intenções técnicas nã
 
 A revisão semanal calcula métricas observáveis localmente. Uma resposta remota pode organizar fatos e hipóteses, mas não pode substituir o score determinístico nem criar evidências inexistentes.
 
-## Persistência v6
+## Persistência v7
 
-`NexusRepository` usa a chave estável `@nexus-ai/state`. Ao carregar uma versão anterior, salva um backup em `@nexus-ai/pre-v3.0-backup` antes da conversão.
+`NexusRepository` usa a chave estável `@nexus-ai/state`. Ao carregar v6 ou anterior, salva um backup dedicado em `@nexus-ai/pre-lock-in-v7-backup` antes de confirmar a conversão, preservando `@nexus-ai/pre-v3.0-backup`. O leitor v6 bloqueia v7; recuperação deve priorizar uma versão corrigida capaz de ler v7.
 
 A migração preserva:
 
@@ -98,3 +98,5 @@ O cliente trata cold start com estado de conexão, timeout limitado e nova tenta
 `runtimeVersion.policy` usa `appVersion`. O detector nativo classifica mudanças em módulo Android, plugin, configuração Expo ou versão como necessidade de novo APK.
 
 O CI valida TypeScript, lint, testes, secrets, release, export web e dependências Expo. Um job nativo separado executa prebuild Android limpo e `:app:assembleDebug` com JDK 17. EAS Build produz o APK de release; OTA só é permitido quando não existe alteração nativa desde a base instalada.
+
+O domínio Lock-In em `features/lock-in/planning.ts` valida capacidade, dependências, revisão-base e missão agregada. `lockIn.goals` é autoridade das metas e `lockIn.execution` das janelas; `activePlan` continua sendo a única autoridade do dia. `profile.mainGoal` é projeção de compatibilidade. `planSnapshots` preserva versões anteriores. Veja `LOCK_IN_SLICE_1.md` para os contratos e limites implementados.

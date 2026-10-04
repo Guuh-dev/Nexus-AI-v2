@@ -10,6 +10,12 @@
   <string name="nexus_widget_companion_description">Mascote grande, humor e fala próprios desta instância</string>
   <string name="nexus_widget_mission_name">Nexus Mission — 4×2</string>
   <string name="nexus_widget_mission_description">Missão, até duas tarefas interativas e progresso</string>
+  <string name="nexus_widget_timer_name">Nexus Timer — 2×2</string>
+  <string name="nexus_widget_timer_description">Sessão de foco com tempo ao vivo</string>
+  <string name="nexus_widget_capture_name">Nexus Captura — 2×1</string>
+  <string name="nexus_widget_capture_description">Um toque abre a captura rápida</string>
+  <string name="nexus_widget_streak_name">Nexus Sequência — 4×2</string>
+  <string name="nexus_widget_streak_description">Mapa de 12 semanas, sequência e horas de foco</string>
   <string name="nexus_widget_mascot_description">Mascote pixel do Nexus</string>
   <string name="nexus_capture_short">Capturar</string>
   <string name="nexus_capture_long">Captura rápida do Nexus</string>

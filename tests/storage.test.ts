@@ -1,12 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   IMPORT_ROLLBACK_KEY,
+  LOCK_IN_BACKUP_KEY,
   LEGACY_MIGRATION_BACKUP_KEYS,
   MIGRATION_BACKUP_KEY,
   STORAGE_KEY,
+  BACKUP_MAX_BYTES,
 } from "@/constants/defaults";
 import { nexusRepository, recoverAppData } from "@/services/storage.service";
-import { makeProfile } from "@/tests/fixtures";
+import { makeAppData, makeProfile } from "@/tests/fixtures";
+import { generateLocalPlan } from "@/services/planning.service";
+import { utf8ByteLength } from "@/utils/text";
 
 const storageState = vi.hoisted(() => ({
   values: new Map<string, string>(),
@@ -36,6 +40,26 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 }));
 
 describe("storage recovery", () => {
+  it("refuses oversized snapshot growth without truncating saved data and round-trips near the byte limit", async () => {
+    const data = makeAppData();
+    const plan = generateLocalPlan({ profile: data.profile!, date: "2026-10-01", requestId: "budget-test", clientId: data.installationId });
+    plan.tasks = Array.from({ length: 5 }, (_, i) => ({ ...plan.tasks[0]!, id: `budget-${i}`, description: "é".repeat(300), context: "é".repeat(300), firstStep: "é".repeat(240), expectedResult: "é".repeat(300), doneWhen: "é".repeat(300) }));
+    await nexusRepository.save(data);
+    const original = storageState.values.get(STORAGE_KEY);
+    data.planSnapshots = Array.from({ length: 1000 }, () => structuredClone(plan));
+    expect(utf8ByteLength(JSON.stringify(data, null, 2))).toBeGreaterThan(BACKUP_MAX_BYTES);
+    await expect(nexusRepository.save(data)).rejects.toThrow(/Limite de dados/);
+    expect(storageState.values.get(STORAGE_KEY)).toBe(original);
+    const bytesPerPlan = utf8ByteLength(JSON.stringify(plan, null, 2)) + 600;
+    data.planSnapshots = data.planSnapshots.slice(0, Math.floor((BACKUP_MAX_BYTES - 100_000) / bytesPerPlan));
+    while (utf8ByteLength(JSON.stringify(data, null, 2)) > BACKUP_MAX_BYTES - 1000) data.planSnapshots.pop();
+    expect(utf8ByteLength(JSON.stringify(data, null, 2))).toBeGreaterThan(BACKUP_MAX_BYTES * 0.9);
+    await nexusRepository.save(data);
+    const exported = nexusRepository.exportJson(data);
+    expect(utf8ByteLength(exported)).toBeLessThanOrEqual(BACKUP_MAX_BYTES);
+    expect(nexusRepository.importJson(exported).planSnapshots).toEqual(data.planSnapshots);
+  });
+
   beforeEach(async () => {
     storageState.values.clear();
     storageState.failSetKey = null;
@@ -73,7 +97,7 @@ describe("storage recovery", () => {
     expect(recovered.corruptionWarnings.length).toBeGreaterThanOrEqual(2);
   });
 
-  it("migrates v3 preferences to v6 without losing existing choices", () => {
+  it("migrates v3 preferences to v7 without losing existing choices", () => {
     const base = recoverAppData({
       storageVersion: 3,
       installationId: "install-existing-456",
@@ -105,7 +129,7 @@ describe("storage recovery", () => {
       weeklyPlan: [],
       corruptionWarnings: [],
     });
-    expect(base.storageVersion).toBe(6);
+    expect(base.storageVersion).toBe(7);
     expect(base.preferences.theme).toBe("amoled");
     expect(base.preferences.widget.taskCount).toBe(2);
     expect(base.preferences.widget.preset).toBe("mission");
@@ -285,7 +309,7 @@ describe("storage recovery", () => {
     }
   });
 
-  it("restores a strictly valid internal v6 rollback", async () => {
+  it("restores a strictly valid current internal rollback", async () => {
     const snapshot = recoverAppData({
       storageVersion: 6,
       installationId: "install-valid-rollback",
@@ -299,6 +323,17 @@ describe("storage recovery", () => {
     await expect(nexusRepository.hasImportRollback()).resolves.toBe(true);
     expect(restored?.installationId).toBe("install-valid-rollback");
     expect(restored?.profile?.nickname).toBe("Undo");
+  });
+
+  it("preserves a strict legacy v6 Undo across the v7 migration", async () => {
+    const current = recoverAppData({ storageVersion: 6, installationId: "install-legacy-undo", profile: makeProfile(), onboardingCompleted: true });
+    const { lockIn: _lockIn, planSnapshots: _snapshots, ...legacy } = current;
+    const json = JSON.stringify({ ...legacy, storageVersion: 6 });
+    storageState.values.set(IMPORT_ROLLBACK_KEY, json);
+    const restored = await nexusRepository.restoreImportRollback();
+    expect(restored?.storageVersion).toBe(7);
+    expect(restored?.lockIn.goals[0]?.state).toBe("candidate");
+    expect(storageState.values.get(IMPORT_ROLLBACK_KEY)).toBe(json);
   });
 
   it("serializes reset behind an older slow save so cleared data cannot return", async () => {
@@ -370,4 +405,81 @@ describe("storage recovery", () => {
     expect(storageState.values.has(MIGRATION_BACKUP_KEY)).toBe(true);
     expect(storageState.values.has(LEGACY_MIGRATION_BACKUP_KEYS[0])).toBe(true);
   });
+  it("migrates v6 once with a dedicated backup, preserving legacy backup and candidate identity", async () => {
+    const original = JSON.stringify({ storageVersion: 6, installationId: "install-v6-lock-in", profile: makeProfile(), onboardingCompleted: true });
+    storageState.values.set(STORAGE_KEY, original);
+    storageState.values.set(MIGRATION_BACKUP_KEY, "legacy-backup-kept");
+    const first = await nexusRepository.load();
+    expect(first.storageVersion).toBe(7);
+    expect(first.lockIn.goals[0]?.state).toBe("candidate");
+    expect(first.lockIn.execution).toBeUndefined();
+    expect(storageState.values.get(MIGRATION_BACKUP_KEY)).toBe("legacy-backup-kept");
+    expect(JSON.parse(storageState.values.get(LOCK_IN_BACKUP_KEY)!).data.storageVersion).toBe(6);
+    expect(JSON.parse(storageState.values.get(STORAGE_KEY)!).storageVersion).toBe(7);
+    const backup = storageState.values.get(LOCK_IN_BACKUP_KEY);
+    expect((await nexusRepository.load()).lockIn).toEqual(first.lockIn);
+    expect(storageState.values.get(LOCK_IN_BACKUP_KEY)).toBe(backup);
+    expect(nexusRepository.importJson(nexusRepository.exportJson(first)).lockIn).toEqual(first.lockIn);
+  });
+
+  it("serializes reset behind the entire migration so a late migration cannot resurrect data", async () => {
+    storageState.values.set(STORAGE_KEY, JSON.stringify({ storageVersion: 6, installationId: "install-migration-race", profile: makeProfile(), onboardingCompleted: true }));
+    storageState.blockedSetKey = LOCK_IN_BACKUP_KEY;
+    const started = new Promise<void>((resolve) => { storageState.onBlockedSetStarted = resolve; });
+    const loading = nexusRepository.load();
+    await started;
+    const resetting = nexusRepository.clearAll();
+    storageState.releaseBlockedSet?.();
+    await loading;
+    await resetting;
+    expect(storageState.values.has(STORAGE_KEY)).toBe(false);
+    expect(storageState.values.has(LOCK_IN_BACKUP_KEY)).toBe(false);
+  });
+
+  it("preserves the original v6 storage on backup or final migration write failure", async () => {
+    for (const failingKey of [LOCK_IN_BACKUP_KEY, STORAGE_KEY]) {
+      await nexusRepository.clearAll();
+      const original = JSON.stringify({ storageVersion: 6, installationId: "install-migration-fail", profile: makeProfile(), onboardingCompleted: true });
+      storageState.values.set(STORAGE_KEY, original);
+      storageState.failSetKey = failingKey;
+      await nexusRepository.load();
+      expect(nexusRepository.readOnlyReason()).not.toBeNull();
+      expect(storageState.values.get(STORAGE_KEY)).toBe(original);
+      storageState.failSetKey = null;
+    }
+  });
+
+  it("restores a partial onboarding section after restart and fails a draft write honestly", async () => {
+    const data = await nexusRepository.load();
+    const { draftFor } = await import("@/features/lock-in/planning");
+    data.lockIn.draft = { ...draftFor(data), name: "Gustavo", result: "Construir o Nexus", step: 1 };
+    await nexusRepository.save(data);
+    expect((await nexusRepository.load()).lockIn.draft).toEqual(data.lockIn.draft);
+    const original = storageState.values.get(STORAGE_KEY);
+    storageState.failSetKey = STORAGE_KEY;
+    await expect(nexusRepository.save({ ...data, lockIn: { ...data.lockIn, draft: { ...data.lockIn.draft, name: "Unsaved" } } })).rejects.toThrow();
+    expect(storageState.values.get(STORAGE_KEY)).toBe(original);
+  });
+
+  it("preserves invalid v7 execution state rather than silently resetting consent or goals", async () => {
+    const data = recoverAppData({ storageVersion: 6, installationId: "install-invalid-v7", profile: makeProfile(), onboardingCompleted: true });
+    const original = JSON.stringify({ ...data, lockIn: { ...data.lockIn, goals: [{ nonsense: true }] } });
+    storageState.values.set(STORAGE_KEY, original);
+    await nexusRepository.load();
+    expect(nexusRepository.readOnlyReason()).not.toBeNull();
+    expect(storageState.values.get(STORAGE_KEY)).toBe(original);
+    expect(() => nexusRepository.importJson(original)).toThrow();
+  });
+
+});
+
+it("preserves chat messages when a new diagnosis is corrupt and requires a fresh review", () => {
+  const data = makeAppData();
+  data.brain.threads = [{ id: "corrupt-consultation", kind: "brain", title: "Conversa preservada", messages: [{ id: "m1", role: "user", content: "Quero construir um app.", createdAt: "2026-10-02T12:00:00.000Z" }], summary: "", archived: false, createdAt: "2026-10-02T12:00:00.000Z", updatedAt: "2026-10-02T12:00:00.000Z" }];
+  const raw = structuredClone(data) as unknown as { brain: { threads: { consultation?: unknown }[] } };
+  raw.brain.threads[0]!.consultation = { stage: "approved", revision: -10 };
+  const recovered = recoverAppData(raw);
+  expect(recovered.brain.threads[0]?.messages).toEqual(data.brain.threads[0]?.messages);
+  expect(recovered.brain.threads[0]?.consultation).toEqual({ stage: "understanding", revision: 0 });
+  expect(recovered.corruptionWarnings.join(" ")).toContain("diagnóstico");
 });

@@ -11,6 +11,7 @@ function section(source: string, start: string, end: string): string {
 
 describe("confirmed product persistence flows", () => {
   const provider = readFileSync("providers/NexusProvider.tsx", "utf8");
+  const contextTypes = readFileSync("providers/nexus-context.types.ts", "utf8");
 
   it("exposes confirmed mutations and implements them with commitConfirmed", () => {
     for (const contract of [
@@ -23,7 +24,7 @@ describe("confirmed product persistence flows", () => {
       /renameRoadmap: .*Promise<boolean>/,
       /deleteRoadmap: .*Promise<boolean>/,
     ]) {
-      expect(provider).toMatch(contract);
+      expect(contextTypes).toMatch(contract);
     }
 
     for (const [start, end] of [
@@ -54,17 +55,14 @@ describe("confirmed product persistence flows", () => {
 
   it("clears the focus runtime and resets the UI only after a confirmed session", () => {
     const focus = readFileSync("app/(tabs)/focus.tsx", "utf8");
-    const persistFlow = section(focus, "const persistFocusSession", "const saveSession");
-    const resetFlow = section(focus, "const resetPersistedSession", "const persistFocusSession");
-    expect(persistFlow).toContain("const persisted = await finishFocusSession");
-    expect(persistFlow).toContain("if (!persisted)");
-    expect(persistFlow.indexOf("if (!persisted)")).toBeLessThan(persistFlow.indexOf("return await resetPersistedSession()"));
-    expect(resetFlow.indexOf("await clearFocusRuntime()" )).toBeLessThan(resetFlow.indexOf('setStatus("idle")'));
-    expect(focus).toContain('loading={pendingAction === "cancel"}');
-    expect(focus).toContain("Seu timer foi mantido; tente novamente.");
-    expect(focus).toContain("sessionId: sessionId.current");
-    expect(focus).toContain("id: sessionId.current");
-    expect(provider).toContain("focusSessions.some((item) => item.id === session.id)");
+    const persistFlow = section(focus, "const complete =", "return <>");
+    expect(persistFlow).toContain("await finishFocusSession(session, markTaskComplete)");
+    expect(persistFlow.indexOf("await finishFocusSession")).toBeLessThan(persistFlow.indexOf("await clearFocusRuntime()"));
+    expect(persistFlow.indexOf("await clearFocusRuntime()")).toBeLessThan(persistFlow.indexOf("publish(null)"));
+    expect(persistFlow).toContain("O registro local foi mantido para tentar novamente.");
+    expect(persistFlow).toContain("id: r.sessionId");
+    const completion = readFileSync("features/focus/completion.ts", "utf8");
+    expect(completion).toContain("focusSessions.some((item) => item.id === session.id)");
   });
 
   it("navigates or closes destructive dialogs only after confirmed writes", () => {

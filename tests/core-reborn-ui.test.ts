@@ -25,7 +25,7 @@ describe("Core Reborn UI contract", () => {
     const names = [...layout.matchAll(/<Tabs\.Screen name="([^"]+)"/g)].map(
       (match) => match[1],
     );
-    expect(names).toEqual(["today", "brain", "focus", "progress", "profile"]);
+    expect(names).toEqual(["today", "plan", "focus", "brain", "progress"]);
     expect(layout).not.toMatch(/operations|habits|week|finance/);
   });
 
@@ -34,7 +34,7 @@ describe("Core Reborn UI contract", () => {
       "app/(tabs)/today.tsx",
       "app/(tabs)/focus.tsx",
       "app/(tabs)/progress.tsx",
-      "app/(tabs)/profile.tsx",
+      "app/settings.tsx",
       "app/customize.tsx",
     ]
       .map((file) => readFileSync(file, "utf8"))

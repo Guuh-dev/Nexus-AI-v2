@@ -27,3 +27,6 @@ yarn-error.log*
 
 expo-env.d.ts
 # @end expo-cli
+
+# Gradle output from compiling the local Expo module
+/modules/*/android/build/

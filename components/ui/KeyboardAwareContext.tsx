@@ -2,7 +2,7 @@ import { createContext, type RefObject } from "react";
 import type { ScrollView } from "react-native";
 
 export type KeyboardAwareFormContextValue = {
-  registerFocusedField: (y: number, height: number) => void;
+  registerFocusedField: (measure: (callback: (y: number, height: number) => void) => void) => void;
   scrollRef: RefObject<ScrollView | null>;
 };
 

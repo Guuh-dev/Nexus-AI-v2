@@ -1,3 +1,4 @@
+import { LockInToday } from "@/components/LockInToday";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
@@ -97,6 +98,9 @@ export default function TodayScreen() {
   const companionLine = getCompanionLine(data, data.preferences.mascot.companionMood, "today");
   const companionVisible = shouldShowCompanion(data);
 
+  if (!plan && data.lockIn.goals.some((g) => g.state === "primary")) {
+    return <Screen><Card style={{ gap: 14 }}><NexusText variant="title">Confirme a missão de hoje</NexusText><NexusText secondary>O histórico está preservado. Revise suas janelas reais e escolha a próxima ação sem empilhar atrasados.</NexusText><NexusButton label="Abrir Plano" onPress={() => router.push("/(tabs)/plan")} /></Card></Screen>;
+  }
   if (!plan || !data.profile) {
     const hasProfile = Boolean(data.profile);
     return (
@@ -124,6 +128,8 @@ export default function TodayScreen() {
       </Screen>
     );
   }
+
+  if (plan.execution) return <LockInToday />;
 
   const saveTask = async (value: TaskEditorValue): Promise<boolean> => {
     if (editingTask) return updateTask(editingTask.id, value);
@@ -172,6 +178,7 @@ export default function TodayScreen() {
             <Pressable accessibilityRole="button" accessibilityLabel="Fechar aviso" onPress={dismissWarnings} style={styles.closeButton}><NexusText>×</NexusText></Pressable>
           </Card>
         ) : null}
+        <View style={{ flexDirection: "row", gap: 8, marginBottom: 12 }}><NexusButton label="Plano" variant="secondary" compact onPress={() => router.push("/(tabs)/plan")} /><NexusButton label="Configurações" variant="ghost" compact onPress={() => router.push("/settings")} /></View>
         {plan.warning ? <Card style={[styles.sourceNotice, { borderColor: colors.warning }]}><NexusText variant="caption" color={colors.warning}>{plan.warning}</NexusText></Card> : null}
 
         {companionVisible ? (
@@ -197,7 +204,7 @@ export default function TodayScreen() {
             <NexusText secondary>{signal.message}</NexusText>
             <View style={styles.actions}>
               <NexusButton label="Agora não" variant="ghost" onPress={() => setSignalDismissed(true)} style={styles.flex} />
-              <NexusButton label="Replanejar" onPress={() => openReplan(true)} style={styles.flex} />
+              <NexusButton label="Replanejar" onPress={() => plan.execution ? router.push("/(tabs)/plan") : openReplan(true)} style={styles.flex} />
             </View>
           </Card>
         ) : pendingProfessorTopic ? (

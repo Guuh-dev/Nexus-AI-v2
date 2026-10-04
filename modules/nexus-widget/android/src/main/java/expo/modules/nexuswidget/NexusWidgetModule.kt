@@ -11,6 +11,13 @@ import org.json.JSONObject
 class NexusWidgetModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("NexusWidget")
+    AsyncFunction("pixelCompanionsSupported") { true }
+    AsyncFunction("utilityWidgetsSupported") { true }
+    AsyncFunction("journalSupported") { true }
+    AsyncFunction("saveJournal") { id: String, text: String -> NexusJournalStore.save(appContext.reactContext ?: throw IllegalStateException("Context unavailable"), id, text) }
+    AsyncFunction("readJournal") { id: String -> NexusJournalStore.read(appContext.reactContext ?: throw IllegalStateException("Context unavailable"), id) }
+    AsyncFunction("deleteJournal") { id: String -> NexusJournalStore.delete(appContext.reactContext ?: throw IllegalStateException("Context unavailable"), id) }
+    AsyncFunction("clearJournal") { NexusJournalStore.clear(appContext.reactContext ?: throw IllegalStateException("Context unavailable")) }
 
     AsyncFunction("updateWidget") { payload: String ->
       require(payload.toByteArray(Charsets.UTF_8).size <= 32_768) { "Widget payload is too large" }
@@ -118,6 +125,9 @@ class NexusWidgetModule : Module() {
     NexusCompanionWidgetProvider::class.java to "companion",
     NexusMissionWidgetProvider::class.java to "mission",
     NexusWidgetProvider::class.java to "command",
+    NexusTimerWidgetProvider::class.java to "timer",
+    NexusCaptureWidgetProvider::class.java to "capture",
+    NexusStreakWidgetProvider::class.java to "streak",
   )
 
   private fun actionIdentity(action: JSONObject): String {
@@ -143,6 +153,9 @@ class NexusWidgetModule : Module() {
       "companion" to setOf("companion"),
       "mission" to setOf("mission", "tasks"),
       "command" to setOf("command", "focus"),
+      "timer" to setOf("timer"),
+      "capture" to setOf("capture"),
+      "streak" to setOf("heatmap"),
     )
     val defaultContent = mapOf(
       "mini" to "streak",
@@ -150,6 +163,9 @@ class NexusWidgetModule : Module() {
       "companion" to "companion",
       "mission" to "mission",
       "command" to "command",
+      "timer" to "timer",
+      "capture" to "capture",
+      "streak" to "heatmap",
     )
     val legacyPrivateMode = raw.optString("style") == "privacy" || raw.optString("content") == "private"
     val style = when (raw.optString("style", "nexus")) {
@@ -167,6 +183,9 @@ class NexusWidgetModule : Module() {
     val personality = raw.optString("personality", raw.optString("mood", "happy"))
       .takeIf(personalities::contains) ?: "happy"
     return JSONObject()
+      .put("scene", raw.optString("scene", "none").takeIf { it in setOf("none", "desk", "garden", "night") } ?: "none")
+      .put("showMascot", raw.optBoolean("showMascot", true))
+      .put("showMetric", raw.optBoolean("showMetric", true))
       .put("schemaVersion", 3)
       .put("family", family)
       .put("style", style)

@@ -1,3 +1,11 @@
+import { threadEntry } from "@/features/assistant/thread-entry";
+import { decideConsultation, receiveProposal } from "@/features/assistant/consultation";
+import { clearJournalIfSupported } from "@/services/journal.service";
+import { addEvidence, removeEvidence, reviewDay, draftTomorrow } from "@/features/lock-in/review";
+import type { Evidence, DayReview } from "@/schemas/lock-in.schema";
+import { applyFocusCompletion } from "@/features/focus/completion";
+import { confirmSecondaryGoal, reconcileExecution, projectGoalProfile } from "@/features/lock-in/planning";
+import { lockInDraftSchema, type LockInDraft } from "@/schemas/lock-in.schema";
 import {
   createContext,
   useCallback,
@@ -16,7 +24,6 @@ import {
   applyLessonEvidenceReview,
   archiveRoadmap as archiveLearningRoadmap,
   classifyRoadmapIntent,
-  EVOLUTION_AREA_LABELS,
   nextRoadmapLesson,
   removeRoadmap,
   renameRoadmap as renameLearningRoadmap,
@@ -32,14 +39,11 @@ import { addTask, deleteTask, postponeTask, toggleMainMission, toggleTaskComplet
 import { evolutionProfileSchema, roadmapSchema } from "@/schemas/expansion.schema";
 import { profileSchema } from "@/schemas/profile.schema";
 import { appDataSchema } from "@/schemas/storage.schema";
-import { askNexus } from "@/services/assistant.service";
+import { askNexus, AssistantRemoteError } from "@/services/assistant.service";
 import { clearFocusRuntime } from "@/services/focus-runtime.service";
 import { configureDailyReminder } from "@/services/notification.service";
 import { generateLocalPlan, generatePlan } from "@/services/planning.service";
-import {
-  nexusRepository,
-  type BackupImportPreview,
-} from "@/services/storage.service";
+import { nexusRepository } from "@/services/storage.service";
 import {
   acknowledgeAndroidWidgetActions,
   peekAndroidWidgetActions,
@@ -47,12 +51,13 @@ import {
   type WidgetSyncResult,
 } from "@/services/widget.service";
 import { applyWidgetTaskActions, widgetTaskActionsSatisfied } from "@/features/widget/actions";
-import { getColors, getVisuals, type NexusColors, type NexusVisuals } from "@/theme/theme";
+import { getColors, getVisuals } from "@/theme/theme";
+import type { CaptureResult, ConfirmedCommitResult, EvidenceSubmissionResult, NexusContextValue } from "@/providers/nexus-context.types";
+import { compactThreadSummary, initializeProfessor, setAssistantActionStatus, threadTitle, unlockAchievements } from "@/providers/nexus-state";
 import type {
   AppData,
   AssistantAction,
   AssistantMeta,
-  AssistantResponse,
   AssistantStage,
   Category,
   ChatKind,
@@ -63,7 +68,6 @@ import type {
   MemoryKind,
   OnboardingDraft,
   Preferences,
-  Priority,
   ProfessorIntake,
   Profile,
   WeeklyReview,
@@ -78,89 +82,6 @@ const LOADING_STAGES = [
   "Montando um plano realista...",
   "Preparando seu painel...",
 ] as const;
-
-type TaskInput = {
-  title: string;
-  description?: string;
-  context?: string;
-  firstStep?: string;
-  expectedResult?: string;
-  doneWhen?: string;
-  category: Category;
-  priority: Priority;
-  estimatedMinutes: number;
-  recurring: boolean;
-};
-
-type CaptureResult = NonNullable<AssistantResponse["capture"]>;
-type EvidenceSubmissionResult = "not_saved" | "saved_pending" | "reviewed";
-type ConfirmedCommitResult = { data: AppData; widget: WidgetSyncResult };
-
-type NexusContextValue = {
-  data: AppData;
-  colors: NexusColors;
-  visuals: NexusVisuals;
-  ready: boolean;
-  storageReadOnlyReason: string | null;
-  planGenerating: boolean;
-  planGenerationError: string | null;
-  assistantBusy: boolean;
-  assistantStage: AssistantStage;
-  lastAssistantMeta: AssistantMeta | null;
-  weeklyReviewError: string | null;
-  loadingStage: string;
-  toast: string | null;
-  updateOnboardingDraft: (patch: OnboardingDraft) => void;
-  completeOnboarding: (profile: Profile) => Promise<void>;
-  completeDiscovery: (evolution: EvolutionProfile) => Promise<boolean>;
-  cancelPlanGeneration: () => void;
-  retryPlanGeneration: () => Promise<void>;
-  recoverPlanLocally: () => Promise<void>;
-  cancelAssistant: () => void;
-  replanDay: (context?: { reason?: string; minutesRemaining?: number; currentEnergy?: Profile["energyLevel"]; preserveTaskIds?: string[] }) => Promise<boolean>;
-  toggleTask: (taskId: string) => Promise<boolean>;
-  toggleMission: () => Promise<boolean>;
-  addTask: (input: TaskInput) => Promise<boolean>;
-  updateTask: (taskId: string, patch: Partial<TaskInput>) => Promise<boolean>;
-  deleteTask: (taskId: string) => Promise<boolean>;
-  postponeTask: (taskId: string) => Promise<boolean>;
-  updateProfile: (patch: Partial<Profile>) => Promise<boolean>;
-  updatePreferences: (patch: Omit<Partial<Preferences>, "widget" | "dashboard" | "mascot"> & { widget?: Partial<Preferences["widget"]>; dashboard?: Partial<Preferences["dashboard"]>; mascot?: Partial<Preferences["mascot"]> }) => Promise<WidgetSyncResult | null>;
-  finishFocusSession: (session: FocusSession, markTaskComplete: boolean) => Promise<boolean>;
-  createThread: (kind: ChatKind) => string;
-  selectThread: (kind: ChatKind, threadId: string) => void;
-  renameThread: (threadId: string, title: string) => Promise<boolean>;
-  archiveThread: (threadId: string) => Promise<boolean>;
-  deleteThread: (threadId: string) => Promise<boolean>;
-  sendChatMessage: (threadId: string, content: string) => Promise<void>;
-  deleteMemory: (memoryId: string) => Promise<boolean>;
-  toggleMemoryPinned: (memoryId: string) => Promise<boolean>;
-  applyAssistantAction: (threadId: string, actionId: string, accept: boolean) => Promise<void>;
-  createRoadmap: (topic: string, intake?: ProfessorIntake) => Promise<boolean>;
-  setActiveRoadmap: (roadmapId: string) => Promise<boolean>;
-  renameRoadmap: (roadmapId: string, title: string) => Promise<boolean>;
-  archiveRoadmap: (roadmapId: string) => Promise<boolean>;
-  deleteRoadmap: (roadmapId: string) => Promise<boolean>;
-  regenerateRoadmap: (roadmapId: string) => Promise<boolean>;
-  submitRoadmapEvidence: (roadmapId: string, lessonId: string, submission: string) => Promise<EvidenceSubmissionResult>;
-  quickCapture: (text: string) => Promise<CaptureResult | null>;
-  saveCapture: (capture: CaptureResult) => Promise<boolean>;
-  rescheduleCapture: (captureId: string, date: string) => Promise<boolean>;
-  deleteScheduledCapture: (captureId: string) => Promise<boolean>;
-  generateWeeklyReview: () => Promise<WeeklyReview | null>;
-  resetToday: () => Promise<boolean>;
-  resetAll: () => Promise<void>;
-  clearTemporary: () => Promise<void>;
-  inspectBackup: (json: string) => BackupImportPreview;
-  importBackup: (json: string) => Promise<void>;
-  restoreImportBackup: () => Promise<boolean>;
-  hasImportRollback: boolean;
-  restoreMigrationBackup: () => Promise<boolean>;
-  hasMigrationBackup: boolean;
-  exportBackup: () => string;
-  dismissToast: () => void;
-  dismissWarnings: () => void;
-};
 
 const NexusContext = createContext<NexusContextValue | null>(null);
 
@@ -184,92 +105,6 @@ async function reconcileDailyReminder(data: AppData): Promise<AppData> {
   };
 }
 
-function unlockAchievements(data: AppData): AppData {
-  let next = refreshDailyChallengesAt(data);
-  const existing = new Set(next.progress.achievements.map((item) => item.id));
-  const completedTasks = next.history.reduce((total, day) => total + day.completedTasks, 0) + (next.activePlan?.tasks.filter((task) => task.completed).length ?? 0);
-  const focusMinutes = Math.floor(next.progress.focusSessions.reduce((sum, session) => sum + session.elapsedSeconds, 0) / 60);
-  const completedLessons = next.learning.roadmaps.flatMap((roadmap) => roadmap.phases).flatMap((phase) => phase.lessons).filter((lesson) => lesson.completed).length;
-  const candidates = [
-    completedTasks >= 1 ? { id: "first-task", title: "Primeiro movimento", description: "Concluiu a primeira tarefa.", icon: "◆" } : null,
-    completedTasks >= 10 ? { id: "ten-tasks", title: "Executor em formação", description: "Concluiu 10 tarefas.", icon: "⚡" } : null,
-    focusMinutes >= 25 ? { id: "focus-25", title: "Foco travado", description: "Completou 25 minutos de foco.", icon: "◉" } : null,
-    focusMinutes >= 500 ? { id: "focus-500", title: "Mente de aço", description: "Acumulou 500 minutos de foco.", icon: "◎" } : null,
-    next.progress.currentStreak >= 3 ? { id: "streak-3", title: "Sequência iniciada", description: "Manteve três dias produtivos.", icon: "♨" } : null,
-    completedLessons >= 5 ? { id: "student-5", title: "Aprendiz deliberado", description: "Concluiu cinco lições do Professor Atlas.", icon: "◇" } : null,
-  ].filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
-  const additions = candidates.filter((candidate) => !existing.has(candidate.id)).map((candidate) => ({ ...candidate, unlockedAt: new Date().toISOString() }));
-  if (!additions.length) return next;
-  next = { ...next, progress: { ...next.progress, achievements: [...next.progress.achievements, ...additions] } };
-  return next;
-}
-
-function initializeProfessor(data: AppData, profile: Profile): AppData {
-  const evolution = profile.evolution;
-  if (!evolution || evolution.professorScope === "depois") return data;
-  const areaTopics = evolution.primaryAreas.map((area) => EVOLUTION_AREA_LABELS[area]);
-  const topics = (evolution.professorTopics.length ? evolution.professorTopics : areaTopics).slice(0, evolution.professorScope === "especifico" ? 1 : 4);
-  const existing = new Set(data.learning.roadmaps.map((roadmap) => roadmap.topic.toLocaleLowerCase("pt-BR")));
-  const pendingTopics = [...data.learning.pendingTopics, ...topics]
-    .map((topic) => sanitizeText(topic, 160))
-    .filter((topic) => topic.length >= 2 && !existing.has(topic.toLocaleLowerCase("pt-BR")))
-    .filter((topic, index, all) => all.findIndex((candidate) => candidate.toLocaleLowerCase("pt-BR") === topic.toLocaleLowerCase("pt-BR")) === index)
-    .slice(0, 24);
-  if (!pendingTopics.length && data.learning.professorEnabled) return data;
-  const now = new Date().toISOString();
-  const professorThread = data.brain.threads.find((thread) => thread.kind === "professor" && !thread.archived);
-  const thread: ChatThread = professorThread ?? {
-    id: createId("professor-chat"), kind: "professor", title: "Professor Atlas", summary: "", createdAt: now, updatedAt: now, archived: false,
-    messages: [{ id: createId("message"), role: "assistant", content: `Eu sou o Professor Atlas, parceiro do Nexus. Antes de montar seu roadmap${topics.length ? ` de ${topics.join(", ")}` : ""}, vou descobrir o que você já sabe, o que tentou e qual resultado provará seu domínio. Depois ajustarei a trilha conforme você aprende — sem pular fundamentos.`, createdAt: now }],
-  };
-  return {
-    ...data,
-    brain: {
-      ...data.brain,
-      threads: professorThread ? data.brain.threads : [thread, ...data.brain.threads],
-      activeProfessorThreadId: thread.id,
-    },
-    learning: { ...data.learning, professorEnabled: true, pendingTopics },
-  };
-}
-
-function threadTitle(content: string): string {
-  const cleaned = sanitizeText(content, 80);
-  return cleaned.length > 42 ? `${cleaned.slice(0, 39)}...` : cleaned || "Nova conversa";
-}
-
-function compactThreadSummary(thread: ChatThread, nextContent: string): string {
-  if (thread.messages.length < 36) return thread.summary;
-  const older = thread.messages.slice(0, Math.max(0, thread.messages.length - 30));
-  const additions = older.slice(-12).map((message) => `${message.role === "user" ? "Usuário" : "Nexus"}: ${sanitizeText(message.content, 240)}`).join("\n");
-  return sanitizeText(`${thread.summary}\n${additions}\nÚltima continuidade: ${sanitizeText(nextContent, 240)}`, 6000);
-}
-
-function setAssistantActionStatus(
-  data: AppData,
-  threadId: string,
-  actionId: string,
-  status: "accepted" | "rejected",
-): AppData {
-  return {
-    ...data,
-    brain: {
-      ...data.brain,
-      threads: data.brain.threads.map((thread) => thread.id === threadId
-        ? {
-            ...thread,
-            messages: thread.messages.map((message) => ({
-              ...message,
-              actions: message.actions?.map((action) => action.id === actionId
-                ? { ...action, status }
-                : action),
-            })),
-          }
-        : thread),
-    },
-  };
-}
-
 export function NexusProvider({ children }: PropsWithChildren) {
   const [data, setData] = useState<AppData>(cloneDefaultData);
   const dataRef = useRef(data);
@@ -282,6 +117,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const [assistantBusy, setAssistantBusy] = useState(false);
   const [assistantStage, setAssistantStage] = useState<AssistantStage>("idle");
   const [lastAssistantMeta, setLastAssistantMeta] = useState<AssistantMeta | null>(null);
+  const [roadmapFailure, setRoadmapFailure] = useState("");
   const [weeklyReviewError, setWeeklyReviewError] = useState<string | null>(null);
   const [loadingStageIndex, setLoadingStageIndex] = useState(0);
   const [rolloverRevision, setRolloverRevision] = useState(0);
@@ -356,7 +192,25 @@ export function NexusProvider({ children }: PropsWithChildren) {
 
   const prepareCommit = useCallback((update: (current: AppData) => AppData): AppData | null => {
     if (stateReplacementInProgressRef.current) return null;
-    const next = unlockAchievements(update(dataRef.current));
+    let next: AppData;
+    try {
+      const candidate = update(dataRef.current);
+      const planningChanged = JSON.stringify(candidate.activePlan?.tasks.map((t) => [t.id, t.estimatedMinutes, t.dependsOn])) !== JSON.stringify(dataRef.current.activePlan?.tasks.map((t) => [t.id, t.estimatedMinutes, t.dependsOn]));
+      next = unlockAchievements(projectGoalProfile(candidate.activePlan === dataRef.current.activePlan ? candidate : reconcileExecution(candidate, planningChanged ? new Date() : undefined)));
+      if (next.activePlan?.execution && next.activePlan !== dataRef.current.activePlan) {
+        const revision = Math.max(next.lockIn.revision, dataRef.current.lockIn.revision + 1);
+        let planSnapshots = next.planSnapshots;
+        const previousPlan = dataRef.current.activePlan;
+        if (planningChanged && previousPlan?.execution && planSnapshots === dataRef.current.planSnapshots) {
+          if (planSnapshots.length >= 1000) throw new Error("Exporte e revise o histórico de planos antes de continuar.");
+          planSnapshots = [...planSnapshots, previousPlan];
+        }
+        next = { ...next, planSnapshots, activePlan: { ...next.activePlan, execution: { ...next.activePlan.execution, revision } }, lockIn: { ...next.lockIn, revision } };
+      }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Revise o plano antes de continuar.");
+      return null;
+    }
     const validation = appDataSchema.safeParse(next);
     if (!validation.success) {
       showToast("Esta alteração produziria dados inválidos e não foi aplicada.");
@@ -406,6 +260,31 @@ export function NexusProvider({ children }: PropsWithChildren) {
     }
   }, [persist, prepareCommit, showToast]);
 
+  const saveJournalManifest = useCallback(async (id: string, remove: boolean) => Boolean(await commitConfirmed((current) => {
+    const entries = current.lockIn.journal ?? [];
+    if (remove) return { ...current, lockIn: { ...current.lockIn, journal: entries.filter((e) => e.id !== id) } };
+    const previous = entries.find((e) => e.id === id);
+    if (!previous && entries.length >= 3660) throw new Error("Limite de registros atingido. Exporte e revise seu diário.");
+    const now = new Date().toISOString();
+    return { ...current, lockIn: { ...current.lockIn, journal: [...entries.filter((e) => e.id !== id), { id, createdAt: previous?.createdAt ?? now, updatedAt: now }] } };
+  })), [commitConfirmed]);
+  const saveEvidence = useCallback(async (input: Evidence) => Boolean(await commitConfirmed((current) => addEvidence(current, input), "Evidência salva.")), [commitConfirmed]);
+  const deleteEvidence = useCallback(async (id: string) => Boolean(await commitConfirmed((current) => removeEvidence(current, id), "Evidência excluída e referências retiradas.")), [commitConfirmed]);
+  const saveDayReview = useCallback(async (input: Pick<DayReview, "outcome" | "reason" | "nextAction">, baseRevision: number) => Boolean(await commitConfirmed((current) => reviewDay(current, input, baseRevision), "Revisão salva.")), [commitConfirmed]);
+  const prepareTomorrow = useCallback(async () => Boolean(await commitConfirmed(draftTomorrow, "Rascunho de amanhã salvo. Janelas ainda precisam de confirmação.")), [commitConfirmed]);
+
+  const saveLockInDraft = useCallback(async (draft: LockInDraft): Promise<boolean> => {
+    const parsed = lockInDraftSchema.safeParse(draft);
+    if (!parsed.success) return false;
+    return Boolean(await commitConfirmed((current) => ({ ...current, lockIn: { ...current.lockIn, draft: parsed.data } })));
+  }, [commitConfirmed]);
+  const confirmLockIn = useCallback(async (draft: LockInDraft, baseRevision: number): Promise<boolean> => {
+    if (generationPromise.current || assistantFlightRef.current) {
+      showToast("Aguarde a operação em andamento antes de confirmar o plano."); return false;
+    }
+    return Boolean(await commitConfirmed((current) => confirmSecondaryGoal(current, draft, baseRevision), "Missão e janelas confirmadas."));
+  }, [commitConfirmed, showToast]);
+
   const syncWidgetActions = useCallback(async () => {
     if (stateReplacementInProgressRef.current || !hydratedRef.current || nexusRepository.readOnlyReason()) return;
     const batch = await peekAndroidWidgetActions();
@@ -439,7 +318,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
             if (!mounted) return;
             if (rollover.rolledOver) {
               setRolloverRevision((value) => value + 1);
-              showToast("Novo dia detectado. Sua missão foi preparada sem duplicar tarefas.");
+              showToast(previous.lockIn.goals.some((g) => g.state === "primary") ? "Dia anterior preservado. Confirme as janelas e a missão de hoje em Plano." : "Novo dia detectado. Sua missão foi preparada sem duplicar tarefas.");
             }
           } catch {
             dataRef.current = previous;
@@ -467,7 +346,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
         try {
           await persist(dailyState);
           if (rollover.rolledOver) {
-            showToast("Novo dia detectado. Sua missão foi preparada sem duplicar tarefas.");
+            showToast(loaded.lockIn.goals.some((g) => g.state === "primary") ? "Dia anterior preservado. Confirme as janelas e a missão de hoje em Plano." : "Novo dia detectado. Sua missão foi preparada sem duplicar tarefas.");
           }
         } catch {
           initial = loaded;
@@ -510,6 +389,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
   }, [planGenerating]);
 
   const commitLocalPlan = useCallback(async (profile: Profile, message: string): Promise<boolean> => {
+    if (dataRef.current.lockIn.goals.some((g) => g.state === "primary")) { showToast("Confirme a próxima missão no Plano."); return false; }
     const date = localDateKey(new Date(), profile.timezone);
     return Boolean(await commitConfirmed((current) => {
       const replacement = generateLocalPlan(
@@ -527,10 +407,13 @@ export function NexusProvider({ children }: PropsWithChildren) {
         lastAiAttemptDate: date,
       }, profile);
     }, message));
-  }, [commitConfirmed]);
+  }, [commitConfirmed, showToast]);
 
   const runGeneration = useCallback((profile: Profile, mode: "onboarding" | "replan" | "rollover", context?: { reason?: string; minutesRemaining?: number; currentEnergy?: Profile["energyLevel"]; preserveTaskIds?: string[] }): Promise<boolean> => {
     if (stateReplacementInProgressRef.current) return Promise.resolve(false);
+    if (dataRef.current.lockIn.goals.some((g) => g.state === "primary")) {
+      showToast("Revise as janelas e o impacto no Plano antes de confirmar outra missão."); return Promise.resolve(false);
+    }
     if (generationPromise.current) return generationPromise.current;
     const controller = new AbortController();
     generationController.current = controller;
@@ -723,7 +606,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
     const completed = !dataRef.current.activePlan.mainMission.completed;
     const result = await commitConfirmed(
       toggleMainMission,
-      completed ? "Missão principal concluída. +75 XP." : "Missão principal reaberta.",
+      completed ? (dataRef.current.activePlan?.execution ? "Tarefas da missão concluídas." : "Missão principal concluída. +75 XP.") : "Missão principal reaberta.",
     );
     if (!result) return false;
     if (result.data.preferences.haptics) {
@@ -735,13 +618,16 @@ export function NexusProvider({ children }: PropsWithChildren) {
   const updateProfile = useCallback(async (patch: Partial<Profile>): Promise<boolean> => {
     const currentProfile = dataRef.current.profile;
     if (!currentProfile) return false;
+    if (dataRef.current.lockIn.goals.some((g) => g.state === "primary") && ((patch.mainGoal !== undefined && patch.mainGoal !== currentProfile.mainGoal) || (patch.goalReason !== undefined && patch.goalReason !== currentProfile.goalReason) || (patch.deadline !== undefined && patch.deadline !== currentProfile.deadline) || (patch.timezone !== undefined && patch.timezone !== currentProfile.timezone))) {
+      showToast("Revise objetivo, prazo e fuso no Plano para confirmar o impacto."); return false;
+    }
     const parsed = profileSchema.safeParse({ ...currentProfile, ...patch, updatedAt: new Date().toISOString() });
     if (!parsed.success) return false;
     return Boolean(await commitConfirmed(
       (current) => ({ ...current, profile: parsed.data }),
       "Perfil atualizado.",
     ));
-  }, [commitConfirmed]);
+  }, [commitConfirmed, showToast]);
 
   const updatePreferences = useCallback(async (patch: Omit<Partial<Preferences>, "widget" | "dashboard" | "mascot"> & { widget?: Partial<Preferences["widget"]>; dashboard?: Partial<Preferences["dashboard"]>; mascot?: Partial<Preferences["mascot"]> }): Promise<WidgetSyncResult | null> => {
     const result = await commitConfirmed((current) => {
@@ -772,34 +658,21 @@ export function NexusProvider({ children }: PropsWithChildren) {
   }, [commitConfirmed]);
 
   const finishFocusSession = useCallback(async (session: FocusSession, markTaskComplete: boolean): Promise<boolean> => {
-    const result = await commitConfirmed((current) => {
-      if (current.progress.focusSessions.some((item) => item.id === session.id)) return current;
-      let next: AppData = {
-        ...current,
-        progress: {
-          ...current.progress,
-          totalXp: current.progress.totalXp + session.xp,
-          focusSessions: [...current.progress.focusSessions, session].slice(-10_000),
-          attributes: { ...current.progress.attributes, foco: current.progress.attributes.foco + Math.floor(session.elapsedSeconds / 60) },
-        },
-      };
-      const task = session.taskId ? next.activePlan?.tasks.find((item) => item.id === session.taskId) : undefined;
-      if (markTaskComplete && task && !task.completed) next = toggleTaskCompletion(next, task.id);
-      return next;
-    }, session.status === "cancelled" ? "Sessão cancelada registrada." : `Sessão salva. +${session.xp} XP de foco.`);
+    const result = await commitConfirmed((current) => applyFocusCompletion(current, session, markTaskComplete), "Sessão salva. Seu registro de foco foi preservado.");
     return Boolean(result);
   }, [commitConfirmed]);
 
-  const createThread = useCallback((kind: ChatKind): string => {
+  const createThread = useCallback(async (kind: ChatKind, continueLesson = false): Promise<string | undefined> => {
     const id = createId(`${kind}-chat`);
     const now = new Date().toISOString();
     const greeting = kind === "professor"
-      ? "Professor Atlas aqui. O que você quer dominar — uma habilidade específica ou uma combinação de áreas?"
-      : "Nexus Brain pronto. Pode falar como seu dia realmente está; quando você enviar, vou usar seu contexto sem fingir que tudo é simples.";
-    const thread: ChatThread = { id, kind, title: kind === "professor" ? "Nova aula" : "Nova conversa", summary: "", createdAt: now, updatedAt: now, archived: false, messages: [{ id: createId("message"), role: "assistant", content: greeting, createdAt: now }] };
-    commit((current) => ({ ...current, brain: { ...current.brain, threads: [thread, ...current.brain.threads], ...(kind === "brain" ? { activeBrainThreadId: id } : { activeProfessorThreadId: id }) } }));
-    return id;
-  }, [commit]);
+      ? "Professor Atlas aqui. O que você quer aprender ou conseguir fazer? Vou entender seu contexto e apresentar uma proposta para você revisar antes de começarmos."
+      : "O que você quer resolver? Conte do seu jeito. Vou entender o pedido, propor uma ajuda e esperar sua aprovação.";
+    const entry = threadEntry(dataRef.current, kind, continueLesson);
+    const thread: ChatThread = { ...entry, id, kind, title: kind === "professor" ? "Nova aula" : "Nova conversa", summary: "", createdAt: now, updatedAt: now, archived: false, messages: [{ id: createId("message"), role: "assistant", content: entry.lessonId ? "Vamos continuar a lição da sua trilha. Conte onde parou ou peça a próxima etapa." : greeting, createdAt: now }] };
+    const saved = await commitConfirmed((current) => ({ ...current, brain: { ...current.brain, threads: [thread, ...current.brain.threads], ...(kind === "brain" ? { activeBrainThreadId: id } : { activeProfessorThreadId: id }) } }));
+    return saved ? id : undefined;
+  }, [commitConfirmed]);
 
   const selectThread = useCallback((kind: ChatKind, threadId: string) => commit((current) => ({ ...current, brain: { ...current.brain, ...(kind === "brain" ? { activeBrainThreadId: threadId } : { activeProfessorThreadId: threadId }) } })), [commit]);
   const renameThread = useCallback(async (threadId: string, title: string): Promise<boolean> => Boolean(await commitConfirmed((current) => ({ ...current, brain: { ...current.brain, threads: current.brain.threads.map((thread) => thread.id === threadId ? { ...thread, title: sanitizeText(title, 100) || thread.title, updatedAt: new Date().toISOString() } : thread) } }), "Conversa renomeada.")), [commitConfirmed]);
@@ -815,6 +688,11 @@ export function NexusProvider({ children }: PropsWithChildren) {
     }),
   )), [commitConfirmed]);
   const deleteThread = useCallback(async (threadId: string): Promise<boolean> => Boolean(await commitConfirmed((current) => ({ ...current, brain: { ...current.brain, threads: current.brain.threads.filter((thread) => thread.id !== threadId), memories: current.brain.memories.map((memory) => memory.sourceThreadId === threadId ? { ...memory, sourceThreadId: undefined } : memory), activeBrainThreadId: current.brain.activeBrainThreadId === threadId ? undefined : current.brain.activeBrainThreadId, activeProfessorThreadId: current.brain.activeProfessorThreadId === threadId ? undefined : current.brain.activeProfessorThreadId } }), "Conversa excluída.")), [commitConfirmed]);
+
+  const decideChatProposal = useCallback(async (threadId: string, revision: number, approve: boolean): Promise<boolean> => {
+    if (assistantBusy) return false;
+    return Boolean(await commitConfirmed(current => ({ ...current, brain: { ...current.brain, threads: current.brain.threads.map(t => t.id === threadId ? decideConsultation(t, revision, approve, new Date().toISOString()) : t) } })));
+  }, [assistantBusy, commitConfirmed]);
 
   const sendChatMessage = useCallback(async (threadId: string, content: string) => {
     const clean = sanitizeText(content, 4000);
@@ -839,6 +717,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
         ...current.brain,
         threads: current.brain.threads.map((item) => item.id === threadId ? {
           ...item,
+          consultation: item.consultation?.stage === "proposed" ? { ...item.consultation, stage: "adjusting", revision: item.consultation.revision + 1 } : item.consultation,
           title: item.messages.length <= 1 ? threadTitle(clean) : item.title,
           messages: retryingPersistedMessage
             ? item.messages.map((message) => message.id === userMessage.id ? userMessage : message)
@@ -884,17 +763,23 @@ export function NexusProvider({ children }: PropsWithChildren) {
     try {
       const latestThread = dataRef.current.brain.threads.find((item) => item.id === threadId);
       const response = await askNexus(
-        { data: dataRef.current, mode: thread.kind, message: clean, context: { conversationSummary: latestThread?.summary ?? "" } },
+        { data: thread.roadmapId && thread.kind === "professor" ? { ...dataRef.current, learning: { ...dataRef.current.learning, activeRoadmapId: thread.roadmapId } } : dataRef.current, mode: thread.kind, message: clean, context: { consultation: latestThread?.consultation, conversationSummary: latestThread?.summary ?? "", lessonId: latestThread?.lessonId, ...(thread.kind === "professor" && !thread.roadmapId ? { roadmaps: [] } : {}) } },
         {
           signal: controller.signal,
           messages: conversationMessages,
           onStage: setAssistantStage,
           onDelta: (delta) => {
+            if (latestThread?.consultation && latestThread.consultation.stage !== "approved") return;
             streamedContent += delta;
             paintStream();
           },
         },
       );
+      const consultation = dataRef.current.brain.threads.find(t => t.id === threadId)?.consultation;
+      if (consultation && consultation.stage !== "approved") {
+        if (response.actions?.length || response.roadmap || response.memories?.length) throw new Error("NEXUS_UNAPPROVED_ASSISTANCE");
+        if (!response.assistanceProposal && !response.message.includes("?")) throw new Error("NEXUS_DIAGNOSIS_MISSING");
+      }
       paintStream(true);
       setLastAssistantMeta(response.meta ?? null);
       const responseRoadmap = response.roadmap
@@ -976,6 +861,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
               const withoutTransient = item.messages.filter((message) => message.id !== streamingMessageId);
               return {
                 ...item,
+                consultation: receiveProposal(item, response.assistanceProposal, streamingMessageId),
                 title: response.title ? threadTitle(response.title) : item.title,
                 summary: compactThreadSummary(item, response.message),
                 messages: [...withoutTransient, assistantMessage].slice(-1000),
@@ -1018,7 +904,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
         }
       }
       if (!aborted) {
-        showToast("Não consegui concluir esta resposta. Sua mensagem continua salva para tentar novamente.");
+        showToast(error instanceof Error && error.message.includes("diagnóstico") ? error.message : "Não consegui concluir esta resposta. Sua mensagem continua salva para tentar novamente.");
       }
       throw error;
     } finally {
@@ -1050,7 +936,10 @@ export function NexusProvider({ children }: PropsWithChildren) {
     }),
   )), [commitConfirmed]);
 
+  const saveProfessorDraft = useCallback(async (intake: ProfessorIntake, step: number, weekly: string) => Boolean(await commitConfirmed((current) => ({ ...current, learning: { ...current.learning, intakeDraft: { intake, step, weekly } } }))), [commitConfirmed]);
+
   const createRoadmap = useCallback(async (topic: string, intake?: ProfessorIntake): Promise<boolean> => {
+    setRoadmapFailure("");
     const clean = sanitizeText(topic, 160);
     if (!clean || !dataRef.current.profile || assistantBusy) return false;
     const duplicate = dataRef.current.learning.roadmaps.find((roadmap) => roadmap.topic.toLocaleLowerCase("pt-BR") === clean.toLocaleLowerCase("pt-BR"));
@@ -1094,11 +983,14 @@ export function NexusProvider({ children }: PropsWithChildren) {
           roadmaps: [...current.learning.roadmaps, roadmap],
           pendingTopics: current.learning.pendingTopics.filter((item) => item.toLocaleLowerCase("pt-BR") !== clean.toLocaleLowerCase("pt-BR")),
           activeRoadmapId: roadmap.id,
+          intakeDraft: undefined,
         },
       }), "Roadmap criado pelo Professor Atlas.");
       return Boolean(saved);
-    } catch {
-      showToast("A IA não conseguiu criar um roadmap confiável. Suas respostas foram preservadas para tentar novamente.");
+    } catch (error) {
+      const message = error instanceof AssistantRemoteError ? error.message : "A trilha retornada não passou pela validação. Suas respostas continuam salvas para ajustar ou tentar novamente.";
+      setRoadmapFailure(message);
+      showToast(message);
       return false;
     } finally { finishAssistantFlight(controller); setAssistantBusy(false); setAssistantStage("idle"); }
   }, [assistantBusy, beginAssistantFlight, commitConfirmed, finishAssistantFlight, showToast]);
@@ -1587,6 +1479,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
       return;
     }
     if (selected.type === "update_goal") {
+      if (dataRef.current.lockIn.goals.some((g) => g.state === "primary")) { showToast("A proposta permanece pendente. Revise e confirme a meta no Plano."); return; }
       const rawPayload = selected.payload as Record<string, unknown>;
       const mainGoal = typeof rawPayload.mainGoal === "string"
         ? sanitizeText(rawPayload.mainGoal, 600)
@@ -1620,6 +1513,7 @@ export function NexusProvider({ children }: PropsWithChildren) {
   }, [commitConfirmed, createRoadmap, replanDay, showToast]);
 
   const resetToday = useCallback(async (): Promise<boolean> => {
+    if (dataRef.current.lockIn.goals.some((g) => g.state === "primary")) { showToast("Revise o Plano para mudar a missão sem apagar entregas."); return false; }
     const profile = dataRef.current.profile;
     if (!profile) return false;
     const date = localDateKey(new Date(), profile.timezone);
@@ -1634,13 +1528,14 @@ export function NexusProvider({ children }: PropsWithChildren) {
         lastGeneratedDate: date,
       };
     }, "Plano de hoje recriado sem apagar o que já foi concluído."));
-  }, [commitConfirmed]);
+  }, [commitConfirmed, showToast]);
 
   const resetAll = useCallback(async () => {
     if (!await beginStateReplacement()) return;
     try {
       await clearFocusRuntime();
       await configureDailyReminder(false, dataRef.current.preferences.notificationTime);
+      await clearJournalIfSupported();
       await nexusRepository.clearAll();
       const next = cloneDefaultData();
       dataRef.current = next;
@@ -1734,8 +1629,9 @@ export function NexusProvider({ children }: PropsWithChildren) {
   }, [replaceAppState]);
 
   const value = useMemo<NexusContextValue>(() => ({
-    data, colors: getColors(data.preferences), visuals: getVisuals(data.preferences), ready, storageReadOnlyReason, planGenerating, planGenerationError, assistantBusy, assistantStage, lastAssistantMeta, weeklyReviewError, loadingStage: LOADING_STAGES[loadingStageIndex] ?? LOADING_STAGES[0], toast,
-    updateOnboardingDraft, completeOnboarding, completeDiscovery,
+    saveProfessorDraft,
+    data, colors: getColors(data.preferences), visuals: getVisuals(data.preferences), ready, storageReadOnlyReason, planGenerating, planGenerationError, assistantBusy, assistantStage, lastAssistantMeta, roadmapFailure, weeklyReviewError, loadingStage: LOADING_STAGES[loadingStageIndex] ?? LOADING_STAGES[0], toast,
+    saveJournalManifest, saveEvidence, deleteEvidence, saveDayReview, prepareTomorrow, saveLockInDraft, confirmLockIn, updateOnboardingDraft, completeOnboarding, completeDiscovery,
     cancelPlanGeneration, retryPlanGeneration, recoverPlanLocally, cancelAssistant: () => assistantController.current?.abort(), replanDay,
     toggleTask: handleTaskToggle, toggleMission: handleMissionToggle,
     addTask: async (input) => Boolean(await commitConfirmed((current) => addTask(current, input), "Tarefa adicionada.")),
@@ -1743,15 +1639,15 @@ export function NexusProvider({ children }: PropsWithChildren) {
     deleteTask: async (taskId) => Boolean(await commitConfirmed((current) => deleteTask(current, taskId), "Tarefa removida.")),
     postponeTask: async (taskId) => Boolean(await commitConfirmed((current) => postponeTask(current, taskId), "Tarefa movida para o próximo planejamento.")),
     updateProfile, updatePreferences, finishFocusSession,
-    createThread, selectThread, renameThread, archiveThread, deleteThread, sendChatMessage, deleteMemory, toggleMemoryPinned, applyAssistantAction,
+    createThread, selectThread, renameThread, archiveThread, deleteThread, decideChatProposal, sendChatMessage, deleteMemory, toggleMemoryPinned, applyAssistantAction,
     createRoadmap, setActiveRoadmap, renameRoadmap, archiveRoadmap, deleteRoadmap, regenerateRoadmap, submitRoadmapEvidence, quickCapture, saveCapture, rescheduleCapture, deleteScheduledCapture, generateWeeklyReview,
     resetToday, resetAll, clearTemporary, inspectBackup, importBackup, restoreImportBackup, hasImportRollback, restoreMigrationBackup, hasMigrationBackup, exportBackup: () => nexusRepository.exportJson(data),
     dismissToast: () => setToast(null), dismissWarnings: () => commit((current) => ({ ...current, corruptionWarnings: [] })),
   }), [
-    applyAssistantAction, archiveRoadmap, archiveThread, assistantBusy, assistantStage, lastAssistantMeta, weeklyReviewError, cancelPlanGeneration, clearTemporary, commit, commitConfirmed, completeDiscovery, completeOnboarding,
-    createRoadmap, createThread, data, deleteMemory, deleteRoadmap, deleteScheduledCapture, deleteThread, finishFocusSession, generateWeeklyReview, handleMissionToggle, handleTaskToggle, hasImportRollback, importBackup, inspectBackup,
+    saveJournalManifest, saveEvidence, deleteEvidence, saveDayReview, prepareTomorrow, saveLockInDraft, confirmLockIn, applyAssistantAction, archiveRoadmap, archiveThread, assistantBusy, assistantStage, lastAssistantMeta, roadmapFailure, weeklyReviewError, cancelPlanGeneration, clearTemporary, commit, commitConfirmed, completeDiscovery, completeOnboarding,
+    saveProfessorDraft, createRoadmap, createThread, data, deleteMemory, deleteRoadmap, deleteScheduledCapture, deleteThread, finishFocusSession, generateWeeklyReview, handleMissionToggle, handleTaskToggle, hasImportRollback, importBackup, inspectBackup,
     hasMigrationBackup, loadingStageIndex, planGenerating, planGenerationError, quickCapture, ready, recoverPlanLocally, renameThread, replanDay, resetAll, resetToday, rescheduleCapture, retryPlanGeneration, saveCapture, selectThread,
-    regenerateRoadmap, renameRoadmap, restoreImportBackup, restoreMigrationBackup, sendChatMessage, setActiveRoadmap, storageReadOnlyReason, submitRoadmapEvidence, toast, toggleMemoryPinned, updateOnboardingDraft, updatePreferences, updateProfile,
+    regenerateRoadmap, renameRoadmap, restoreImportBackup, restoreMigrationBackup, decideChatProposal, sendChatMessage, setActiveRoadmap, storageReadOnlyReason, submitRoadmapEvidence, toast, toggleMemoryPinned, updateOnboardingDraft, updatePreferences, updateProfile,
   ]);
 
   return <NexusContext.Provider value={value}>{children}</NexusContext.Provider>;

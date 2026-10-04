@@ -32,11 +32,26 @@ jobs:
       - name: Audit dependencies
         run: pnpm audit --audit-level=high
 
+  security-regressions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Scan secrets
         run: pnpm run security:secrets
 
       - name: Run security regression tests
-        run: pnpm exec vitest run tests/api.test.ts tests/assistant-api-security.test.ts tests/api-config.test.ts tests/untrusted-data.test.ts tests/storage.test.ts tests/native-widget-security.test.ts tests/workflow-security.test.ts
+        run: pnpm exec vitest run tests/api.test.ts tests/assistant-api-security.test.ts tests/api-config.test.ts tests/untrusted-data.test.ts tests/storage.test.ts tests/native-widget-security.test.ts tests/workflow-security.test.ts tests/signing-tool-security.test.ts tests/dependency-security.test.ts
 
   codeql:
     runs-on: ubuntu-latest

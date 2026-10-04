@@ -1,3 +1,4 @@
+import { planExecutionSchema } from "@/schemas/lock-in.schema";
 import { z } from "zod";
 import { MAIN_MISSION_XP, PRIORITY_XP } from "@/constants/defaults";
 import { CATEGORIES, type AiDailyPlan, type DailyPlan } from "@/types";
@@ -48,12 +49,16 @@ export const aiDailyPlanSchema = z
   .strict();
 
 const storedMissionSchema = aiMissionSchema.extend({
+  estimatedMinutes: z.number().int().min(5).max(1200),
+  taskIds: z.array(z.string().min(1).max(120)).max(5).optional(),
   completed: z.boolean(),
   completedAt: z.string().datetime().optional(),
   xp: z.number().int().min(0).max(200),
 });
 
 export const storedTaskSchema = aiTaskSchema.extend({
+  lesson: z.object({ roadmapId: z.string().min(1).max(120), lessonId: z.string().min(1).max(120) }).strict().optional(),
+  dependsOn: z.array(z.string().min(1).max(120)).max(5).optional(),
   id: z.string().trim().min(1).max(100),
   completed: z.boolean(),
   completedAt: z.string().datetime().optional(),
@@ -65,6 +70,7 @@ export const storedTaskSchema = aiTaskSchema.extend({
 
 export const dailyPlanSchema = z
   .object({
+    execution: planExecutionSchema.optional(),
     date: z.string().date(),
     mainMission: storedMissionSchema,
     // AI generation must create at least one task, but the user may later

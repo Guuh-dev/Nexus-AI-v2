@@ -19,12 +19,12 @@ Nexus AI é um Personal Mission OS local-first em Expo Router, React Native, Rea
 A navegação principal tem exatamente cinco abas:
 
 1. Hoje;
-2. Brain;
+2. Plano;
 3. Foco;
-4. Progresso;
-5. Perfil.
+4. Brain;
+5. Progresso.
 
-Professor Atlas e roadmaps vivem no Brain. Aparência e Widget Studio partem do Perfil. Não reintroduza dashboards paralelos ou uma nova aba sem uma decisão explícita de produto.
+Professor Atlas e roadmaps vivem no Brain. Perfil, aparência, Widget Studio, dados e updates vivem em `/settings`. Não reintroduza dashboards paralelos ou uma nova aba sem uma decisão explícita de produto.
 
 ## Escopo mantido e legado
 
@@ -46,6 +46,11 @@ Removidos da superfície e das rotas de produto:
 - finanças;
 - Command Center e layouts de dashboard;
 - excesso de skins, acessórios, presets e opções de widget.
+
+Exceção aprovada em 2026-10-01: Pixel Companions (Nexus/Atlas, estados em pixels,
+paletas, livro e cenários por widget). Leia `docs/LOCK_IN_CYCLE_AND_PIXEL_QA.md`
+para a implementação atual, contratos de dados e gates ainda pendentes. Isso não
+reativa as superfícies legadas removidas nem autoriza publicação.
 
 Os tipos e dados legados continuam no storage para migração. Não apague seções antigas só porque a UI não as exibe, mas também não exponha novas mutações no Provider nem recrie links para módulos retirados sem uma decisão explícita de produto.
 
@@ -118,6 +123,19 @@ Atlas ensina uma etapa por vez. Estrutura padrão: Agora, passos, Entrega, Concl
 
 Falha remota no Brain ou Atlas não pode gerar conversa local fingindo ser IA. Planejamento determinístico offline é permitido para manter o app utilizável, sempre com `source: "offline"` e aviso visível.
 
+### Diagnóstico aprovado (2026-10-02)
+
+Novas conversas entendem o pedido natural, perguntam uma coisa por vez e mostram
+uma proposta persistida antes de iniciar a ajuda. Aprovar exige revisão-base e
+mensagem de origem; ajustar mantém as partes anteriores como referência. Aprovar
+ajuda não aplica actions automaticamente. Continuar aula já aceita conserva o
+vínculo roadmap/lesson e não reabre entrevista de um novo objetivo. Leia
+`docs/LOCK_IN_CONSULTATION_AND_PERSONALITIES.md` para mapping, backend e rollback.
+Personalidades Nexus/Atlas são independentes e alteram pixels e tom; strict é
+rotulado Firme. Não confunda personalidade com foco/pausa observado.
+DeepSeek permite reasoning.effort none nos modos interativos e roadmap; Qwen não
+recebe parâmetro reasoning. Não invente esforço low ou suporte obrigatório.
+
 ## Roadmaps
 
 Classifique a intenção usando tópico, nível, objetivo, conhecimento, projeto e contexto específico do roadmap. O objetivo financeiro global não contamina uma trilha técnica.
@@ -156,35 +174,44 @@ Capturas futuras vivem em uma fila agendada, preservando título, descrição, c
 
 Existem somente seis temas selecionáveis: Nexus Dark, AMOLED, Glass, Light, Pixel e Minimal. Cada entrada em `NEXUS_THEMES` deve conter todos os tokens de cor e visuais.
 
-Componentes básicos consomem tokens; não criam paletas paralelas. Texto de ação usa `onPrimary`; check sobre sucesso usa `onSuccess`. Preserve contraste AA. Identificadores antigos são convertidos por `resolveThemeId` e pelo storage v6.
+Componentes básicos consomem tokens; não criam paletas paralelas. Texto de ação usa `onPrimary`; check sobre sucesso usa `onSuccess`. Preserve contraste AA. Identificadores antigos são convertidos por `resolveThemeId` e pelo storage v7.
 
 ## Widgets
 
-Cinco famílias:
+Oito famílias (aprovação de produto em 2026-10-04 para as três utilitárias):
 
 - Mini 1×1, zero tarefas;
 - Strip 2×1, zero tarefas;
 - Companion 2×2, zero tarefas;
 - Mission 4×2, até duas tarefas;
-- Command 4×4, até quatro tarefas.
+- Command 4×4, até quatro tarefas;
+- Timer 2×2, sessão de foco com Chronometer nativo, zero tarefas;
+- Captura 2×1, atalho para `nexusai://today?capture=1`, zero tarefas;
+- Sequência 4×2, mapa de 12 semanas a partir de foco e tarefas registrados, zero tarefas.
+
+As três utilitárias renderizam por `NexusUtilityWidgets.kt` com layouts e ids próprios; o `buildRemoteViews` retorna antes do renderer compartilhado. O Studio só as lista quando o APK instalado responde `utilityWidgetsSupported`. Salvar uma utilitária como padrão grava somente o visual, sem trocar a família padrão. O Timer abre o Foco: pausar/retomar continua dentro do app para não divergir do runtime persistido.
 
 `features/widget/render-spec.ts` é o contrato compartilhado por preview, payload e Android. Só exponha uma opção no Studio se Kotlin/RemoteViews puder reproduzi-la. Estilos: Nexus, AMOLED, Transparente, Pixel e Minimal.
 
 Um canal separado de Professor Atlas e aprendizado não é conteúdo de widget na v3. Atlas pode continuar como o mascote único da instância. As flags antigas de segundo Professor/lição continuam no schema apenas para migração/rollback e devem permanecer desativadas em novos saves. Não volte a expor esses controles sem adicionar uma família/campo completo no render spec, preview, payload, XML, Kotlin e QA.
 
-Os mínimos declarados pelo layout e pelo metadata precisam ser idênticos: Mini 40×40 dp, Strip 110×40 dp, Companion 110×110 dp, Mission 250×110 dp e Command 250×250 dp. Preserve o orçamento de padding, tipografia, mascote e linhas no menor tamanho; teste estrutural não substitui launcher físico.
+Os mínimos declarados pelo layout e pelo metadata precisam ser idênticos: Mini 40×40 dp, Strip 110×40 dp, Companion 110×110 dp, Mission 250×110 dp, Command 250×250 dp, Timer 110×110 dp, Captura 110×40 dp e Sequência 250×110 dp. Preserve o orçamento de padding, tipografia, mascote e linhas no menor tamanho; teste estrutural não substitui launcher físico.
+
+As cinco famílias permitem redimensionamento horizontal/vertical no novo APK,
+dentro dos mínimos/máximos declarados e da grade do launcher. Isso não troca a
+família nem promete animação contínua.
 
 Cada `appWidgetId` mantém configuração própria. Salvar deve persistir, sincronizar payload e pedir redraw. Conclusão de tarefa usa nonce e consumo idempotente. O payload nunca leva secret ou perfil completo. Mudança em Kotlin, XML, Manifest, plugin ou providers exige novo APK.
 
 ## Persistência
 
-Storage atual: v6 na chave estável `@nexus-ai/state`. Backup pré-migração: `@nexus-ai/pre-v3.0-backup`.
+Storage atual: v7 na chave estável `@nexus-ai/state`. Backup pré-Lock-In: `@nexus-ai/pre-lock-in-v7-backup`; preserve também `@nexus-ai/pre-v3.0-backup`. Leia `docs/LOCK_IN_ADR_001.md` e `docs/LOCK_IN_SLICE_1.md` para mapping, autoridade única e recuperação. Leitor v6 bloqueia v7; rollback OTA não restaura os dados transparentemente.
 
 Preserve perfil, objetivo, plano, tarefas, progresso, histórico, chats, roadmaps e preferências. Recupere coleções item a item. Um campo inválido não deve apagar toda a seção. Converta temas e widgets legados. Storage com versão futura fica bloqueado contra escrita para impedir downgrade.
 
 Todo import passa por limite de 8 MB, bloqueio de versão futura, identidade material, migração, schema e normalização. Um backup importável precisa trazer `installationId` válido, onboarding concluído e perfil completo; objetos vazios, wrappers vazios, chaves alheias ou estado sem perfil concluído não podem virar defaults. Não altere o storage version sem migração e teste.
 
-O Undo de import é um snapshot interno v6 estrito: corrupção não pode ser recuperada tolerantemente nem aparecer como Undo disponível, mas a chave deve permanecer intacta para diagnóstico. A restauração pré-migração percorre candidatos e ignora cópias corrompidas ou sem identidade material.
+O Undo de import é um snapshot interno estrito v7 (ou v6 validado estritamente e migrado): corrupção não pode ser recuperada tolerantemente nem aparecer como Undo disponível, mas a chave deve permanecer intacta para diagnóstico. A restauração pré-migração percorre candidatos e ignora cópias corrompidas ou sem identidade material.
 
 `nexusRepository.enqueueWrite` serializa `save`, limpeza temporária, reset total, import e rollback. Um save lento anterior não pode ressuscitar dados depois de reset. Import, Undo e reset total adquirem o lock de substituição, abortam e aguardam geração, assistente e sincronização ativa, reconciliam reminder/foco/widget e só então publicam o novo estado. Commits comuns, nova geração, retomada diária e fila do widget não atravessam esse lock.
 
@@ -193,6 +220,13 @@ Não mostre sucesso antes da Promise resolver. Captura, perfil, mensagens antes 
 Cancelar um stream do Brain/Atlas sempre remove a mensagem assistente transitória e mantém a mensagem do usuário marcada para retry; cancelamento intencional não exibe falso erro. Actions são propostas discriminadas. Em especial, `update_goal` exige `payload.mainGoal` entre 10 e 600 caracteres no Zod, JSON Schema, prompt e Provider; payload inválido permanece pendente com aviso, nunca é aceito silenciosamente.
 
 Uma sessão de foco recebe `sessionId` estável quando nasce e mantém esse ID no runtime persistido. Registro/retry deduplica por esse ID; o runtime só é limpo depois que a sessão concluída e seus efeitos foram gravados. Reset cancela geração ativa, reminder e runtime em ordem coordenada com a fila do repositório.
+
+Runtime de foco v2 registra segmentos, pausas, checkpoint e inbox. Nunca conte
+uma lacuna sem observação; alvo e fim da janela pausam, e continuidade além do
+alvo é explícita. Campos novos de v7 exigem leitor atualizado: rollback para
+fatias v7 anteriores também não é transparente. Diário Android usa Keystore/
+AES-GCM e arquivos separados; JSON contém somente manifesto. Web/APK sem suporte
+não gravam diário em texto puro. Revise filas de exclusão/reset ao editar esse fluxo.
 
 Desafios diários usam um ledger por ID. O XP de um desafio concluído é imutável e só pode ser concedido uma vez; reabrir e concluir a mesma tarefa não permite farm. O progresso de desafio concluído permanece no alvo, e desativar desafios remove o desafio gerado atual.
 
@@ -240,7 +274,9 @@ Estado local observado no snapshot final de 13 de julho de 2026:
 
 O backend público ainda respondia `apiVersion: "2.3.1"` nesta data. Isso bloqueia tag, release e distribuição da v3 até o deploy do contrato `3.0.0`, mas não impede abrir um draft PR para executar revisão e CI; não enfraqueça o gate para contornar o bloqueio.
 
-O backend atual não tem autenticação e mantém quotas/idempotência em memória. O endpoint de planejamento combina IP e `clientId`, mas não possui um bucket IP-only resistente a rotação de IDs. Isso é aceitável apenas para uso pessoal/demo; antes de distribuição pública multiusuário, autentique usuários, adote quota durável/compartilhada, limite gasto por conta e acrescente proteção de abuso por IP.
+O backend atual não tem autenticação e mantém quotas/idempotência em memória. Assistente e planejamento têm bucket por IP (`cf-connecting-ip`, definido pela Cloudflare na frente do Render), bucket IP+`clientId` e teto global diário; rotacionar IDs não multiplica a quota de um endereço. Isso continua aceitável apenas para uso pessoal/demo: as quotas são por instância e somem no restart. Antes de distribuição pública multiusuário, autentique usuários, adote quota durável/compartilhada e limite gasto por conta.
+
+`pnpm run models:prices` (e o workflow semanal `model-price-watch.yml`) confere, usando só metadados públicos, se cada modelo da allowlist mantém ao menos dois endpoints ZDR dentro do teto de preço da policy.
 
 Cobertura mínima por mudança:
 
@@ -256,7 +292,7 @@ Cobertura mínima por mudança:
 
 ## CI, APK e OTA
 
-CI executa validação JS/web e um job nativo com JDK 17, prebuild limpo e `:app:assembleDebug`. Security usa audit alto, secret scan e CodeQL. EAS CLI fica fixado nos workflows.
+CI executa validação JS/web e um job nativo com JDK 17, prebuild limpo e `:app:assembleDebug`. Security usa audit alto, secret scan e CodeQL. O audit ignora somente os GHSA listados em `SECURITY.md` (patch local + data de revisão); não amplie essa lista sem patch e justificativa equivalentes. EAS CLI fica fixado nos workflows.
 
 `runtimeVersion` segue `appVersion`. Mudança nativa ou de versão precisa de novo APK-base. OTA só é permitida quando o detector confirma que não houve mudança nativa desde a tag instalada. Não desative o detector, anti-bricking ou confirmações de produção/rollback.
 

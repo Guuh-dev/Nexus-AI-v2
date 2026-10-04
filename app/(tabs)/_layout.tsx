@@ -1,18 +1,10 @@
 import { Redirect, Tabs } from "expo-router";
 import { StyleSheet, View } from "react-native";
-import { NexusText } from "@/components/ui/NexusText";
+import { NexusIcon, type NexusIconName } from "@/components/ui/NexusIcon";
 import { RouteErrorBoundary } from "@/components/ErrorBoundary";
 import { useNexus } from "@/providers/NexusProvider";
 
 export { RouteErrorBoundary as ErrorBoundary };
-
-const icons = {
-  today: "◆",
-  brain: "✦",
-  focus: "◎",
-  progress: "▥",
-  profile: "●",
-} as const;
 
 export default function TabsLayout() {
   const { data, colors, visuals, ready } = useNexus();
@@ -37,43 +29,39 @@ export default function TabsLayout() {
               ]}
             />
           ),
-          tabBarActiveTintColor: colors.primarySoft,
+          tabBarActiveTintColor: colors.text,
           tabBarInactiveTintColor: colors.textSecondary,
           tabBarStyle: {
             height: 72,
             paddingTop: 8,
-            paddingBottom: 9,
+            paddingBottom: 12,
             backgroundColor: colors.tabBar,
             borderTopColor: colors.border,
             borderTopWidth: visuals.borderWidth ? StyleSheet.hairlineWidth : 0,
-            elevation: visuals.elevation,
-            shadowColor: colors.primary,
-            shadowOpacity: visuals.shadowOpacity,
-            shadowRadius: visuals.shadowRadius,
+            elevation: 0,
+            shadowOpacity: 0,
           },
-          tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+          tabBarLabelStyle: { fontSize: 11, lineHeight: 15, fontWeight: "600", letterSpacing: 0.1 },
           tabBarIcon: ({ focused, color }) => (
             <View
               style={[
                 styles.icon,
                 focused && {
                   backgroundColor: `${colors.primary}${visuals.tabActiveFill}`,
-                  borderRadius: Math.max(6, visuals.buttonRadius - 4),
+                  borderRadius: Math.max(6, visuals.chipRadius + 4),
                 },
               ]}
             >
-              <NexusText color={String(color)} variant="caption">
-                {icons[route.name as keyof typeof icons] ?? "•"}
-              </NexusText>
+              <NexusIcon name={route.name as NexusIconName} color={focused ? colors.primarySoft : String(color)} size={22} />
             </View>
           ),
         })}
       >
         <Tabs.Screen name="today" options={{ title: "Hoje" }} />
-        <Tabs.Screen name="brain" options={{ title: "Brain" }} />
+        <Tabs.Screen name="plan" options={{ title: "Plano" }} />
         <Tabs.Screen name="focus" options={{ title: "Foco" }} />
+        <Tabs.Screen name="brain" options={{ title: "Brain" }} />
         <Tabs.Screen name="progress" options={{ title: "Progresso" }} />
-        <Tabs.Screen name="profile" options={{ title: "Perfil" }} />
       </Tabs>
       <View
         pointerEvents="none"
@@ -87,9 +75,9 @@ const styles = StyleSheet.create({
   root: { flex: 1 },
   systemBarGuard: { height: 2, width: "100%" },
   icon: {
-    width: 36,
-    height: 27,
-    borderRadius: 10,
+    width: 48,
+    height: 28,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
   },

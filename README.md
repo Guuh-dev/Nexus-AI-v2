@@ -17,6 +17,46 @@
 
 </div>
 
+## Telas
+
+<p align="center">
+  <img src="docs/screenshots/today.png" alt="Hoje: missão do dia, próximo passo e capacidade" width="24%" />
+  <img src="docs/screenshots/focus-running.png" alt="Foco: sessão em andamento com tempo registrado" width="24%" />
+  <img src="docs/screenshots/brain.png" alt="Brain: copiloto Nexus e Professor Atlas" width="24%" />
+  <img src="docs/screenshots/progress.png" alt="Progresso: registros, relatos e revisão do dia" width="24%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/onboarding-1.png" alt="Onboarding: objetivo em três etapas" width="24%" />
+  <img src="docs/screenshots/plan.png" alt="Plano: meta, janelas e missão" width="24%" />
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/settings.png" alt="Configurações: índice agrupado" width="24%" />
+  <img src="docs/screenshots/settings-ia.png" alt="Configurações: inteligência remota" width="24%" />
+  <img src="docs/screenshots/widget-studio.png" alt="Widget Studio com prévia fixa e abas" width="24%" />
+</p>
+
+### Widgets Android
+
+<p align="center">
+  <img src="docs/screenshots/widgets/command.png" alt="Command 4×4" width="48%" />
+  <img src="docs/screenshots/widgets/sequencia.png" alt="Sequência 4×2: mapa de 12 semanas" width="48%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/widgets/mission.png" alt="Mission 4×2" width="48%" />
+  <img src="docs/screenshots/widgets/timer.png" alt="Timer 2×2" width="23%" />
+  <img src="docs/screenshots/widgets/companion.png" alt="Companion 2×2" width="23%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/widgets/strip.png" alt="Strip 2×1" width="32%" />
+  <img src="docs/screenshots/widgets/captura.png" alt="Captura 2×1" width="32%" />
+  <img src="docs/screenshots/widgets/mini.png" alt="Mini 1×1" width="16%" />
+</p>
+
+Oito famílias: Mini, Strip, Companion, Mission, Command e as utilitárias Timer, Captura e Sequência. As imagens são a prévia do Widget Studio, que segue o mesmo render spec do Android; o launcher real pode variar a geometria.
+
+Capturas do export web (412×915, tema Nexus Dark) com dados fictícios criados pelo próprio onboarding; o histórico de foco do mapa de calor também é fictício. A interface anterior está em [`docs/screenshots/before/`](docs/screenshots/before/) para comparação.
+
 ## O que é
 
 O Nexus organiza um ciclo simples: entender o objetivo, preparar uma missão diária, executar tarefas observáveis, focar, medir o que aconteceu e ajustar o próximo passo. Ele funciona localmente sem conta e usa inteligência remota somente quando ela está disponível e faz sentido.
@@ -33,9 +73,11 @@ A versão 3.0 remove a ideia de um “super app” cheio de painéis incompletos
 | Brain | Conversa contextual, Professor Atlas e roadmaps. |
 | Foco | Sessões de execução com restauração de estado. |
 | Progresso | Evidências, métricas e revisão semanal. |
-| Perfil | Preferências, dados, atualização e backup. |
+| Plano | Meta principal, janelas autorizadas, capacidade e missão confirmada. |
 
-Operações, hábitos, semana e finanças saíram da superfície principal porque duplicavam o núcleo ou ainda não tinham profundidade suficiente. Seus dados legados continuam preservados no storage v6 para evitar perda durante a atualização.
+Perfil, preferências, dados, atualização e backup ficam em Configurações.
+
+Operações, hábitos, semana e finanças saíram da superfície principal porque duplicavam o núcleo ou ainda não tinham profundidade suficiente. Seus dados legados continuam preservados no storage v7 para evitar perda durante a atualização.
 
 ## Princípios do Core Reborn
 
@@ -107,9 +149,9 @@ Mudanças em Kotlin, XML, Manifest ou plugin exigem um novo APK; não podem ser 
 
 ## Dados locais e migração
 
-O storage v6 preserva perfil, objetivos, plano, tarefas, progresso, histórico, roadmaps, chats e preferências. Antes de migrar, o app grava um backup versionado. Coleções são recuperadas item a item: uma entrada inválida não apaga todas as entradas válidas da mesma seção.
+O storage v7 preserva perfil, objetivos, plano, tarefas, progresso, histórico, roadmaps, chats e preferências. Antes de migrar, o app grava um backup versionado. Coleções são recuperadas item a item: uma entrada inválida não apaga todas as entradas válidas da mesma seção.
 
-Dados produzidos por uma versão futura ficam bloqueados contra sobrescrita. Imports passam por limites de tamanho, migração e schemas Zod. O usuário pode exportar e importar um backup JSON pelo Perfil.
+Dados produzidos por uma versão futura ficam bloqueados contra sobrescrita. Imports passam por limites de tamanho, migração e schemas Zod. O usuário pode exportar e importar um backup JSON pelas Configurações.
 
 ## Arquitetura
 
@@ -185,3 +227,7 @@ branch de release → pull request → CI + segurança + detector nativo
 ```
 
 Consulte [docs/RELEASE_3_0.md](docs/RELEASE_3_0.md), [docs/ANDROID_QA.md](docs/ANDROID_QA.md) e [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Nexus Lock-In — primeira fatia
+
+Perfil retomável, meta principal, metas de manutenção/backlog, capacidade por janelas e missão ligada às tarefas estão implementados. A migração preserva o v6 em backup dedicado e não inventa disponibilidade ou evidência histórica. Foco com segmentos e revisão/adaptação pertencem às próximas fatias. Consulte [decisão aprovada](docs/LOCK_IN_ADR_001.md) e [entrega e validação](docs/LOCK_IN_SLICE_1.md).

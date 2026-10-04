@@ -1,3 +1,6 @@
+import type { LockInState } from "@/schemas/lock-in.schema";
+import type { z } from "zod";
+import type { planExecutionSchema } from "@/schemas/lock-in.schema";
 export const CATEGORIES = [
   "desenvolvimento",
   "estudos",
@@ -123,6 +126,7 @@ export type Profile = {
 export type OnboardingDraft = Partial<Profile>;
 
 export type MainMission = {
+  taskIds?: string[];
   title: string;
   description: string;
   firstStep?: string;
@@ -136,6 +140,8 @@ export type MainMission = {
 };
 
 export type Task = {
+  lesson?: { roadmapId: string; lessonId: string };
+  dependsOn?: string[];
   id: string;
   title: string;
   description?: string;
@@ -161,6 +167,7 @@ export type Task = {
 };
 
 export type DailyPlan = {
+  execution?: z.infer<typeof planExecutionSchema>;
   date: string;
   mainMission: MainMission;
   tasks: Task[];
@@ -191,6 +198,9 @@ export type FocusSession = {
   taskTitle: string;
   plannedMinutes: number;
   elapsedSeconds: number;
+  segments?: { start: string; end: string }[];
+  nextAction?: string;
+  captures?: { id: string; text: string; createdAt: string }[];
   xp: number;
   status: "completed" | "cancelled";
   startedAt: string;
@@ -234,6 +244,8 @@ export type WidgetTextAlign = "left" | "center";
 export type WidgetTapAction = "today" | "brain" | "focus" | "capture" | "progress" | "finance" | "habits" | "week";
 
 export type WidgetPreferences = {
+  scene?: "none" | "desk" | "garden" | "night";
+  showMetric?: boolean;
   preset: WidgetPreset;
   contentMode: WidgetContentMode;
   background: "solid" | "amoled" | "translucent";
@@ -285,8 +297,10 @@ export type DashboardPreferences = {
 };
 
 export type MascotPreferences = {
+  /** Atlas visual/speech personality; old backups inherit companionMood. */
+  atlasMood?: CompanionMood;
   primary: "nexus";
-  companion: Exclude<MascotId, "nexus">;
+  companion: MascotId;
   showCompanion: boolean;
   speechEnabled: boolean;
   companionMood: CompanionMood;
@@ -378,6 +392,9 @@ export type ChatMessage = {
 };
 
 export type ChatThread = {
+  consultation?: import("@/schemas/consultation.schema").Consultation;
+  roadmapId?: string;
+  lessonId?: string;
   id: string;
   kind: ChatKind;
   title: string;
@@ -465,6 +482,7 @@ export type LearningRoadmap = {
 };
 
 export type LearningState = {
+  intakeDraft?: { intake: ProfessorIntake; step: number; weekly: string };
   professorEnabled: boolean;
   roadmaps: LearningRoadmap[];
   pendingTopics: string[];
@@ -556,6 +574,8 @@ export type FinanceState = {
 };
 
 export type AppData = {
+  lockIn: LockInState;
+  planSnapshots: DailyPlan[];
   storageVersion: number;
   installationId: string;
   profile?: Profile;
@@ -694,6 +714,7 @@ export type AssistantRequest = {
 };
 
 export type AssistantResponse = {
+  assistanceProposal?: import("@/schemas/consultation.schema").AssistanceProposal;
   message: string;
   title?: string;
   memories?: Pick<MemoryItem, "kind" | "content" | "confidence">[];

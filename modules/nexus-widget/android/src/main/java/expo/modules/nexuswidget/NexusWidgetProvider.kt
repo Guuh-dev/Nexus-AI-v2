@@ -6,8 +6,10 @@ import android.appwidget.AppWidgetProvider
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
@@ -17,12 +19,16 @@ import org.json.JSONObject
 import java.util.Locale
 import java.util.UUID
 
-enum class NexusWidgetFamily(val storageName: String, val layout: Int, val taskLimit: Int) {
+enum class NexusWidgetFamily(val storageName: String, val layout: Int, val taskLimit: Int, val utility: Boolean = false) {
   MINI("mini", R.layout.nexus_widget_mini, 0),
   STRIP("strip", R.layout.nexus_widget_strip, 0),
   COMPANION("companion", R.layout.nexus_widget_companion, 0),
   MISSION("mission", R.layout.nexus_widget_mission, 2),
   COMMAND("command", R.layout.nexus_widget, 4),
+  // Single-purpose families render through NexusUtilityWidgets with their own view ids.
+  TIMER("timer", R.layout.nexus_widget_timer, 0, utility = true),
+  CAPTURE("capture", R.layout.nexus_widget_capture, 0, utility = true),
+  STREAK("streak", R.layout.nexus_widget_streak, 0, utility = true),
 }
 
 private data class NativeWidgetRenderSpec(
@@ -43,6 +49,9 @@ private data class NativeWidgetRenderSpec(
   val emptyBody: String,
   val emptyAction: String,
   val privateMode: Boolean,
+  val scene: String,
+  val showMascot: Boolean,
+  val showMetric: Boolean,
 )
 
 open class NexusWidgetProvider : AppWidgetProvider() {
@@ -125,6 +134,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusCompanionWidgetProvider::class.java to NexusWidgetFamily.COMPANION,
       NexusMissionWidgetProvider::class.java to NexusWidgetFamily.MISSION,
       NexusWidgetProvider::class.java to NexusWidgetFamily.COMMAND,
+      NexusTimerWidgetProvider::class.java to NexusWidgetFamily.TIMER,
+      NexusCaptureWidgetProvider::class.java to NexusWidgetFamily.CAPTURE,
+      NexusStreakWidgetProvider::class.java to NexusWidgetFamily.STREAK,
     )
 
     fun familyForProviderClass(className: String): NexusWidgetFamily? =
@@ -154,6 +166,94 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       ids.forEach { widgetId ->
         manager.updateAppWidget(widgetId, buildRemoteViews(context, widgetId, family, providerClass))
       }
+    }
+
+    private fun personalityDrawable(kind: String, mood: String, pose: String): Int = when ("$kind:$mood:$pose") {
+      "nexus:happy:idle" -> R.drawable.ic_nexus_personality_happy_idle
+      "nexus:happy:thinking" -> R.drawable.ic_nexus_personality_happy_thinking
+      "nexus:happy:celebrating" -> R.drawable.ic_nexus_personality_happy_celebrating
+      "nexus:happy:sleeping" -> R.drawable.ic_nexus_personality_happy_sleeping
+      "nexus:happy:warning" -> R.drawable.ic_nexus_personality_happy_warning
+      "nexus:happy:reading" -> R.drawable.ic_nexus_personality_happy_reading
+      "nexus:playful:idle" -> R.drawable.ic_nexus_personality_playful_idle
+      "nexus:playful:thinking" -> R.drawable.ic_nexus_personality_playful_thinking
+      "nexus:playful:celebrating" -> R.drawable.ic_nexus_personality_playful_celebrating
+      "nexus:playful:sleeping" -> R.drawable.ic_nexus_personality_playful_sleeping
+      "nexus:playful:warning" -> R.drawable.ic_nexus_personality_playful_warning
+      "nexus:playful:reading" -> R.drawable.ic_nexus_personality_playful_reading
+      "nexus:motivational:idle" -> R.drawable.ic_nexus_personality_motivational_idle
+      "nexus:motivational:thinking" -> R.drawable.ic_nexus_personality_motivational_thinking
+      "nexus:motivational:celebrating" -> R.drawable.ic_nexus_personality_motivational_celebrating
+      "nexus:motivational:sleeping" -> R.drawable.ic_nexus_personality_motivational_sleeping
+      "nexus:motivational:warning" -> R.drawable.ic_nexus_personality_motivational_warning
+      "nexus:motivational:reading" -> R.drawable.ic_nexus_personality_motivational_reading
+      "nexus:serious:idle" -> R.drawable.ic_nexus_personality_serious_idle
+      "nexus:serious:thinking" -> R.drawable.ic_nexus_personality_serious_thinking
+      "nexus:serious:celebrating" -> R.drawable.ic_nexus_personality_serious_celebrating
+      "nexus:serious:sleeping" -> R.drawable.ic_nexus_personality_serious_sleeping
+      "nexus:serious:warning" -> R.drawable.ic_nexus_personality_serious_warning
+      "nexus:serious:reading" -> R.drawable.ic_nexus_personality_serious_reading
+      "nexus:strict:idle" -> R.drawable.ic_nexus_personality_strict_idle
+      "nexus:strict:thinking" -> R.drawable.ic_nexus_personality_strict_thinking
+      "nexus:strict:celebrating" -> R.drawable.ic_nexus_personality_strict_celebrating
+      "nexus:strict:sleeping" -> R.drawable.ic_nexus_personality_strict_sleeping
+      "nexus:strict:warning" -> R.drawable.ic_nexus_personality_strict_warning
+      "nexus:strict:reading" -> R.drawable.ic_nexus_personality_strict_reading
+      "nexus:calm:idle" -> R.drawable.ic_nexus_personality_calm_idle
+      "nexus:calm:thinking" -> R.drawable.ic_nexus_personality_calm_thinking
+      "nexus:calm:celebrating" -> R.drawable.ic_nexus_personality_calm_celebrating
+      "nexus:calm:sleeping" -> R.drawable.ic_nexus_personality_calm_sleeping
+      "nexus:calm:warning" -> R.drawable.ic_nexus_personality_calm_warning
+      "nexus:calm:reading" -> R.drawable.ic_nexus_personality_calm_reading
+      "nexus:quiet:idle" -> R.drawable.ic_nexus_personality_quiet_idle
+      "nexus:quiet:thinking" -> R.drawable.ic_nexus_personality_quiet_thinking
+      "nexus:quiet:celebrating" -> R.drawable.ic_nexus_personality_quiet_celebrating
+      "nexus:quiet:sleeping" -> R.drawable.ic_nexus_personality_quiet_sleeping
+      "nexus:quiet:warning" -> R.drawable.ic_nexus_personality_quiet_warning
+      "nexus:quiet:reading" -> R.drawable.ic_nexus_personality_quiet_reading
+      "atlas:happy:idle" -> R.drawable.ic_atlas_personality_happy_idle
+      "atlas:happy:thinking" -> R.drawable.ic_atlas_personality_happy_thinking
+      "atlas:happy:celebrating" -> R.drawable.ic_atlas_personality_happy_celebrating
+      "atlas:happy:sleeping" -> R.drawable.ic_atlas_personality_happy_sleeping
+      "atlas:happy:warning" -> R.drawable.ic_atlas_personality_happy_warning
+      "atlas:happy:reading" -> R.drawable.ic_atlas_personality_happy_reading
+      "atlas:playful:idle" -> R.drawable.ic_atlas_personality_playful_idle
+      "atlas:playful:thinking" -> R.drawable.ic_atlas_personality_playful_thinking
+      "atlas:playful:celebrating" -> R.drawable.ic_atlas_personality_playful_celebrating
+      "atlas:playful:sleeping" -> R.drawable.ic_atlas_personality_playful_sleeping
+      "atlas:playful:warning" -> R.drawable.ic_atlas_personality_playful_warning
+      "atlas:playful:reading" -> R.drawable.ic_atlas_personality_playful_reading
+      "atlas:motivational:idle" -> R.drawable.ic_atlas_personality_motivational_idle
+      "atlas:motivational:thinking" -> R.drawable.ic_atlas_personality_motivational_thinking
+      "atlas:motivational:celebrating" -> R.drawable.ic_atlas_personality_motivational_celebrating
+      "atlas:motivational:sleeping" -> R.drawable.ic_atlas_personality_motivational_sleeping
+      "atlas:motivational:warning" -> R.drawable.ic_atlas_personality_motivational_warning
+      "atlas:motivational:reading" -> R.drawable.ic_atlas_personality_motivational_reading
+      "atlas:serious:idle" -> R.drawable.ic_atlas_personality_serious_idle
+      "atlas:serious:thinking" -> R.drawable.ic_atlas_personality_serious_thinking
+      "atlas:serious:celebrating" -> R.drawable.ic_atlas_personality_serious_celebrating
+      "atlas:serious:sleeping" -> R.drawable.ic_atlas_personality_serious_sleeping
+      "atlas:serious:warning" -> R.drawable.ic_atlas_personality_serious_warning
+      "atlas:serious:reading" -> R.drawable.ic_atlas_personality_serious_reading
+      "atlas:strict:idle" -> R.drawable.ic_atlas_personality_strict_idle
+      "atlas:strict:thinking" -> R.drawable.ic_atlas_personality_strict_thinking
+      "atlas:strict:celebrating" -> R.drawable.ic_atlas_personality_strict_celebrating
+      "atlas:strict:sleeping" -> R.drawable.ic_atlas_personality_strict_sleeping
+      "atlas:strict:warning" -> R.drawable.ic_atlas_personality_strict_warning
+      "atlas:strict:reading" -> R.drawable.ic_atlas_personality_strict_reading
+      "atlas:calm:idle" -> R.drawable.ic_atlas_personality_calm_idle
+      "atlas:calm:thinking" -> R.drawable.ic_atlas_personality_calm_thinking
+      "atlas:calm:celebrating" -> R.drawable.ic_atlas_personality_calm_celebrating
+      "atlas:calm:sleeping" -> R.drawable.ic_atlas_personality_calm_sleeping
+      "atlas:calm:warning" -> R.drawable.ic_atlas_personality_calm_warning
+      "atlas:calm:reading" -> R.drawable.ic_atlas_personality_calm_reading
+      "atlas:quiet:idle" -> R.drawable.ic_atlas_personality_quiet_idle
+      "atlas:quiet:thinking" -> R.drawable.ic_atlas_personality_quiet_thinking
+      "atlas:quiet:celebrating" -> R.drawable.ic_atlas_personality_quiet_celebrating
+      "atlas:quiet:sleeping" -> R.drawable.ic_atlas_personality_quiet_sleeping
+      "atlas:quiet:warning" -> R.drawable.ic_atlas_personality_quiet_warning
+      "atlas:quiet:reading" -> R.drawable.ic_atlas_personality_quiet_reading
+      else -> if (kind == "atlas") R.drawable.ic_atlas_mascot else R.drawable.ic_nexus_mascot
     }
 
     private fun ensureNonce(context: Context): String {
@@ -244,6 +344,21 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       val spec = resolveRenderSpec(payload, appearance, instance, family, forcedContent)
       val backgroundResource = backgroundResource(spec.style, spec.opacityPercent)
       views.setInt(R.id.nexus_widget_root, "setBackgroundResource", backgroundResource)
+      if (family.utility) {
+        return NexusUtilityWidgets.render(
+          context,
+          views,
+          widgetId,
+          family,
+          payload,
+          privateMode = spec.privateMode,
+          accentColor = spec.accentColor,
+          textColor = spec.textColor,
+          secondaryTextColor = spec.secondaryTextColor,
+          mascotDrawable = if (spec.mascot == "atlas") atlasMascotPose(payload, spec) else nexusMascotPose(payload, spec, widgetId),
+          showMascot = spec.showMascot,
+        )
+      }
 
       resetVisibility(views)
       applyColorsAndMascot(views, payload, appearance, instance, widgetId, spec)
@@ -295,8 +410,27 @@ open class NexusWidgetProvider : AppWidgetProvider() {
           completed,
           total,
         )
+        NexusWidgetFamily.TIMER, NexusWidgetFamily.CAPTURE, NexusWidgetFamily.STREAK -> Unit
       }
 
+      if (!spec.showMascot) {
+        views.setViewVisibility(R.id.nexus_widget_mascot_stage, View.GONE)
+        views.setViewVisibility(R.id.nexus_widget_mascot, View.GONE)
+      }
+      if (family == NexusWidgetFamily.MINI && !spec.showMetric) views.setViewVisibility(R.id.nexus_widget_streak, View.GONE)
+      val showScene = spec.scene != "none" && (family == NexusWidgetFamily.COMPANION || family == NexusWidgetFamily.COMMAND)
+      views.setViewVisibility(R.id.nexus_widget_scene, if (showScene) View.VISIBLE else View.GONE)
+      if (showScene) views.setViewVisibility(R.id.nexus_widget_mascot_stage, View.VISIBLE)
+      if (showScene) views.setImageViewResource(R.id.nexus_widget_scene, when (spec.scene) {
+        "garden" -> R.drawable.nexus_scene_garden
+        "night" -> R.drawable.nexus_scene_night
+        else -> R.drawable.nexus_scene_desk
+      })
+      if ((family == NexusWidgetFamily.MISSION || family == NexusWidgetFamily.COMMAND) && !spec.privateMode && total > 0) {
+        views.setViewVisibility(R.id.nexus_widget_progress, View.VISIBLE)
+        views.setProgressBar(R.id.nexus_widget_progress, 100, progressPercentage, false)
+        views.setTextViewText(R.id.nexus_widget_progress_text, "$completed de $total passos")
+      }
       bindRootAction(context, views, widgetId, spec.tapAction)
       if (legacyPageCycle) {
         views.setViewVisibility(R.id.nexus_widget_page, View.VISIBLE)
@@ -376,6 +510,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       val privateMode = globalPrivateMode || instancePrivateMode
 
       return NativeWidgetRenderSpec(
+        scene = instance.optString("scene", shared.optString("scene", "none")).takeIf { it in setOf("none", "desk", "garden", "night") } ?: "none",
+        showMascot = instance.optBoolean("showMascot", shared.optJSONObject("mascot")?.optBoolean("visible", true) ?: true),
+        showMetric = instance.optBoolean("showMetric", shared.optJSONObject("fields")?.isNull("metric") != true),
         family = family,
         style = style,
         content = content,
@@ -424,6 +561,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         R.id.nexus_widget_progress_text,
         R.id.nexus_widget_capture,
         R.id.nexus_widget_streak,
+        R.id.nexus_widget_focus_button,
       ).forEach { views.setViewVisibility(it, View.GONE) }
     }
 
@@ -452,7 +590,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       ).forEach { views.setTextColor(it, spec.secondaryTextColor) }
 
       views.setImageViewResource(R.id.nexus_widget_mascot, when (spec.mascot) {
-        "atlas" -> R.drawable.ic_nexus_atlas
+        "atlas" -> atlasMascotPose(payload, spec)
         "nova" -> R.drawable.ic_nexus_nova
         "byte" -> R.drawable.ic_nexus_byte
         "pulse" -> R.drawable.ic_nexus_pulse
@@ -460,13 +598,16 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         "ember" -> R.drawable.ic_nexus_ember
         else -> nexusMascotPose(payload, spec, widgetId)
       })
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        views.setColorStateList(R.id.nexus_widget_progress, "setProgressTintList", ColorStateList.valueOf(spec.accentColor))
+        views.setColorStateList(R.id.nexus_widget_focus_button, "setBackgroundTintList", ColorStateList.valueOf(spec.accentColor))
+      }
       // Accent colors belong to chrome and typography, never to character art;
       // tinting RemoteViews vectors destroys each companion's palette.
       views.setContentDescription(R.id.nexus_widget_mascot, "Nexus Companion: ${spec.personality}")
       val accessory = instance.optString("accessory", appearance?.optString("accessory", "") ?: "")
       views.setTextViewText(R.id.nexus_widget_accessory, accessoryGlyph(accessory))
       views.setViewVisibility(R.id.nexus_widget_accessory, if (accessory.isBlank()) View.GONE else View.VISIBLE)
-      views.setInt(R.id.nexus_widget_mascot_stage, "setGravity", Gravity.CENTER)
       views.setViewPadding(R.id.nexus_widget_mascot_stage, 0, 0, 0, 0)
 
       val gravity = if (spec.family in listOf(NexusWidgetFamily.MINI, NexusWidgetFamily.COMPANION)) {
@@ -484,21 +625,20 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       ).forEach { views.setInt(it, "setGravity", gravity) }
     }
 
-    private fun nexusMascotPose(
-      payload: JSONObject?,
-      spec: NativeWidgetRenderSpec,
-      widgetId: Int,
-    ): Int {
-      val completed = payload?.optInt("completedCount", 0) ?: 0
-      val total = payload?.optInt("totalCount", 0) ?: 0
-      return when {
-        total > 0 && completed >= total -> R.drawable.ic_nexus_mascot_celebrating
-        spec.personality == "quiet" || spec.speech == "silent" -> R.drawable.ic_nexus_mascot_resting
-        spec.personality == "strict" -> R.drawable.ic_nexus_mascot_watching
-        (widgetId + completed).mod(4) == 0 -> R.drawable.ic_nexus_mascot_celebrating
-        else -> R.drawable.ic_nexus_mascot
-      }
+    private fun mascotPose(payload: JSONObject?, spec: NativeWidgetRenderSpec): String = when {
+      spec.privateMode -> "idle"
+      payload?.optString("focusStatus") == "paused" -> "sleeping"
+      payload?.optString("focusStatus") == "running" -> "thinking"
+      (payload?.optInt("totalCount", 0) ?: 0) > 0 && payload?.optInt("completedCount", 0) == payload?.optInt("totalCount", 0) -> "celebrating"
+      spec.family == NexusWidgetFamily.COMPANION && spec.scene != "none" -> "reading"
+      else -> "idle"
     }
+
+    private fun nexusMascotPose(payload: JSONObject?, spec: NativeWidgetRenderSpec, widgetId: Int): Int =
+      personalityDrawable("nexus", spec.personality, mascotPose(payload, spec))
+
+    private fun atlasMascotPose(payload: JSONObject?, spec: NativeWidgetRenderSpec): Int =
+      personalityDrawable("atlas", spec.personality, mascotPose(payload, spec))
 
     private fun renderMini(
       views: RemoteViews,
@@ -509,15 +649,15 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_mascot_stage, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_mascot, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_streak, View.VISIBLE)
-      views.setTextColor(R.id.nexus_widget_streak, spec.accentColor)
+      views.setTextColor(R.id.nexus_widget_streak, spec.textColor)
       views.setTextViewText(
         R.id.nexus_widget_streak,
         if (spec.privateMode) {
           "NEXUS"
         } else if (spec.content == "xp") {
-          "⬡ ${payload?.optInt("totalXp", 0) ?: 0} XP"
+          "${payload?.optInt("totalXp", 0) ?: 0} XP"
         } else {
-          "♨ ${payload?.optInt("streak", 0) ?: 0}"
+          "${payload?.optInt("streak", 0) ?: 0} dias"
         },
       )
       views.setContentDescription(
@@ -539,7 +679,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         R.id.nexus_widget_mission,
         View.VISIBLE,
       )
-      views.setViewVisibility(R.id.nexus_widget_progress_text, View.VISIBLE)
+      views.setViewVisibility(R.id.nexus_widget_mascot_stage, if (spec.showMascot) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_mascot, if (spec.showMascot) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_progress_text, View.GONE)
       if (spec.privateMode) {
         views.setTextViewText(R.id.nexus_widget_brand, "PRIVACIDADE")
         views.setTextViewText(R.id.nexus_widget_mission, "Próxima ação protegida")
@@ -553,10 +695,12 @@ open class NexusWidgetProvider : AppWidgetProvider() {
           if (total > 0) "$percentage% concluído" else spec.emptyTitle,
         )
       } else {
-        views.setTextViewText(R.id.nexus_widget_brand, "→ PRÓXIMA AÇÃO")
+        views.setTextViewText(R.id.nexus_widget_brand, "PRÓXIMO PASSO")
         views.setTextViewText(R.id.nexus_widget_mission, nextAction)
       }
-      views.setTextViewText(R.id.nexus_widget_progress_text, "${progressMeter(percentage)}  $completed/$total")
+      views.setTextViewText(R.id.nexus_widget_progress_text, "$completed de $total passos")
+      views.setViewVisibility(R.id.nexus_widget_progress, View.VISIBLE)
+      views.setProgressBar(R.id.nexus_widget_progress, 100, percentage, false)
     }
 
     private fun renderCompanion(
@@ -568,12 +712,13 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_mascot_stage, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_mascot, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_brand, View.VISIBLE)
-      views.setViewVisibility(R.id.nexus_widget_feature_title, View.VISIBLE)
-      views.setViewVisibility(R.id.nexus_widget_feature_body, View.VISIBLE)
-      views.setTextViewText(R.id.nexus_widget_brand, "NEXUS COMPANION")
+      views.setViewVisibility(R.id.nexus_widget_feature_title, View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_feature_body, View.GONE)
+      views.setTextColor(R.id.nexus_widget_brand, spec.textColor)
+      views.setTextViewText(R.id.nexus_widget_brand, if (spec.privateMode || spec.speech == "silent" || !planAvailable) "Um passo por vez" else companionLine(payload, spec))
       views.setTextViewText(
         R.id.nexus_widget_feature_title,
-        spec.personality.uppercase(Locale.getDefault()),
+        "Toque para abrir",
       )
       views.setTextViewText(
         R.id.nexus_widget_feature_body,
@@ -594,6 +739,8 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       completed: Int,
       total: Int,
     ) {
+      views.setViewVisibility(R.id.nexus_widget_mascot_stage, if (spec.showMascot) View.VISIBLE else View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_mascot, if (spec.showMascot) View.VISIBLE else View.GONE)
       views.setViewVisibility(R.id.nexus_widget_brand, View.VISIBLE)
       views.setViewVisibility(
         R.id.nexus_widget_mission,
@@ -608,11 +755,12 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       }
       views.setTextViewText(
         R.id.nexus_widget_progress_text,
-        if (total > 0) "${progressMeter(completed * 100 / total)}  $completed/$total" else "${spec.emptyAction} →",
+        if (total > 0) "$completed de $total passos" else "${spec.emptyAction} →",
       )
       if (spec.privateMode) {
         views.setViewVisibility(R.id.nexus_widget_progress_text, View.GONE)
       }
+      bindFocusButton(context, views, widgetId, visible = planAvailable && !spec.privateMode, label = "▶ Focar")
       renderTasks(context, views, widgetId, payload, spec, planAvailable)
     }
 
@@ -631,11 +779,12 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       views.setViewVisibility(R.id.nexus_widget_mascot, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_brand, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_mission, View.VISIBLE)
-      views.setViewVisibility(R.id.nexus_widget_feature_title, View.VISIBLE)
-      views.setViewVisibility(R.id.nexus_widget_feature_body, View.VISIBLE)
+      views.setViewVisibility(R.id.nexus_widget_feature_title, View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_feature_body, View.GONE)
+      views.setViewVisibility(R.id.nexus_widget_capture, View.GONE)
       views.setViewVisibility(R.id.nexus_widget_metrics, View.VISIBLE)
       views.setViewVisibility(R.id.nexus_widget_progress_text, View.VISIBLE)
-      views.setTextViewText(R.id.nexus_widget_brand, "NEXUS COMMAND")
+      views.setTextViewText(R.id.nexus_widget_brand, "Seu dia, com direção.")
       views.setTextViewText(R.id.nexus_widget_mission, mission)
       views.setTextViewText(
         R.id.nexus_widget_feature_title,
@@ -650,16 +799,22 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       )
       views.setTextViewText(
         R.id.nexus_widget_metrics,
-        if (spec.privateMode) "PRIVADO" else "${payload?.optInt("focusMinutes", 0) ?: 0}m foco • $completed/$total tarefas",
+        if (spec.privateMode) "PRIVADO" else when (payload?.optString("focusStatus")) {
+          "paused" -> "Sessão pausada · ${payload?.optInt("sessionMinutes", 0) ?: 0} min"
+          "running" -> "Em foco · ${payload?.optInt("sessionMinutes", 0) ?: 0} min confirmados"
+          "completed" -> "Revisar entrega da sessão"
+          else -> "${payload?.optInt("focusMinutes", 0) ?: 0} min de foco hoje · ${payload?.optInt("streak", 0) ?: 0}d de sequência"
+        },
       )
       views.setTextViewText(
         R.id.nexus_widget_progress_text,
-        if (total > 0) "${progressMeter(completed * 100 / total)}  $completed/$total" else "${spec.emptyAction} →",
+        if (total > 0) "$completed de $total passos" else "${spec.emptyAction} →",
       )
       if (spec.privateMode) {
         views.setViewVisibility(R.id.nexus_widget_metrics, View.GONE)
         views.setViewVisibility(R.id.nexus_widget_progress_text, View.GONE)
       }
+      bindFocusButton(context, views, widgetId, visible = !spec.privateMode, label = if (payload?.optString("focusStatus") in setOf("running", "paused")) "▶ Voltar" else "▶ Focar")
       renderTasks(context, views, widgetId, payload, spec, planAvailable)
     }
 
@@ -673,7 +828,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
     ) {
       val tasks = payload?.optJSONArray("tasks")
       val familyShowsTasks = spec.family == NexusWidgetFamily.COMMAND ||
-        (spec.family == NexusWidgetFamily.MISSION && spec.content == "tasks")
+        spec.family == NexusWidgetFamily.MISSION
       val visibleLimit = if (planAvailable && familyShowsTasks && !spec.privateMode) {
         spec.taskLimit.coerceAtMost(spec.family.taskLimit)
       } else 0
@@ -687,7 +842,6 @@ open class NexusWidgetProvider : AppWidgetProvider() {
           taskId = task?.optString("id"),
           title = if (spec.privateMode && task != null) "Tarefa privada" else task?.optString("title"),
           completed = task?.optBoolean("completed", false) ?: false,
-          accentColor = spec.accentColor,
           allowed = index < visibleLimit,
           mainText = spec.textColor,
           secondaryText = spec.secondaryTextColor,
@@ -729,6 +883,20 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       )
     }
 
+    private fun bindFocusButton(context: Context, views: RemoteViews, widgetId: Int, visible: Boolean, label: String) {
+      views.setViewVisibility(R.id.nexus_widget_focus_button, if (visible) View.VISIBLE else View.GONE)
+      if (!visible) return
+      views.setTextViewText(R.id.nexus_widget_focus_button, label)
+      val intent = (context.packageManager.getLaunchIntentForPackage(context.packageName) ?: Intent(Intent.ACTION_VIEW)).apply {
+        data = Uri.parse("nexusai://focus")
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      }
+      views.setOnClickPendingIntent(
+        R.id.nexus_widget_focus_button,
+        PendingIntent.getActivity(context, 9500 + widgetId, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE),
+      )
+    }
+
     private fun setTask(
       context: Context,
       views: RemoteViews,
@@ -737,7 +905,6 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       taskId: String?,
       title: String?,
       completed: Boolean,
-      accentColor: Int,
       allowed: Boolean,
       mainText: Int,
       secondaryText: Int,
@@ -769,8 +936,8 @@ open class NexusWidgetProvider : AppWidgetProvider() {
         return
       }
       views.setViewVisibility(containerIds[index], View.VISIBLE)
-      views.setTextViewText(checkIds[index], if (completed) "✓" else "○")
-      views.setTextColor(checkIds[index], if (completed) Color.rgb(74, 222, 128) else accentColor)
+      views.setTextViewText(checkIds[index], if (completed) "✓" else "")
+      views.setInt(checkIds[index], "setBackgroundResource", if (completed) R.drawable.nexus_check_done else R.drawable.nexus_check_empty)
       views.setTextViewText(titleIds[index], title)
       views.setTextColor(titleIds[index], if (completed) secondaryText else mainText)
       if (allowToggle && !taskId.isNullOrBlank()) {
@@ -851,11 +1018,6 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       return percentage.toInt().coerceIn(0, 100)
     }
 
-    private fun progressMeter(percentage: Int): String {
-      val filled = (percentage.coerceIn(0, 100) * 8 / 100).coerceIn(0, 8)
-      return "●".repeat(filled) + "○".repeat(8 - filled)
-    }
-
     private fun normalizeStyle(value: String): String = when (value) {
       "nexus", "amoled", "transparent", "pixel", "minimal" -> value
       "gamer" -> "pixel"
@@ -869,6 +1031,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "companion"
       NexusWidgetFamily.MISSION -> if (value == "tasks") "tasks" else "mission"
       NexusWidgetFamily.COMMAND -> if (value == "focus") "focus" else "command"
+      NexusWidgetFamily.TIMER -> "timer"
+      NexusWidgetFamily.CAPTURE -> "capture"
+      NexusWidgetFamily.STREAK -> "heatmap"
     }
 
     private fun normalizeSpeech(value: String): String = if (value == "silent") "silent" else "contextual"
@@ -928,6 +1093,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "NEXUS COMPANION"
       NexusWidgetFamily.MISSION -> "MISSÃO DE HOJE"
       NexusWidgetFamily.COMMAND -> "NEXUS COMMAND"
+      NexusWidgetFamily.TIMER -> "NEXUS TIMER"
+      NexusWidgetFamily.CAPTURE -> "CAPTURAR"
+      NexusWidgetFamily.STREAK -> "SEQUÊNCIA"
     }
 
     private fun defaultEmptyTitle(family: NexusWidgetFamily): String = when (family) {
@@ -936,6 +1104,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "Nexus está aqui"
       NexusWidgetFamily.MISSION -> "Prepare sua missão"
       NexusWidgetFamily.COMMAND -> "Command pronto"
+      NexusWidgetFamily.TIMER -> "Pronto para focar"
+      NexusWidgetFamily.CAPTURE -> "Capturar"
+      NexusWidgetFamily.STREAK -> "Sua sequência começa hoje"
     }
 
     private fun defaultEmptyBody(family: NexusWidgetFamily): String = when (family) {
@@ -944,6 +1115,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "Abra o app para dar contexto ao Companion."
       NexusWidgetFamily.MISSION -> "Gere o plano de hoje para preencher este widget."
       NexusWidgetFamily.COMMAND -> "Gere o plano de hoje para ativar sua central."
+      NexusWidgetFamily.TIMER -> "Escolha a próxima tarefa e comece uma sessão."
+      NexusWidgetFamily.CAPTURE -> "ideia, tarefa ou lembrete"
+      NexusWidgetFamily.STREAK -> "Cada dia com foco ou tarefa concluída acende uma célula."
     }
 
     private fun accessoryGlyph(accessory: String): String = when (accessory) {
@@ -980,4 +1154,16 @@ class NexusCompanionWidgetProvider : NexusWidgetProvider() {
 
 class NexusMissionWidgetProvider : NexusWidgetProvider() {
   override val family = NexusWidgetFamily.MISSION
+}
+
+class NexusTimerWidgetProvider : NexusWidgetProvider() {
+  override val family = NexusWidgetFamily.TIMER
+}
+
+class NexusCaptureWidgetProvider : NexusWidgetProvider() {
+  override val family = NexusWidgetFamily.CAPTURE
+}
+
+class NexusStreakWidgetProvider : NexusWidgetProvider() {
+  override val family = NexusWidgetFamily.STREAK
 }
