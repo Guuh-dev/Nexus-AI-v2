@@ -11,6 +11,9 @@ import { useNexus } from "@/providers/NexusProvider";
 import { confirmSecondaryGoal, draftFor, SetupFieldError, validateSetupSection } from "@/features/lock-in/planning";
 import { TimeIntervalsField } from "@/components/TimeIntervalsField";
 import type { LockInDraft } from "@/schemas/lock-in.schema";
+import { IconButton, ScreenHeader } from "@/components/ui/Layout";
+
+const STEPS = ["Objetivo", "Capacidade", "Missão"] as const;
 
 export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
   const { data, colors, saveLockInDraft, confirmLockIn } = useNexus();
@@ -64,12 +67,12 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
   };
   const pending = data.activePlan?.tasks.filter((t) => !t.completed) ?? [];
   return <Screen>
-    <View style={{ gap: 16, paddingBottom: 28 }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <NexusText variant="title">{onboarding ? "Sua primeira missão" : "Plano"}</NexusText>
-        {!onboarding && <NexusButton label="Configurações" variant="ghost" compact onPress={() => router.push("/settings")} />}
+    <View style={{ gap: 18, paddingBottom: 28 }}>
+      <ScreenHeader eyebrow={onboarding ? "Começar" : "Plano"} title={onboarding ? "Sua primeira missão" : "Monte o dia"} trailing={!onboarding ? <IconButton icon="settings" label="Configurações" onPress={() => router.push("/settings")} /> : undefined} />
+      <View style={{ gap: 10 }}>
+        <View style={{ flexDirection: "row", gap: 6 }}>{STEPS.map((label, index) => <View key={label} style={{ flex: 1, height: 4, borderRadius: 2, backgroundColor: index <= draft.step ? colors.primary : colors.border }} />)}</View>
+        <NexusText variant="caption" secondary>Etapa {draft.step + 1} de 3 · {STEPS[draft.step]}. Salve a seção antes de sair para retomá-la.</NexusText>
       </View>
-      <NexusText secondary>Objetivo → capacidade → missão. Etapa {draft.step + 1} de 3. Salve a seção antes de sair para retomá-la.</NexusText>
       {draft.step === 0 && <Card style={{ gap: 12 }}>
         {field("name", "Como você se chama?", 80)}
         {data.onboardingCompleted && <><NexusText variant="caption">Destino da meta</NexusText><View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>{(["primary", "maintenance", "backlog"] as const).map((v) => <ChoiceChip key={v} label={{ primary: "Principal", maintenance: "Manutenção", backlog: "Backlog" }[v]} selected={draft.goalKind === v} onPress={() => patch("goalKind", v)} />)}</View></>}
@@ -97,9 +100,9 @@ export function LockInSetup({ onboarding = false }: { onboarding?: boolean }) {
           {!(draft.taskIds?.length) && field("estimate", "Estimativa em minutos (5–240)", 4)}
           {data.recurringTasks.length > 0 && <><NexusText variant="subtitle">Retomar pendências nesta missão</NexusText>{data.recurringTasks.map((t) => <ChoiceChip key={t.id} label={`${t.title} · ${t.estimatedMinutes} min`} selected={draft.taskIds?.includes(t.id) ?? false} onPress={() => patch("taskIds", draft.taskIds?.includes(t.id) ? draft.taskIds.filter((id) => id !== t.id) : [...(draft.taskIds ?? []), t.id].slice(0, 5))} />)}<NexusText secondary>Tarefas selecionadas preservam seus IDs e aceites. O esforço é derivado delas.</NexusText></>}
         </Card>}
-        <Card style={{ gap: 10 }}>
-          <NexusText variant="subtitle">Revise antes de confirmar</NexusText>
-          <NexusText>{draft.result}</NexusText>
+        <Card elevated tone="accent" style={{ gap: 12 }}>
+          <NexusText variant="eyebrow" color={colors.primarySoft}>Revise antes de confirmar</NexusText>
+          <NexusText variant="title">{draft.result}</NexusText>
           <NexusText secondary>{draft.goalKind === "primary" ? "Uma meta principal" : draft.goalKind === "maintenance" ? `Manutenção: reserva de ${draft.maintenanceBudget} min por dia` : "Backlog: sem alocação de tempo"}. Aceite: {draft.doneWhen || "a definir"}.</NexusText>
           {preview && draft.goalKind === "primary" ? <>
             <NexusText>Capacidade: {preview.activePlan?.execution?.capacityMinutes} min · buffer: {preview.activePlan?.execution?.bufferMinutes} min.</NexusText>

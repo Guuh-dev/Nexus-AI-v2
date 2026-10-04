@@ -1,16 +1,23 @@
 import type { PropsWithChildren } from "react";
-import { Text, type TextProps, type TextStyle } from "react-native";
+import { Platform, Text, type TextProps, type TextStyle } from "react-native";
 import { useNexus } from "@/providers/NexusProvider";
 
-type Variant = "display" | "title" | "subtitle" | "body" | "caption" | "mono";
+type Variant = "display" | "title" | "subtitle" | "body" | "caption" | "mono" | "eyebrow" | "metric";
+
+const sans = Platform.OS === "web"
+  ? "Inter, \"SF Pro Text\", system-ui, -apple-system, \"Segoe UI\", Roboto, sans-serif"
+  : undefined;
 
 const variants: Record<Variant, TextStyle> = {
-  display: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.7 },
-  title: { fontSize: 20, lineHeight: 26, fontWeight: "700", letterSpacing: -0.3 },
-  subtitle: { fontSize: 16, lineHeight: 22, fontWeight: "600" },
+  display: { fontSize: 28, lineHeight: 34, fontWeight: "700", letterSpacing: -0.6 },
+  title: { fontSize: 18, lineHeight: 24, fontWeight: "700", letterSpacing: -0.2 },
+  subtitle: { fontSize: 15, lineHeight: 21, fontWeight: "600" },
   body: { fontSize: 15, lineHeight: 22, fontWeight: "400" },
-  caption: { fontSize: 12, lineHeight: 17, fontWeight: "500", letterSpacing: 0.15 },
-  mono: { fontSize: 12, lineHeight: 17, fontWeight: "700", letterSpacing: 1.25, fontFamily: "monospace" },
+  caption: { fontSize: 13, lineHeight: 18, fontWeight: "500" },
+  // Small section label. Monospace only survives in the terminal-style theme.
+  eyebrow: { fontSize: 11, lineHeight: 14, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase" },
+  mono: { fontSize: 11, lineHeight: 14, fontWeight: "600", letterSpacing: 0.8, textTransform: "uppercase" },
+  metric: { fontSize: 20, lineHeight: 26, fontWeight: "700", letterSpacing: -0.4, fontVariant: ["tabular-nums"] },
 };
 
 type Props = PropsWithChildren<
@@ -22,11 +29,17 @@ type Props = PropsWithChildren<
 >;
 
 export function NexusText({ variant = "body", secondary = false, color, style, children, ...props }: Props) {
-  const { colors } = useNexus();
+  const { colors, visuals } = useNexus();
+  const terminal = visuals.cardStyle === "terminal" && (variant === "mono" || variant === "eyebrow");
   return (
     <Text
       {...props}
-      style={[variants[variant], { color: color ?? (secondary ? colors.textSecondary : colors.text) }, style]}
+      style={[
+        variants[variant],
+        { color: color ?? (secondary ? colors.textSecondary : colors.text) },
+        terminal ? { fontFamily: "monospace", letterSpacing: 1.2 } : sans ? { fontFamily: sans } : null,
+        style,
+      ]}
     >
       {children}
     </Text>

@@ -32,9 +32,9 @@ export function NexusButton({
   const { colors, visuals } = useNexus();
   const [focused, setFocused] = useState(false);
   const background =
-    variant === "primary" ? colors.primary : variant === "danger" ? `${colors.danger}22` : variant === "secondary" ? colors.surfaceAlt : "transparent";
-  const borderColor = variant === "danger" ? `${colors.danger}66` : variant === "ghost" ? colors.border : variant === "secondary" ? colors.borderStrong : background;
-  const textColor = variant === "primary" ? colors.onPrimary : variant === "danger" ? colors.danger : colors.text;
+    variant === "primary" ? colors.primary : variant === "danger" ? `${colors.danger}1A` : variant === "secondary" ? colors.surfaceAlt : "transparent";
+  const borderColor = variant === "secondary" ? colors.borderStrong : variant === "danger" ? `${colors.danger}55` : "transparent";
+  const textColor = variant === "primary" ? colors.onPrimary : variant === "danger" ? colors.danger : variant === "ghost" ? colors.primarySoft : colors.text;
 
   return (
     <Pressable
@@ -42,6 +42,7 @@ export function NexusButton({
       accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: disabled || loading, busy: loading }}
       disabled={disabled || loading}
+      hitSlop={compact ? 4 : 0}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       onPress={onPress}
@@ -49,14 +50,15 @@ export function NexusButton({
         styles.base,
         compact ? styles.compact : styles.normal,
         fullWidth && styles.fullWidth,
-        { backgroundColor: background, borderColor, borderRadius: compact ? Math.max(8, visuals.buttonRadius - 3) : visuals.buttonRadius, opacity: disabled ? 0.45 : pressed ? 0.78 : 1 },
+        { backgroundColor: background, borderColor, borderRadius: compact ? Math.max(8, visuals.buttonRadius - 2) : visuals.buttonRadius, opacity: disabled ? 0.42 : pressed ? 0.8 : 1 },
+        pressed && !disabled && styles.pressed,
         focused && { borderColor: colors.primarySoft, borderWidth: 2 },
         style,
       ]}
     >
       <View style={styles.content}>
-        {loading ? <ActivityIndicator size="small" color={textColor} /> : icon === "▶" ? <NexusIcon name="play" color={textColor} size={21} /> : icon ? <NexusText color={textColor}>{icon}</NexusText> : null}
-        <NexusText variant="subtitle" color={textColor} style={{ textAlign: "center", flexShrink: 1 }}>
+        {loading ? <ActivityIndicator size="small" color={textColor} /> : icon === "▶" ? <NexusIcon name="play" color={textColor} size={compact ? 14 : 16} /> : icon ? <NexusText color={textColor}>{icon}</NexusText> : null}
+        <NexusText variant="subtitle" color={textColor} style={[styles.label, compact && styles.compactLabel]}>
           {label}
         </NexusText>
       </View>
@@ -68,12 +70,14 @@ const styles = StyleSheet.create({
   base: {
     minHeight: 48,
     borderWidth: 1,
-    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   normal: { paddingHorizontal: 18, paddingVertical: 12 },
-  compact: { minHeight: 42, paddingHorizontal: 13, paddingVertical: 8, borderRadius: 13 },
+  compact: { minHeight: 36, paddingHorizontal: 12, paddingVertical: 6 },
+  pressed: { transform: [{ scale: 0.985 }] },
   fullWidth: { width: "100%" },
   content: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  label: { textAlign: "center", flexShrink: 1 },
+  compactLabel: { fontSize: 14, lineHeight: 18 },
 });

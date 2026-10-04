@@ -1,5 +1,5 @@
 import Svg, { Circle, Path, Rect } from "react-native-svg";
-export type NexusIconName = "today" | "plan" | "focus" | "brain" | "progress" | "settings" | "play" | "clock" | "book" | "chevron";
+export type NexusIconName = "today" | "plan" | "focus" | "brain" | "progress" | "settings" | "play" | "clock" | "book" | "chevron" | "plus" | "check" | "flame" | "spark" | "target";
 export function NexusIcon({ name, color, size = 24 }: { name: NexusIconName; color: string; size?: number }) {
   return <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round">
     {name === "today" && <><Path d="M3 10 12 3l9 7v10H15v-6H9v6H3Z" /></>}
@@ -12,5 +12,10 @@ export function NexusIcon({ name, color, size = 24 }: { name: NexusIconName; col
     {name === "clock" && <><Circle cx="12" cy="12" r="9" /><Path d="M12 6v6l4 2" /></>}
     {name === "book" && <><Path d="M12 5c-3-2-6-2-9-1v15c3-1 6-1 9 1 3-2 6-2 9-1V4c-3-1-6-1-9 1Zm0 0v15" /></>}
     {name === "chevron" && <Path d="m9 5 7 7-7 7" />}
+    {name === "plus" && <Path d="M12 5v14M5 12h14" />}
+    {name === "check" && <Path d="m5 12.5 4.5 4.5L19 7.5" />}
+    {name === "flame" && <Path d="M12 21c-4 0-7-2.7-7-6.6 0-3.1 2-5 3.6-6.6.4 1.6 1.3 2.6 2.4 3C11 7.5 12.5 5 15 3c0 3 4 5.4 4 10.4C19 18.3 16 21 12 21Z" />}
+    {name === "spark" && <Path d="M12 3v4m0 10v4M3 12h4m10 0h4M6 6l2.5 2.5m7 7L18 18M6 18l2.5-2.5m7-7L18 6" />}
+    {name === "target" && <><Circle cx="12" cy="12" r="8" /><Circle cx="12" cy="12" r="3.5" /></>}
   </Svg>;
 }
