@@ -19,12 +19,16 @@ import org.json.JSONObject
 import java.util.Locale
 import java.util.UUID
 
-enum class NexusWidgetFamily(val storageName: String, val layout: Int, val taskLimit: Int) {
+enum class NexusWidgetFamily(val storageName: String, val layout: Int, val taskLimit: Int, val utility: Boolean = false) {
   MINI("mini", R.layout.nexus_widget_mini, 0),
   STRIP("strip", R.layout.nexus_widget_strip, 0),
   COMPANION("companion", R.layout.nexus_widget_companion, 0),
   MISSION("mission", R.layout.nexus_widget_mission, 2),
   COMMAND("command", R.layout.nexus_widget, 4),
+  // Single-purpose families render through NexusUtilityWidgets with their own view ids.
+  TIMER("timer", R.layout.nexus_widget_timer, 0, utility = true),
+  CAPTURE("capture", R.layout.nexus_widget_capture, 0, utility = true),
+  STREAK("streak", R.layout.nexus_widget_streak, 0, utility = true),
 }
 
 private data class NativeWidgetRenderSpec(
@@ -130,6 +134,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusCompanionWidgetProvider::class.java to NexusWidgetFamily.COMPANION,
       NexusMissionWidgetProvider::class.java to NexusWidgetFamily.MISSION,
       NexusWidgetProvider::class.java to NexusWidgetFamily.COMMAND,
+      NexusTimerWidgetProvider::class.java to NexusWidgetFamily.TIMER,
+      NexusCaptureWidgetProvider::class.java to NexusWidgetFamily.CAPTURE,
+      NexusStreakWidgetProvider::class.java to NexusWidgetFamily.STREAK,
     )
 
     fun familyForProviderClass(className: String): NexusWidgetFamily? =
@@ -337,6 +344,21 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       val spec = resolveRenderSpec(payload, appearance, instance, family, forcedContent)
       val backgroundResource = backgroundResource(spec.style, spec.opacityPercent)
       views.setInt(R.id.nexus_widget_root, "setBackgroundResource", backgroundResource)
+      if (family.utility) {
+        return NexusUtilityWidgets.render(
+          context,
+          views,
+          widgetId,
+          family,
+          payload,
+          privateMode = spec.privateMode,
+          accentColor = spec.accentColor,
+          textColor = spec.textColor,
+          secondaryTextColor = spec.secondaryTextColor,
+          mascotDrawable = if (spec.mascot == "atlas") atlasMascotPose(payload, spec) else nexusMascotPose(payload, spec, widgetId),
+          showMascot = spec.showMascot,
+        )
+      }
 
       resetVisibility(views)
       applyColorsAndMascot(views, payload, appearance, instance, widgetId, spec)
@@ -388,6 +410,7 @@ open class NexusWidgetProvider : AppWidgetProvider() {
           completed,
           total,
         )
+        NexusWidgetFamily.TIMER, NexusWidgetFamily.CAPTURE, NexusWidgetFamily.STREAK -> Unit
       }
 
       if (!spec.showMascot) {
@@ -1008,6 +1031,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "companion"
       NexusWidgetFamily.MISSION -> if (value == "tasks") "tasks" else "mission"
       NexusWidgetFamily.COMMAND -> if (value == "focus") "focus" else "command"
+      NexusWidgetFamily.TIMER -> "timer"
+      NexusWidgetFamily.CAPTURE -> "capture"
+      NexusWidgetFamily.STREAK -> "heatmap"
     }
 
     private fun normalizeSpeech(value: String): String = if (value == "silent") "silent" else "contextual"
@@ -1067,6 +1093,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "NEXUS COMPANION"
       NexusWidgetFamily.MISSION -> "MISSÃO DE HOJE"
       NexusWidgetFamily.COMMAND -> "NEXUS COMMAND"
+      NexusWidgetFamily.TIMER -> "NEXUS TIMER"
+      NexusWidgetFamily.CAPTURE -> "CAPTURAR"
+      NexusWidgetFamily.STREAK -> "SEQUÊNCIA"
     }
 
     private fun defaultEmptyTitle(family: NexusWidgetFamily): String = when (family) {
@@ -1075,6 +1104,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "Nexus está aqui"
       NexusWidgetFamily.MISSION -> "Prepare sua missão"
       NexusWidgetFamily.COMMAND -> "Command pronto"
+      NexusWidgetFamily.TIMER -> "Pronto para focar"
+      NexusWidgetFamily.CAPTURE -> "Capturar"
+      NexusWidgetFamily.STREAK -> "Sua sequência começa hoje"
     }
 
     private fun defaultEmptyBody(family: NexusWidgetFamily): String = when (family) {
@@ -1083,6 +1115,9 @@ open class NexusWidgetProvider : AppWidgetProvider() {
       NexusWidgetFamily.COMPANION -> "Abra o app para dar contexto ao Companion."
       NexusWidgetFamily.MISSION -> "Gere o plano de hoje para preencher este widget."
       NexusWidgetFamily.COMMAND -> "Gere o plano de hoje para ativar sua central."
+      NexusWidgetFamily.TIMER -> "Escolha a próxima tarefa e comece uma sessão."
+      NexusWidgetFamily.CAPTURE -> "ideia, tarefa ou lembrete"
+      NexusWidgetFamily.STREAK -> "Cada dia com foco ou tarefa concluída acende uma célula."
     }
 
     private fun accessoryGlyph(accessory: String): String = when (accessory) {
@@ -1119,4 +1154,16 @@ class NexusCompanionWidgetProvider : NexusWidgetProvider() {
 
 class NexusMissionWidgetProvider : NexusWidgetProvider() {
   override val family = NexusWidgetFamily.MISSION
+}
+
+class NexusTimerWidgetProvider : NexusWidgetProvider() {
+  override val family = NexusWidgetFamily.TIMER
+}
+
+class NexusCaptureWidgetProvider : NexusWidgetProvider() {
+  override val family = NexusWidgetFamily.CAPTURE
+}
+
+class NexusStreakWidgetProvider : NexusWidgetProvider() {
+  override val family = NexusWidgetFamily.STREAK
 }

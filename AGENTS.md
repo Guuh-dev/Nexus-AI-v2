@@ -178,19 +178,24 @@ Componentes básicos consomem tokens; não criam paletas paralelas. Texto de aç
 
 ## Widgets
 
-Cinco famílias:
+Oito famílias (aprovação de produto em 2026-10-04 para as três utilitárias):
 
 - Mini 1×1, zero tarefas;
 - Strip 2×1, zero tarefas;
 - Companion 2×2, zero tarefas;
 - Mission 4×2, até duas tarefas;
-- Command 4×4, até quatro tarefas.
+- Command 4×4, até quatro tarefas;
+- Timer 2×2, sessão de foco com Chronometer nativo, zero tarefas;
+- Captura 2×1, atalho para `nexusai://today?capture=1`, zero tarefas;
+- Sequência 4×2, mapa de 12 semanas a partir de foco e tarefas registrados, zero tarefas.
+
+As três utilitárias renderizam por `NexusUtilityWidgets.kt` com layouts e ids próprios; o `buildRemoteViews` retorna antes do renderer compartilhado. O Studio só as lista quando o APK instalado responde `utilityWidgetsSupported`. Salvar uma utilitária como padrão grava somente o visual, sem trocar a família padrão. O Timer abre o Foco: pausar/retomar continua dentro do app para não divergir do runtime persistido.
 
 `features/widget/render-spec.ts` é o contrato compartilhado por preview, payload e Android. Só exponha uma opção no Studio se Kotlin/RemoteViews puder reproduzi-la. Estilos: Nexus, AMOLED, Transparente, Pixel e Minimal.
 
 Um canal separado de Professor Atlas e aprendizado não é conteúdo de widget na v3. Atlas pode continuar como o mascote único da instância. As flags antigas de segundo Professor/lição continuam no schema apenas para migração/rollback e devem permanecer desativadas em novos saves. Não volte a expor esses controles sem adicionar uma família/campo completo no render spec, preview, payload, XML, Kotlin e QA.
 
-Os mínimos declarados pelo layout e pelo metadata precisam ser idênticos: Mini 40×40 dp, Strip 110×40 dp, Companion 110×110 dp, Mission 250×110 dp e Command 250×250 dp. Preserve o orçamento de padding, tipografia, mascote e linhas no menor tamanho; teste estrutural não substitui launcher físico.
+Os mínimos declarados pelo layout e pelo metadata precisam ser idênticos: Mini 40×40 dp, Strip 110×40 dp, Companion 110×110 dp, Mission 250×110 dp, Command 250×250 dp, Timer 110×110 dp, Captura 110×40 dp e Sequência 250×110 dp. Preserve o orçamento de padding, tipografia, mascote e linhas no menor tamanho; teste estrutural não substitui launcher físico.
 
 As cinco famílias permitem redimensionamento horizontal/vertical no novo APK,
 dentro dos mínimos/máximos declarados e da grade do launcher. Isso não troca a

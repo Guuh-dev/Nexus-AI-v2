@@ -11,6 +11,12 @@ const families = [
   { name: "command", layout: "nexus_widget.xml", info: "nexus_widget_info.xml", width: 250, height: 250 },
 ] as const;
 
+const utilityFamilies = [
+  { name: "timer", layout: "nexus_widget_timer.xml", info: "nexus_widget_timer_info.xml", width: 110, height: 110 },
+  { name: "capture", layout: "nexus_widget_capture.xml", info: "nexus_widget_capture_info.xml", width: 110, height: 40 },
+  { name: "streak", layout: "nexus_widget_streak.xml", info: "nexus_widget_streak_info.xml", width: 250, height: 110 },
+] as const;
+
 function dpAttribute(source: string, attribute: string): number {
   const value = source.match(new RegExp(`android:${attribute}="(\\d+)dp"`))?.[1];
   if (!value) throw new Error(`Missing ${attribute}`);
@@ -24,7 +30,7 @@ function rootTag(source: string): string {
 }
 
 describe("native widget minimum-size contract", () => {
-  it.each(families)("keeps $name layout bounds equal to picker metadata", (family) => {
+  it.each([...families, ...utilityFamilies])("keeps $name layout bounds equal to picker metadata", (family) => {
     const metadata = readFileSync(`${root}/res/xml/${family.info}`, "utf8");
     const layout = readFileSync(`${root}/res/layout/${family.layout}`, "utf8");
     const rootElement = rootTag(layout);
@@ -92,5 +98,26 @@ describe("native widget minimum-size contract", () => {
         expect(layout, `${family.name} is missing ${id}`).toContain(`@+id/${id}`);
       }
     }
+  });
+
+  it("keeps every utility renderer id inside each utility layout", () => {
+    const renderer = readFileSync(`${root}/java/expo/modules/nexuswidget/NexusUtilityWidgets.kt`, "utf8");
+    const provider = readFileSync(`${root}/java/expo/modules/nexuswidget/NexusWidgetProvider.kt`, "utf8");
+    const prefixes = { timer: "nexus_timer_", capture: "nexus_capture_", streak: "nexus_streak_" } as const;
+    const referenced = [...new Set([...renderer.matchAll(/R\.id\.([A-Za-z0-9_]+)/g)].map((match) => match[1]!))];
+    // Utility families return before the shared renderer touches the legacy ids.
+    const early = provider.indexOf("if (family.utility)");
+    expect(early).toBeGreaterThan(0);
+    expect(early).toBeLessThan(provider.indexOf("resetVisibility(views)\n"));
+    for (const family of utilityFamilies) {
+      const layout = readFileSync(`${root}/res/layout/${family.layout}`, "utf8");
+      expect(layout).toContain('@+id/nexus_widget_root');
+      for (const id of referenced.filter((id) => id.startsWith(prefixes[family.name]))) {
+        expect(layout, `${family.name} is missing ${id}`).toContain(`@+id/${id}`);
+      }
+    }
+    expect(renderer).not.toContain("R.id.nexus_widget_task_");
+    expect(renderer).toContain("nexusai://today?capture=1");
+    expect(renderer).toContain("PendingIntent.FLAG_IMMUTABLE");
   });
 });
