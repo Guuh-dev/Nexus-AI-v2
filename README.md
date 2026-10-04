@@ -17,6 +17,21 @@
 
 </div>
 
+## Telas
+
+<p align="center">
+  <img src="docs/screenshots/today.png" alt="Hoje: missão do dia, próximo passo e capacidade" width="24%" />
+  <img src="docs/screenshots/focus-running.png" alt="Foco: sessão em andamento com tempo registrado" width="24%" />
+  <img src="docs/screenshots/brain.png" alt="Brain: copiloto Nexus e Professor Atlas" width="24%" />
+  <img src="docs/screenshots/progress.png" alt="Progresso: registros, relatos e revisão do dia" width="24%" />
+</p>
+<p align="center">
+  <img src="docs/screenshots/onboarding-1.png" alt="Onboarding: objetivo em três etapas" width="24%" />
+  <img src="docs/screenshots/plan.png" alt="Plano: meta, janelas e missão" width="24%" />
+</p>
+
+Capturas do export web (412×915, tema Nexus Dark) com dados fictícios criados pelo próprio onboarding. A interface anterior está em [`docs/screenshots/before/`](docs/screenshots/before/) para comparação.
+
 ## O que é
 
 O Nexus organiza um ciclo simples: entender o objetivo, preparar uma missão diária, executar tarefas observáveis, focar, medir o que aconteceu e ajustar o próximo passo. Ele funciona localmente sem conta e usa inteligência remota somente quando ela está disponível e faz sentido.
