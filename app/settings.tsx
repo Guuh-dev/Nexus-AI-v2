@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Alert, Platform, StyleSheet, Switch, View } from "react-native";
+import { Children, useEffect, useState } from "react";
+import { Alert, BackHandler, Platform, Pressable, StyleSheet, Switch, View } from "react-native";
 import { router } from "expo-router";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PixelMascot } from "@/components/PixelMascot";
@@ -9,6 +9,10 @@ import { ChoiceChip } from "@/components/ui/ChoiceChip";
 import { Field } from "@/components/ui/Field";
 import { NexusButton } from "@/components/ui/NexusButton";
 import { NexusText } from "@/components/ui/NexusText";
+import { NexusIcon, type NexusIconName } from "@/components/ui/NexusIcon";
+import { ProgressBar } from "@/components/ui/ProgressBar";
+import { Badge, IconButton, Stat } from "@/components/ui/Layout";
+import { getTheme } from "@/theme/theme";
 import { Screen } from "@/components/ui/Screen";
 import { useNexus } from "@/providers/NexusProvider";
 import { pickBackupJson, shareBackupJson } from "@/services/backup.service";
@@ -27,7 +31,7 @@ import { calculateLevel } from "@/utils/levels";
 
 export { RouteErrorBoundary as ErrorBoundary };
 
-type Area = "perfil" | "sistema" | "dados";
+type Page = "index" | "perfil" | "ia" | "updates" | "dados";
 
 const DAYS: readonly { value: Weekday; label: string }[] = [
   { value: 0, label: "D" },
@@ -57,7 +61,7 @@ export default function SettingsScreen() {
     resetAll,
   } = useNexus();
   const profile = data.profile;
-  const [area, setArea] = useState<Area>("perfil");
+  const [page, setPage] = useState<Page>("index");
   const [name, setName] = useState(profile?.name ?? "");
   const [nickname, setNickname] = useState(profile?.nickname ?? "");
   const [goal, setGoal] = useState(profile?.mainGoal ?? "");
@@ -110,6 +114,12 @@ export default function SettingsScreen() {
     profile?.nickname,
     profile?.schedule,
   ]);
+
+  useEffect(() => {
+    if (page === "index") return undefined;
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => { setPage("index"); return true; });
+    return () => subscription.remove();
+  }, [page]);
 
   if (!profile) return null;
   const level = calculateLevel(data.progress.totalXp);
@@ -227,111 +237,169 @@ export default function SettingsScreen() {
     }
   };
 
+  const primaryGoal = data.lockIn.goals.some((g) => g.state === "primary");
+  const statusTone = statusLoading ? colors.warning : intelligenceProbed ? colors.success : intelligenceConfigured ? colors.warning : colors.danger;
+  const statusLabel = statusLoading ? "Verificando" : intelligenceProbed ? "Respondendo" : intelligenceConfigured ? "Configurado" : "Indisponível";
+  const mascotName = { nexus: "Nexus", atlas: "Atlas", byte: "Byte", nova: "Nova", pulse: "Pulse", orbit: "Orbit", ember: "Ember" }[data.preferences.mascot.companion] ?? "Nexus";
+  const open = (next: Page) => { setMessage(""); setPage(next); };
+  const pageTitle = { index: "Configurações", perfil: "Perfil e meta", ia: "Inteligência remota", updates: "Atualizações", dados: "Backup e dados" }[page];
+
   return (
     <>
-      <Screen maxWidth={760}>
-        <View style={styles.hero}>
-          <View style={[styles.avatar, { backgroundColor: `${colors.primary}16`, borderColor: colors.borderStrong }]}>
-            <PixelMascot state="idle" size={58} />
+      <Screen maxWidth={640}>
+        <View style={styles.page}>
+          <View style={styles.nav}>
+            <IconButton icon="back" label={page === "index" ? "Voltar" : "Voltar para Configurações"} onPress={() => page === "index" ? router.back() : open("index")} />
+            <NexusText variant="subtitle" accessibilityRole="header" style={styles.flex}>{pageTitle}</NexusText>
           </View>
-          <View style={styles.flex}>
-            <NexusText variant="display">{profile.nickname}</NexusText>
-            <NexusText variant="mono" color={colors.primarySoft}>NÍVEL {level.level} • {level.title.toUpperCase()}</NexusText>
-            <NexusText variant="caption" secondary>{data.progress.totalXp} XP • {data.progress.currentStreak} dias de sequência</NexusText>
-          </View>
-        </View>
 
-        <View style={styles.primaryActions}>
-          <NexusButton label="Aparência" variant="secondary" onPress={() => router.push("/customize")} style={styles.flex} />
-          <NexusButton label="Widget Studio" variant="secondary" onPress={() => router.push("/widget-studio")} style={styles.flex} />
-        </View>
+          {page === "index" ? (
+            <>
+              <Pressable accessibilityRole="button" accessibilityLabel="Abrir perfil" onPress={() => open("perfil")}>
+                {({ pressed }) => (
+                  <Card elevated style={[styles.profileCard, pressed && styles.pressed]}>
+                    <View style={[styles.avatar, { backgroundColor: colors.surfaceRaised }]}><PixelMascot state="idle" size={40} /></View>
+                    <View style={styles.profileText}>
+                      <NexusText variant="title">{profile.nickname}</NexusText>
+                      <View style={styles.rowBetween}>
+                        <NexusText variant="caption" secondary>Nível {level.level} · {level.title}</NexusText>
+                        <NexusText variant="caption" secondary>{data.progress.totalXp} XP</NexusText>
+                      </View>
+                      <ProgressBar progress={level.progress} />
+                    </View>
+                    <NexusIcon name="chevron" color={colors.textSecondary} size={16} />
+                  </Card>
+                )}
+              </Pressable>
 
-        <View style={[styles.areaTabs, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <ChoiceChip label="Perfil" selected={area === "perfil"} onPress={() => setArea("perfil")} />
-          <ChoiceChip label="Sistema" selected={area === "sistema"} onPress={() => setArea("sistema")} />
-          <ChoiceChip label="Dados" selected={area === "dados"} onPress={() => setArea("dados")} />
-        </View>
+              <Group label="Personalizar">
+                <Row icon="palette" tone={colors.primary} title="Aparência" value={getTheme(data.preferences).label} onPress={() => router.push("/customize")} />
+                <Row icon="widget" tone={colors.success} title="Widget Studio" value="Tela inicial" onPress={() => router.push("/widget-studio")} />
+                <Row icon="smile" tone={colors.warning} title="Companion" value={data.preferences.mascot.showCompanion ? mascotName : "Oculto"} onPress={() => router.push("/customize")} />
+              </Group>
 
-        {area === "perfil" ? (
-          <Section title="Seu contexto" subtitle="Somente informações que melhoram missão, tarefas e orientação.">
-            <Field label="Nome" value={name} onChangeText={setName} maxLength={80} />
-            <Field label="Como o Nexus chama você" value={nickname} onChangeText={setNickname} maxLength={40} />
-            {data.lockIn.goals.some((g) => g.state === "primary") && <NexusButton label="Revisar meta e horários no Plano" variant="secondary" onPress={() => router.push("/(tabs)/plan")} />}
-            <Field editable={!data.lockIn.goals.some((g) => g.state === "primary")} label="Missão de longo prazo" value={goal} onChangeText={setGoal} multiline maxLength={600} />
-            <Field editable={!data.lockIn.goals.some((g) => g.state === "primary")} label="Minutos disponíveis por dia" value={minutes} onChangeText={setMinutes} keyboardType="number-pad" maxLength={3} />
-            <Field label="Rotina relevante" value={schedule} onChangeText={setSchedule} multiline maxLength={600} />
-            <Choice title="Dias ativos">
-              {DAYS.map((day) => {
-                const selected = profile.activeDays.includes(day.value);
-                return (
-                  <ChoiceChip
-                    key={day.value}
-                    label={day.label}
-                    selected={selected}
-                    onPress={() => {
-                      const next = selected
-                        ? profile.activeDays.filter((item) => item !== day.value)
-                        : [...profile.activeDays, day.value].sort() as Weekday[];
-                      if (next.length) void updateProfile({ activeDays: next });
-                    }}
-                  />
-                );
-              })}
-            </Choice>
-            <Choice title="Máximo diário">
-              {([2, 3, 4, 5] as const).map((value) => (
-                <ChoiceChip key={value} label={`${value} tarefas`} selected={profile.maxDailyTasks === value} onPress={() => void updateProfile({ maxDailyTasks: value })} />
-              ))}
-            </Choice>
-            <Choice title="Intensidade">
-              {(["leve", "equilibrado", "intenso"] as const).map((value) => (
-                <ChoiceChip key={value} label={{ leve: "Leve", equilibrado: "Equilibrada", intenso: "Intensa" }[value]} selected={profile.intensity === value} onPress={() => void updateProfile({ intensity: value })} />
-              ))}
-            </Choice>
-            <Choice title="Tom do Brain">
-              {(["direto", "parceiro", "treinador"] as const).map((value) => (
-                <ChoiceChip key={value} label={{ direto: "Direto", parceiro: "Parceiro", treinador: "Treinador" }[value]} selected={profile.assistantTone === value} onPress={() => void updateProfile({ assistantTone: value })} />
-              ))}
-            </Choice>
-            <NexusButton label="Salvar perfil" loading={profileSaving} onPress={() => void saveProfile()} fullWidth />
-          </Section>
-        ) : null}
-
-        {area === "sistema" ? (
-          <>
-            <Section title="Inteligência remota" subtitle="Configuração do backend e teste real sob demanda, sem resposta local fingindo ser IA.">
-              <Card style={styles.statusCard}>
-                <View style={[styles.statusDot, { backgroundColor: statusLoading ? colors.warning : intelligenceProbed ? colors.success : intelligenceConfigured ? colors.warning : colors.danger }]} />
-                <View style={styles.flex}>
-                  <NexusText variant="subtitle">{statusLoading ? "Verificando…" : intelligenceProbed ? "Brain e Atlas responderam ao teste" : intelligenceConfigured ? "Backend configurado; teste a conexão" : "IA temporariamente indisponível"}</NexusText>
-                  <NexusText variant="caption" secondary>
-                    {intelligenceProbed
-                      ? `API ${status?.apiVersion ?? "compatível"}${status?.probeLatencyMs !== undefined ? ` • ${status.probeLatencyMs} ms` : ""}`
-                      : intelligenceConfigured
-                        ? `API ${status?.apiVersion ?? "compatível"} registrada. O teste abaixo confirma cota e resposta do provedor.`
-                      : status?.probeMessage ?? "Tente novamente; seus dados e seu texto permanecem no aparelho."}
-                  </NexusText>
+              <Group label="Rotina">
+                <View style={styles.reminderRow}>
+                  <View style={[styles.rowIcon, { backgroundColor: `${colors.primary}1F` }]}><NexusIcon name="bell" color={colors.primary} size={18} /></View>
+                  <View style={styles.flex}>
+                    <NexusText variant="subtitle">Lembrete diário</NexusText>
+                    <NexusText variant="caption" secondary>{Platform.OS === "web" ? "Configurado no aplicativo Android." : `Todos os dias às ${notificationTime}`}</NexusText>
+                  </View>
+                  <Switch accessibilityLabel="Notificação diária" disabled={reminderBusy} value={data.preferences.notificationEnabled} onValueChange={(value) => void setReminder(value)} trackColor={{ false: colors.borderStrong, true: colors.primary }} thumbColor={colors.text} />
                 </View>
+                <View style={[styles.inlineField, { borderTopColor: colors.border }]}>
+                  <Field label="Horário do lembrete" value={notificationTime} onChangeText={setNotificationTime} maxLength={5} placeholder="18:00" keyboardType="numbers-and-punctuation" hint="Ative o lembrete de novo para aplicar um novo horário. A permissão só é pedida quando você ativa." />
+                </View>
+                <Row icon="user" tone={colors.textSecondary} title="Perfil e meta" caption="Nome, rotina, dias e tom" onPress={() => open("perfil")} />
+              </Group>
+
+              <Group label="Sistema">
+                <Row icon="spark" tone={statusTone} title="Inteligência remota" value={statusLabel} dot={statusTone} onPress={() => open("ia")} />
+                <Row icon="refresh" tone={colors.textSecondary} title="Atualizações" value={updateInfo.nativeVersion} onPress={() => open("updates")} />
+              </Group>
+
+              <Group label="Dados e privacidade">
+                <Row icon="download" tone={colors.textSecondary} title="Backup e dados" caption="Local, sem conta" onPress={() => open("dados")} />
+                <Row icon="shield" tone={colors.textSecondary} title="Privacidade" onPress={() => router.push("/privacy" as never)} />
+              </Group>
+            </>
+          ) : null}
+
+          {page === "perfil" ? (
+            <>
+              <Card style={styles.formCard}>
+                <Field label="Nome" value={name} onChangeText={setName} maxLength={80} />
+                <Field label="Como o Nexus chama você" value={nickname} onChangeText={setNickname} maxLength={40} />
+                <Field label="Rotina relevante" value={schedule} onChangeText={setSchedule} multiline maxLength={600} />
               </Card>
-              <NexusButton label="Testar conexão" variant="secondary" loading={statusLoading} onPress={() => refreshStatus(true)} fullWidth />
+              <Card style={styles.formCard}>
+                {primaryGoal ? (
+                  <View style={styles.formCard}>
+                    <NexusText variant="eyebrow" secondary>Meta e horários</NexusText>
+                    <NexusText secondary>Sua meta principal e suas janelas vivem no Plano, para manter capacidade e missão coerentes.</NexusText>
+                    <NexusButton label="Revisar meta e horários no Plano" variant="secondary" onPress={() => router.push("/(tabs)/plan")} />
+                  </View>
+                ) : null}
+                <Field editable={!primaryGoal} label="Missão de longo prazo" value={goal} onChangeText={setGoal} multiline maxLength={600} />
+                <Field editable={!primaryGoal} label="Minutos disponíveis por dia" value={minutes} onChangeText={setMinutes} keyboardType="number-pad" maxLength={3} />
+              </Card>
+              <Card style={styles.formCard}>
+                <Choice title="Dias ativos">
+                  {DAYS.map((day) => {
+                    const selected = profile.activeDays.includes(day.value);
+                    return (
+                      <ChoiceChip
+                        key={day.value}
+                        label={day.label}
+                        selected={selected}
+                        onPress={() => {
+                          const next = selected
+                            ? profile.activeDays.filter((item) => item !== day.value)
+                            : [...profile.activeDays, day.value].sort() as Weekday[];
+                          if (next.length) void updateProfile({ activeDays: next });
+                        }}
+                      />
+                    );
+                  })}
+                </Choice>
+                <Choice title="Máximo diário">
+                  {([2, 3, 4, 5] as const).map((value) => (
+                    <ChoiceChip key={value} label={`${value} tarefas`} selected={profile.maxDailyTasks === value} onPress={() => void updateProfile({ maxDailyTasks: value })} />
+                  ))}
+                </Choice>
+                <Choice title="Intensidade">
+                  {(["leve", "equilibrado", "intenso"] as const).map((value) => (
+                    <ChoiceChip key={value} label={{ leve: "Leve", equilibrado: "Equilibrada", intenso: "Intensa" }[value]} selected={profile.intensity === value} onPress={() => void updateProfile({ intensity: value })} />
+                  ))}
+                </Choice>
+                <Choice title="Tom do Brain">
+                  {(["direto", "parceiro", "treinador"] as const).map((value) => (
+                    <ChoiceChip key={value} label={{ direto: "Direto", parceiro: "Parceiro", treinador: "Treinador" }[value]} selected={profile.assistantTone === value} onPress={() => void updateProfile({ assistantTone: value })} />
+                  ))}
+                </Choice>
+              </Card>
+              <NexusButton label="Salvar perfil" loading={profileSaving} onPress={() => void saveProfile()} fullWidth />
+            </>
+          ) : null}
+
+          {page === "ia" ? (
+            <>
+              <Card elevated style={styles.formCard}>
+                <Badge label={statusLoading ? "Verificando" : intelligenceProbed ? "Respondendo agora" : intelligenceConfigured ? "Configurado" : "Indisponível agora"} color={statusTone} />
+                <NexusText variant="title">{statusLoading ? "Verificando o backend…" : intelligenceProbed ? "Brain e Atlas responderam ao teste" : intelligenceConfigured ? "Backend configurado; teste a conexão" : "IA temporariamente indisponível"}</NexusText>
+                <NexusText secondary>
+                  {intelligenceProbed
+                    ? `API ${status?.apiVersion ?? "compatível"}${status?.probeLatencyMs !== undefined ? ` • ${status.probeLatencyMs} ms` : ""}`
+                    : intelligenceConfigured
+                      ? `API ${status?.apiVersion ?? "compatível"} registrada. O teste abaixo confirma cota e resposta do provedor.`
+                      : status?.probeMessage ?? "Tente novamente; seus dados e seu texto permanecem no aparelho."}
+                </NexusText>
+                <NexusButton label="Testar conexão" loading={statusLoading} onPress={() => refreshStatus(true)} fullWidth />
+              </Card>
               {lastAssistantMeta ? (
-                <Card style={styles.infoCard}>
-                  <NexusText variant="mono" color={lastAssistantMeta.source === "remote" ? colors.success : colors.warning}>ÚLTIMA TENTATIVA</NexusText>
+                <Group label="Última tentativa">
                   <InfoRow label="Modelo" value={lastAssistantMeta.model ?? "não selecionado"} />
                   <InfoRow label="Latência" value={`${lastAssistantMeta.latencyMs} ms`} />
                   <InfoRow label="Tentativas" value={String(lastAssistantMeta.attempts)} />
-                  {lastAssistantMeta.errorCode ? <InfoRow label="Status" value={lastAssistantMeta.errorCode} /> : null}
-                </Card>
+                  {lastAssistantMeta.errorCode ? <InfoRow label="Status" value={lastAssistantMeta.errorCode} tone={colors.warning} /> : null}
+                </Group>
               ) : null}
-            </Section>
+              <Group label="Privacidade da IA">
+                <Check text="Somente provedores com retenção zero (ZDR)" />
+                <Check text="A chave fica no servidor, nunca no app" />
+                <Check text="Falha remota nunca vira resposta local fingida" />
+              </Group>
+            </>
+          ) : null}
 
-            <Section title="Atualizações" subtitle="Mudança nativa exige nova instalação; correções compatíveis podem usar OTA.">
-              <Card style={styles.infoCard}>
-                <NexusText variant="mono" color={colors.primarySoft}>{OTA_RELEASE.title.toUpperCase()}</NexusText>
+          {page === "updates" ? (
+            <>
+              <Group label={OTA_RELEASE.title}>
                 <InfoRow label="Versão" value={updateInfo.nativeVersion} />
                 <InfoRow label="Runtime" value={updateInfo.runtimeVersion} />
                 <InfoRow label="Canal" value={updateInfo.channel} />
-              </Card>
+              </Group>
+              <NexusText variant="caption" secondary>Mudança nativa exige nova instalação; correções compatíveis podem usar OTA.</NexusText>
               <NexusButton
                 label={updateAvailable ? "Baixar e reiniciar" : "Verificar atualização"}
                 variant={updateAvailable ? "primary" : "secondary"}
@@ -339,38 +407,39 @@ export default function SettingsScreen() {
                 onPress={() => void (updateAvailable ? installUpdate() : checkUpdates())}
                 fullWidth
               />
-            </Section>
+            </>
+          ) : null}
 
-            <Section title="Lembrete" subtitle="A permissão só é solicitada quando você ativa.">
-              <Field label="Horário" value={notificationTime} onChangeText={setNotificationTime} maxLength={5} placeholder="18:00" keyboardType="numbers-and-punctuation" />
-              <Toggle label="Notificação diária" description="Lembra você de abrir a missão do dia." value={data.preferences.notificationEnabled} disabled={reminderBusy} onChange={(value) => void setReminder(value)} />
-              {Platform.OS === "web" ? <NexusText variant="caption" secondary>Notificações são configuradas no aplicativo Android.</NexusText> : null}
-            </Section>
-          </>
-        ) : null}
+          {page === "dados" ? (
+            <>
+              <Card elevated style={styles.formCard}>
+                <NexusText variant="eyebrow" secondary>Neste aparelho</NexusText>
+                <View style={styles.statsRow}>
+                  <Stat label="dias" value={String(data.history.length)} />
+                  <Stat label="sessões" value={String(data.progress.focusSessions.length)} />
+                  <Stat label="conversas" value={String(data.brain.threads.length)} />
+                  <Stat label="trilhas" value={String(data.learning.roadmaps.length)} />
+                </View>
+                <NexusText variant="caption" secondary>O conteúdo permanece local até você decidir exportar.</NexusText>
+              </Card>
+              <Group>
+                <Row icon="download" tone={colors.success} title="Exportar backup JSON" caption="Arquivo para guardar ou mover" disabled={dataBusy} onPress={() => void exportData()} />
+                <Row icon="upload" tone={colors.primary} title="Importar backup" caption="Mostra um resumo antes de substituir" disabled={dataBusy} onPress={() => void importData()} />
+                {hasImportRollback ? <Row icon="undo" tone={colors.textSecondary} title="Desfazer última importação" caption="Volta ao snapshot anterior" disabled={dataBusy} onPress={() => setRestoreImportOpen(true)} /> : null}
+                {hasMigrationBackup ? <Row icon="clock" tone={colors.textSecondary} title="Restaurar cópia pré-migração" caption="Versão anterior ao formato atual" disabled={dataBusy} onPress={() => setRestoreMigrationOpen(true)} /> : null}
+              </Group>
+              <Group label="Zona de risco" danger>
+                {primaryGoal
+                  ? <Row icon="refresh" tone={colors.warning} title="Revisar plano de hoje" caption="Abre o Plano; nada é apagado" onPress={() => router.push("/(tabs)/plan")} />
+                  : <Row icon="refresh" tone={colors.warning} title="Recriar plano de hoje" caption="Preserva concluídas, XP e histórico" onPress={() => setResetTodayOpen(true)} />}
+                <Row icon="trash" tone={colors.danger} title="Apagar todos os dados" caption="Pede confirmação. Não tem volta." danger onPress={() => setResetAllOpen(true)} />
+              </Group>
+            </>
+          ) : null}
 
-        {area === "dados" ? (
-          <>
-            <Section title="Backup e privacidade" subtitle="O conteúdo permanece local até você decidir exportar.">
-              <NexusButton label="Exportar backup JSON" variant="secondary" loading={dataBusy} onPress={() => void exportData()} fullWidth />
-              <NexusButton label="Importar backup" variant="ghost" disabled={dataBusy} onPress={() => void importData()} fullWidth />
-              {hasImportRollback ? (
-                <NexusButton label="Desfazer última importação" variant="ghost" disabled={dataBusy} onPress={() => setRestoreImportOpen(true)} fullWidth />
-              ) : null}
-              {hasMigrationBackup ? (
-                <NexusButton label="Restaurar cópia pré-migração" variant="ghost" disabled={dataBusy} onPress={() => setRestoreMigrationOpen(true)} fullWidth />
-              ) : null}
-              <NexusButton label="Política de privacidade" variant="ghost" onPress={() => router.push("/privacy" as never)} fullWidth />
-            </Section>
-            <Section title="Controle" subtitle="Ações destrutivas sempre exigem confirmação.">
-              {data.lockIn.goals.some((g) => g.state === "primary") ? <NexusButton label="Revisar plano de hoje" variant="ghost" onPress={() => router.push("/(tabs)/plan")} fullWidth /> : <NexusButton label="Recriar plano de hoje" variant="ghost" onPress={() => setResetTodayOpen(true)} fullWidth />}
-              <NexusButton label="Apagar todos os dados" variant="danger" onPress={() => setResetAllOpen(true)} fullWidth />
-            </Section>
-          </>
-        ) : null}
-
-        {message ? <Card style={[styles.message, { borderColor: colors.borderStrong }]}><NexusText variant="caption">{message}</NexusText></Card> : null}
-        <NexusText variant="caption" secondary style={styles.footer}>Nexus AI {OTA_RELEASE.label} • Core Reborn</NexusText>
+          {message ? <Card tone="accent"><NexusText variant="caption">{message}</NexusText></Card> : null}
+          {page === "index" ? <NexusText variant="caption" secondary style={styles.footer}>Nexus AI {OTA_RELEASE.label} · runtime {updateInfo.runtimeVersion}</NexusText> : null}
+        </View>
       </Screen>
 
       <ConfirmDialog
@@ -480,44 +549,73 @@ export default function SettingsScreen() {
   );
 }
 
-function Section({ title, subtitle, children }: { title: string; subtitle: string; children: React.ReactNode }) {
-  return <View style={styles.section}><View style={styles.sectionTitle}><NexusText variant="title">{title}</NexusText><NexusText variant="caption" secondary>{subtitle}</NexusText></View>{children}</View>;
-}
-
-function Choice({ title, children }: { title: string; children: React.ReactNode }) {
-  return <View style={styles.choice}><NexusText variant="caption" secondary>{title}</NexusText><View style={styles.chips}>{children}</View></View>;
-}
-
-function Toggle({ label, description, value, disabled = false, onChange }: { label: string; description: string; value: boolean; disabled?: boolean; onChange: (value: boolean) => void }) {
-  const { colors } = useNexus();
+function Group({ label, danger = false, children }: { label?: string; danger?: boolean; children: React.ReactNode }) {
+  const { colors, visuals } = useNexus();
+  const items = Children.toArray(children).filter(Boolean);
   return (
-    <Card style={styles.toggle}>
-      <View style={styles.flex}><NexusText variant="subtitle">{label}</NexusText><NexusText variant="caption" secondary>{description}</NexusText></View>
-      <Switch accessibilityLabel={label} disabled={disabled} value={value} onValueChange={onChange} trackColor={{ false: colors.borderStrong, true: colors.primary }} thumbColor={colors.text} />
-    </Card>
+    <View style={styles.group}>
+      {label ? <NexusText variant="eyebrow" color={danger ? colors.danger : colors.textSecondary} style={styles.groupLabel}>{label}</NexusText> : null}
+      <View style={[styles.groupBox, { backgroundColor: colors.surface, borderColor: danger ? `${colors.danger}40` : colors.border, borderRadius: visuals.cardRadius }]}>
+        {items.map((child, index) => <View key={index} style={index > 0 ? [styles.groupItem, { borderTopColor: colors.border }] : undefined}>{child}</View>)}
+      </View>
+    </View>
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: string }) {
-  return <View style={styles.infoRow}><NexusText variant="caption" secondary>{label}</NexusText><NexusText variant="caption" numberOfLines={1} style={styles.infoValue}>{value}</NexusText></View>;
+function Row({ icon, tone, title, caption, value, dot, danger = false, disabled = false, onPress }: { icon: NexusIconName; tone: string; title: string; caption?: string; value?: string; dot?: string; danger?: boolean; disabled?: boolean; onPress: () => void }) {
+  const { colors } = useNexus();
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityState={{ disabled }} disabled={disabled} onPress={onPress} style={({ pressed }) => [styles.row, { opacity: disabled ? 0.45 : pressed ? 0.7 : 1 }]}>
+      <View style={[styles.rowIcon, { backgroundColor: `${tone}1F` }]}><NexusIcon name={icon} color={tone} size={18} /></View>
+      <View style={styles.flex}>
+        <NexusText variant="subtitle" color={danger ? colors.danger : undefined}>{title}</NexusText>
+        {caption ? <NexusText variant="caption" secondary>{caption}</NexusText> : null}
+      </View>
+      {value ? <View style={styles.rowValue}>{dot ? <View style={[styles.dot, { backgroundColor: dot }]} /> : null}<NexusText variant="caption" secondary numberOfLines={1}>{value}</NexusText></View> : null}
+      <NexusIcon name="chevron" color={colors.textSecondary} size={16} />
+    </Pressable>
+  );
+}
+
+function Choice({ title, children }: { title: string; children: React.ReactNode }) {
+  return <View style={styles.choice}><NexusText variant="eyebrow" secondary>{title}</NexusText><View style={styles.chips}>{children}</View></View>;
+}
+
+function Check({ text }: { text: string }) {
+  const { colors } = useNexus();
+  return <View style={styles.check}><NexusIcon name="check" color={colors.success} size={16} /><NexusText variant="caption" style={styles.flex}>{text}</NexusText></View>;
+}
+
+function InfoRow({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return <View style={styles.infoRow}><NexusText variant="caption" secondary>{label}</NexusText><NexusText variant="caption" color={tone} numberOfLines={1} style={styles.infoValue}>{value}</NexusText></View>;
 }
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  hero: { flexDirection: "row", alignItems: "center", gap: 14 },
-  avatar: { width: 82, height: 82, borderRadius: 24, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  primaryActions: { flexDirection: "row", gap: 8, marginTop: 16 },
-  areaTabs: { flexDirection: "row", flexWrap: "wrap", gap: 7, borderWidth: 1, borderRadius: 16, padding: 7, marginTop: 16 },
-  section: { marginTop: 26, gap: 11 },
-  sectionTitle: { gap: 4, marginBottom: 2 },
+  page: { gap: 18, paddingBottom: 24 },
+  nav: { flexDirection: "row", alignItems: "center", gap: 12 },
+  pressed: { opacity: 0.8 },
+  profileCard: { flexDirection: "row", alignItems: "center", gap: 14 },
+  avatar: { width: 56, height: 56, borderRadius: 16, alignItems: "center", justifyContent: "center" },
+  profileText: { flex: 1, gap: 6 },
+  rowBetween: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+  group: { gap: 8 },
+  groupLabel: { paddingHorizontal: 4 },
+  groupBox: { borderWidth: 1, overflow: "hidden" },
+  groupItem: { borderTopWidth: 1 },
+  row: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12, minHeight: 56 },
+  rowIcon: { width: 32, height: 32, borderRadius: 9, alignItems: "center", justifyContent: "center" },
+  rowValue: { flexDirection: "row", alignItems: "center", gap: 6, maxWidth: "42%" },
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  reminderRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  inlineField: { paddingHorizontal: 14, paddingBottom: 14, paddingTop: 12, borderTopWidth: 1 },
+  formCard: { gap: 14 },
+  infoCard: { paddingHorizontal: 0, paddingVertical: 4 },
+  statsRow: { flexDirection: "row", gap: 8 },
   choice: { gap: 8 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  statusCard: { flexDirection: "row", alignItems: "center", gap: 12 },
-  statusDot: { width: 11, height: 11, borderRadius: 6 },
-  infoCard: { gap: 8 },
-  infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12 },
+  check: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 12 },
+  infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   infoValue: { maxWidth: "65%", textAlign: "right" },
-  toggle: { flexDirection: "row", alignItems: "center", gap: 12 },
-  message: { marginTop: 22 },
-  footer: { textAlign: "center", marginTop: 28, marginBottom: 8 },
+  footer: { textAlign: "center", marginTop: 8 },
 });
