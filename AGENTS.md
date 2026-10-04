@@ -236,7 +236,7 @@ O backend é o export web Expo no Render. A URL nativa permanece em `eas.json`; 
 
 Release de APK pode usar o probe explícito, mas OTA de produção deve ser bloqueada pelo contrato GET e não consumir o POST sujeito a cooldown.
 
-Cold start deve aparecer como conexão/timeout/retry. Não esconda indisponibilidade. `render.yaml` usa Node 22, pnpm frozen e health check `/api/status`.
+Cold start deve aparecer como conexão/timeout/retry. Não esconda indisponibilidade. `render.yaml` usa Node 22, pnpm frozen e health check `/api/status`; o serviço em produção precisa ser alinhado a ele (ver `docs/DEPLOYMENT.md`).
 
 ## Testes e validação
 
@@ -272,7 +272,9 @@ Estado local observado no snapshot final de 13 de julho de 2026:
 - Gradle não foi executado localmente porque o ambiente não possui JDK, Android SDK nem Gradle; a compilação Kotlin/Android continua obrigatória no CI com Node 22.14/JDK 17;
 - a reauditoria sênior independente e sua varredura aninhada encerraram com `NO BLOCKER` para commit, push e PR draft.
 
-O backend público ainda respondia `apiVersion: "2.3.1"` nesta data. Isso bloqueia tag, release e distribuição da v3 até o deploy do contrato `3.0.0`, mas não impede abrir um draft PR para executar revisão e CI; não enfraqueça o gate para contornar o bloqueio.
+Backend público verificado em 2026-10-04: `GET /api/status` respondia `apiVersion: "3.0.0"`, `configured: true` e `assistantAvailable: true`, rodando o commit `cc0a604` da `feat/nexus-lock-in`. O bloqueio antigo (`2.3.1`) deixou de valer. Esse snapshot envelhece: antes de tag, release ou distribuição, confirme o contrato de novo com o `curl` de `docs/DEPLOYMENT.md`; não enfraqueça o gate para contornar um backend desatualizado.
+
+O serviço Render real (`Nexus-AI-v1`, plano free, região Virginia, branch `feat/nexus-lock-in`) não segue o `render.yaml`. Em 2026-10-04 o painel tinha build `pnpm install --no-frozen-lockfile --config.minimum-release-age=0 && pnpm run export:web`, start `npx expo serve --port $PORT`, health check vazio e auto-deploy que não disparou nos pushes de 2026-10-02 nem no merge do PR #26. Trate o painel como fonte da verdade do que está no ar, confira o commit do último deploy e não presuma que um merge publicou o backend. Detalhes e correções em `docs/DEPLOYMENT.md`.
 
 O backend atual não tem autenticação e mantém quotas/idempotência em memória. Assistente e planejamento têm bucket por IP (`cf-connecting-ip`, definido pela Cloudflare na frente do Render), bucket IP+`clientId` e teto global diário; rotacionar IDs não multiplica a quota de um endereço. Isso continua aceitável apenas para uso pessoal/demo: as quotas são por instância e somem no restart. Antes de distribuição pública multiusuário, autentique usuários, adote quota durável/compartilhada e limite gasto por conta.
 
